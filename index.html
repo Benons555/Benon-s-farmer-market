@@ -1946,20 +1946,19 @@ async function createInvoice(orderId){
   try{
     const token=await giToken();
     const today=new Date().toISOString().slice(0,10);
-    const VAT=1.17;
     const income=o.items.map(i=>({
       description:i.name+(i.qty>1?' ×'+i.qty:''),
       quantity:i.qty,
-      price:parseFloat((i.price/VAT).toFixed(4)),
+      price:parseFloat(i.price.toFixed(2)),
       currency:'ILS',
-      vatType:1
+      vatType:0
     }));
     if(o.discount>0){
-      income.push({description:'הנחת קופון '+(o.coupon||''),quantity:1,price:parseFloat((-o.discount/VAT).toFixed(4)),currency:'ILS',vatType:1});
+      income.push({description:'הנחת קופון '+(o.coupon||''),quantity:1,price:parseFloat((-o.discount).toFixed(2)),currency:'ILS',vatType:0});
     }
     const payload={
       description:'\u05d4\u05d6\u05de\u05e0\u05d4 BENON\'S \u2014 '+o.ref,
-      type:400,date:today,dueDate:today,lang:'he',currency:'ILS',vatType:1,
+      type:400,date:today,dueDate:today,lang:'he',currency:'ILS',vatType:0,
       client:{name:o.name,phone:o.phone},
       income,
       payment:[{type:1,price:o.total,currency:'ILS',date:today}]
