@@ -1503,7 +1503,7 @@ input, textarea {
         <label>אישור תשלום — 4 ספרות אחרונות של העסקה *</label>
         <input type="text" id="payRef" placeholder="לדוגמה: 1234" maxlength="10">
       </div>
-      <button class="btn-p" onclick="confirmOrder()">✓ אישור הזמנה</button>
+      <button class="btn-p" onclick="confirmOrder()">💬 אישור ושליחה בוואטסאפ</button>
     </div>
   </div>
 </div>
@@ -1515,8 +1515,8 @@ input, textarea {
       <div class="sicon">🌾</div>
       <h2>ההזמנה אושרה!</h2>
       <p id="successText"></p>
-      <button class="wa-btn" id="waBtn">💬 שלח הזמנה בוואטסאפ</button>
-      <button class="btn-s" onclick="closeModal('successModal');resetOrder()">סיום</button>
+      <button class="btn-p" onclick="closeModal('successModal');resetOrder()" style="width:100%;max-width:300px">✓ סיום</button>
+      <button class="wa-btn" id="waBtn" style="font-size:13px;padding:10px 20px;margin-top:4px" onclick="sendWA(currentOrder)">💬 שלח שוב בוואטסאפ</button>
     </div>
   </div>
 </div>
@@ -1866,8 +1866,8 @@ function confirmOrder(){
   try{const o=JSON.parse(localStorage.getItem('benon_orders')||'[]');o.push(currentOrder);localStorage.setItem('benon_orders',JSON.stringify(o));}catch(e){}
   closeModal('paymentModal');
   document.getElementById('successText').textContent=`תודה ${fn}! הזמנה #${orderNum}${appliedCoupon?' | קופון '+appliedCoupon.name:''} | סה״כ ₪${Math.max(0,cartTotal()-(appliedCoupon?appliedCoupon.discount:0)).toFixed(2)} | אישור: ${ref}`;
-  document.getElementById('waBtn').onclick=()=>sendWA(currentOrder);
   openModal('successModal');
+  setTimeout(()=>sendWA(currentOrder),400);
 }
 
 function sendWA(o){
@@ -1939,8 +1939,9 @@ async function giToken(){
 
 async function createInvoice(orderId){
   const o=getOrders().find(x=>x.id===orderId);
-  if(!o)return;
+  if(!o){alert('לא נמצאה הזמנה: '+orderId);return;}
   const btn=document.getElementById('gi_'+orderId);
+  if(!btn){alert('כפתור לא נמצא: gi_'+orderId);return;}
   btn.disabled=true;btn.textContent='...';
   try{
     const token=await giToken();
