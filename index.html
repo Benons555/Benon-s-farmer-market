@@ -1928,7 +1928,7 @@ function renderAdmin(){
 // ===== Green Invoice (חשבונית ירוקה) =====
 const GI_ID='cf4f314e-dc10-42ca-b849-6c8f7da6b8ae';
 const GI_SECRET='l^2cH(],*Z,F9Y2f92^7Tyv:b#]P2&n;';
-const GI_BASE='https://api.greeninvoice.co.il/api/v1';
+const GI_BASE='https://benons.eranbenon.workers.dev';
 
 async function giToken(){
   const r=await fetch(GI_BASE+'/account/token',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:GI_ID,secret:GI_SECRET})});
