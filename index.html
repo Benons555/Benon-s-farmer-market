@@ -106,7 +106,14 @@ input, textarea {
   border-color: var(--olive);
 }
 
-.logo-wrap span {
+.logo-text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  direction: ltr;
+}
+
+.logo-main {
   color: var(--white);
   font-family: 'DM Sans', sans-serif;
   font-size: 13px;
@@ -117,10 +124,13 @@ input, textarea {
 
 .logo-sub {
   display: block;
+  color: var(--white);
+  font-family: 'DM Sans', sans-serif;
   font-size: 10px;
   font-weight: 300;
   opacity: 0.6;
   letter-spacing: 2px;
+  text-transform: uppercase;
   margin-top: 2px;
 }
 
@@ -722,8 +732,9 @@ input, textarea {
 <div class="header">
   <div class="logo-wrap">
     <img id="logoImg" src="" alt="BENON'S">
-    <div>
-      <span>BENON'S<span class="logo-sub">FARMER'S MARKET</span></span>
+    <div class="logo-text">
+      <span class="logo-main">BENON'S</span>
+      <span class="logo-sub">FARMER'S MARKET</span>
     </div>
   </div>
   <button class="cart-btn" onclick="console.log('🛒 Cart button clicked'); openCart();">
