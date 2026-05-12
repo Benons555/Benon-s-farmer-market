@@ -1076,6 +1076,59 @@ input, textarea {
   background: var(--gray-300);
 }
 
+.success-box {
+  padding: 48px 32px 40px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.success-box h2 {
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--black);
+  margin: 0;
+}
+
+.success-box p {
+  font-size: 14px;
+  color: var(--gray-700);
+  line-height: 1.7;
+  max-width: 340px;
+  margin: 0;
+}
+
+.sicon {
+  font-size: 56px;
+  line-height: 1;
+  margin-bottom: 8px;
+}
+
+.wa-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  max-width: 300px;
+  padding: 14px 24px;
+  background: #25D366;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  margin-top: 8px;
+  transition: background 0.2s;
+}
+
+.wa-btn:hover {
+  background: #1ebe5d;
+}
+
 /* ── RESPONSIVE ── */
 @media (max-width: 600px) {
   .stats-grid { grid-template-columns: repeat(2, 1fr); }
@@ -1502,7 +1555,7 @@ const PRODUCTS = [{"id": 1, "cat": "גבינות צאן חצי קשות", "suppl
 , {"id": 62, "cat": "גבינות צאן חצי קשות", "supplier": "מחלבת ברקנית", "name": "מרסלן פחם", "desc": "גבינה חצי קשה מצופה פחם פעיל. הפחם מוסיף אופי ויזואלי ייחודי ומאזן את טעמה הצאני העז.", "sub": "130 גרם ליחידה", "price": 31.0, "img": ""}
 ];
 
-const MANAGER_WA="972XXXXXXXXX";
+const MANAGER_WA="972546362259";
 const ADMIN_PWD="benon2026";
 const BIT_PHONE="054-6362259";
 const PAYBOX_PHONE="054-6362259";
@@ -1726,7 +1779,7 @@ function renderAdmin(){
   </div>
   <div class="asec">
     <div class="asec-h">📝 כל ההזמנות</div>
-    <div class="asec-b">${orders.length?`<table class="atable"><thead><tr><th>#</th><th>שם</th><th>טלפון</th><th>קומה</th><th>מוצרים</th><th>קופון</th><th>סה״כ</th><th>אישור</th><th>תאריך</th><th>חשבונית</th></tr></thead><tbody>${[...orders].reverse().map(o=>`<tr><td style="font-size:11px;color:var(--muted)">${o.id}</td><td style="font-weight:700">${o.name}</td><td>${o.phone}</td><td>${o.floor||'—'}</td><td style="font-size:11px">${o.items.map(i=>i.name+'×'+i.qty).join(', ')}</td><td>${o.coupon?'<span class="badge ba">'+o.coupon+'</span>':'—'}</td><td style="font-weight:700;color:var(--green)">₪${o.total.toFixed(2)}</td><td><span class="badge ba">${o.ref}</span></td><td style="font-size:11px;color:var(--muted)">${o.date}</td><td><button id="gi_${o.id}" class="ebtn" onclick="createInvoice(${o.id})">📄 חשבונית</button></td></tr>`).join('')}</tbody></table>`:`<div class="no-data">אין הזמנות</div>`}</div>
+    <div class="asec-b">${orders.length?`<table class="atable"><thead><tr><th>#</th><th>שם</th><th>טלפון</th><th>קומה</th><th>מוצרים</th><th>קופון</th><th>סה״כ</th><th>אישור</th><th>תאריך</th><th>חשבונית</th></tr></thead><tbody>${[...orders].reverse().map(o=>`<tr><td style="font-size:11px;color:var(--muted)">${o.id}</td><td style="font-weight:700">${o.name}</td><td>${o.phone}</td><td>${o.floor||'—'}</td><td style="font-size:11px">${o.items.map(i=>i.name+'×'+i.qty).join(', ')}</td><td>${o.coupon?'<span class="badge ba">'+o.coupon+'</span>':'—'}</td><td style="font-weight:700;color:var(--green)">₪${o.total.toFixed(2)}</td><td><span class="badge ba">${o.ref}</span></td><td style="font-size:11px;color:var(--muted)">${o.date}</td><td><button id="gi_${o.id}" class="ebtn" onclick="createInvoice('${o.id}')">📄 חשבונית</button></td></tr>`).join('')}</tbody></table>`:`<div class="no-data">אין הזמנות</div>`}</div>
   </div>
   <button class="ebtn danger" onclick="if(confirm('למחוק את כל ההזמנות?')){localStorage.removeItem('benon_orders');renderAdmin();}">🗑 מחיקת כל ההזמנות</button>
   </div>`;
@@ -1867,7 +1920,7 @@ function renderAdmin(){
   </div>
   <div class="asec">
     <div class="asec-h">📝 כל ההזמנות</div>
-    <div class="asec-b">${orders.length?`<table class="atable"><thead><tr><th>#</th><th>שם</th><th>טלפון</th><th>קומה</th><th>מוצרים</th><th>קופון</th><th>סה״כ</th><th>אישור</th><th>תאריך</th><th>חשבונית</th></tr></thead><tbody>${[...orders].reverse().map(o=>`<tr><td style="font-size:11px;color:var(--muted)">${o.id}</td><td style="font-weight:700">${o.name}</td><td>${o.phone}</td><td>${o.floor||'—'}</td><td style="font-size:11px">${o.items.map(i=>i.name+'×'+i.qty).join(', ')}</td><td>${o.coupon?'<span class="badge ba">'+o.coupon+'</span>':'—'}</td><td style="font-weight:700;color:var(--green)">₪${o.total.toFixed(2)}</td><td><span class="badge ba">${o.ref}</span></td><td style="font-size:11px;color:var(--muted)">${o.date}</td><td><button id="gi2_${o.id}" class="ebtn" onclick="createInvoice(${o.id})">📄 חשבונית</button></td></tr>`).join('')}</tbody></table>`:`<div class="no-data">אין הזמנות</div>`}</div>
+    <div class="asec-b">${orders.length?`<table class="atable"><thead><tr><th>#</th><th>שם</th><th>טלפון</th><th>קומה</th><th>מוצרים</th><th>קופון</th><th>סה״כ</th><th>אישור</th><th>תאריך</th><th>חשבונית</th></tr></thead><tbody>${[...orders].reverse().map(o=>`<tr><td style="font-size:11px;color:var(--muted)">${o.id}</td><td style="font-weight:700">${o.name}</td><td>${o.phone}</td><td>${o.floor||'—'}</td><td style="font-size:11px">${o.items.map(i=>i.name+'×'+i.qty).join(', ')}</td><td>${o.coupon?'<span class="badge ba">'+o.coupon+'</span>':'—'}</td><td style="font-weight:700;color:var(--green)">₪${o.total.toFixed(2)}</td><td><span class="badge ba">${o.ref}</span></td><td style="font-size:11px;color:var(--muted)">${o.date}</td><td><button id="gi2_${o.id}" class="ebtn" onclick="createInvoice('${o.id}')">📄 חשבונית</button></td></tr>`).join('')}</tbody></table>`:`<div class="no-data">אין הזמנות</div>`}</div>
   </div>
   <button class="btn-s" onclick="if(confirm('למחוק את כל ההזמנות?')){localStorage.removeItem('benon_orders');renderAdmin();}">🗑 מחיקת כל ההזמנות</button>`;
 }
