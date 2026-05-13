@@ -1583,7 +1583,7 @@ const ADMIN_PWD_HASH="b80eb58fd9ce89ecdebbd33a0c95ee2a8e0fa33f019905831354a56b10
 
 // Hashed coupon codes — actual codes never stored in code
 const COUPONS = {
-  "ed29ee9c8fef7d150c668c8b679e5011dba384dcd433e20d6586bb0430b58aeb": {name:"Hexagon", discount:50, type:"fixed", expiry:"2026-05-18"},
+  "ed29ee9c8fef7d150c668c8b679e5011dba384dcd433e20d6586bb0430b58aeb": {name:"Hexagon", discount:50, type:"fixed", expiry:"2026-05-18", sponsored:true},
   "fea6649d4e816b28d460ab74eb460c4c2b1fa54d4cb327e4f44b0dc5921831d3": {name:"בנון", discount:15, type:"percent", expiry:"2026-12-31"}
 };
 let appliedCoupon = null;
@@ -1964,7 +1964,11 @@ function renderAdminWithOrders(orders){
     inv[k].orders.push({name:o.name,phone:o.phone,qty:i.qty,orderId:o.id});
   }));
   const rows=Object.values(inv).sort((a,b)=>a.supplier.localeCompare(b.supplier));
-  const grandTotal=orders.reduce((s,o)=>s+o.total,0);
+  // For sponsored coupons (e.g. Hexagon - paid by the company), count full subtotal as revenue
+  const grandTotal=orders.reduce((s,o)=>{
+    const couponEntry=o.coupon?Object.values(COUPONS).find(c=>c.name===o.coupon):null;
+    return s+(couponEntry&&couponEntry.sponsored?o.subtotal:o.total);
+  },0);
   document.getElementById('adminView').innerHTML=`
   <div class="admin-hdr"><h1>📋 ממשק ניהול — BENON'S</h1><div style="display:flex;gap:8px"><button class="ebtn" onclick="renderAdmin()">🔄 רענן</button><button class="ebtn" onclick="exportCSV()">⬇ CSV</button><button class="ebtn" style="background:#eee;color:#555" onclick="adminLogout()">🔒 יציאה</button></div></div>
   <div class="stats-grid">
