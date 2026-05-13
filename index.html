@@ -2084,6 +2084,29 @@ function renderAdminWithOrders(orders, pending){
   <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:8px">
     <button class="btn-s" onclick="migrateLocalToFirebase()">☁️ ייבא הזמנות מקומיות ל-Firebase</button>
     <button class="btn-s" onclick="if(confirm('למחוק את כל ההזמנות?')){deleteAllOrdersFirebase();renderAdmin();}">🗑 מחיקת כל ההזמנות</button>
+  </div>
+  <div class="asec" style="margin-top:18px">
+    <div class="asec-h" style="cursor:pointer" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'':'none'">🔐 קודים ופרטי מערכת <span style="font-size:12px;font-weight:400">(לחץ להצגה/הסתרה)</span></div>
+    <div class="asec-b" style="display:none">
+      <table class="atable">
+        <thead><tr><th>שימוש</th><th>קוד / פרטים</th></tr></thead>
+        <tbody>
+          <tr><td>סיסמת ניהול</td><td><code>${ADMIN_PWD}</code></td></tr>
+          <tr><td>כניסת חברה — וופה</td><td><code>WOPAB2B</code></td></tr>
+          <tr><td colspan="2" style="background:var(--gray-100);font-weight:700;font-size:12px;padding:6px 10px">🏷️ קופונים</td></tr>
+          ${Object.entries(COUPONS).map(([code,c])=>`<tr><td>${c.name} (${c.type==='percent'?c.discount+'%':'₪'+c.discount} | עד ${c.expiry})</td><td><code>${code}</code></td></tr>`).join('')}
+          <tr><td colspan="2" style="background:var(--gray-100);font-weight:700;font-size:12px;padding:6px 10px">📱 תקשורת</td></tr>
+          <tr><td>מספר Bit / WhatsApp</td><td><code>054-6362259</code></td></tr>
+          <tr><td colspan="2" style="background:var(--gray-100);font-weight:700;font-size:12px;padding:6px 10px">☁️ Firebase</td></tr>
+          <tr><td>Project</td><td><code>benons-market</code></td></tr>
+          <tr><td>Database URL</td><td><code style="font-size:11px">benons-market-default-rtdb.europe-west1.firebasedatabase.app</code></td></tr>
+          <tr><td colspan="2" style="background:var(--gray-100);font-weight:700;font-size:12px;padding:6px 10px">🧾 חשבונית ירוקה</td></tr>
+          <tr><td>Client ID</td><td><code style="font-size:11px">${GI_ID}</code></td></tr>
+          <tr><td>Client Secret</td><td><code style="font-size:11px">${GI_SECRET}</code></td></tr>
+          <tr><td>Proxy Worker</td><td><code style="font-size:11px">${GI_BASE}</code></td></tr>
+        </tbody>
+      </table>
+    </div>
   </div>`;
 }
 
