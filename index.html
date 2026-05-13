@@ -1927,6 +1927,42 @@ async function checkAdmin(){
   }else{document.getElementById('loginErr').textContent='סיסמה שגויה';}
 }
 
+async function addAmbrellaOrder(){
+  if(!_admin.ok())return;
+  const existing=getOrders().find(o=>o.name==='חברת אמברלה');
+  if(existing){alert('הזמנת אמברלה כבר קיימת (#'+existing.id+')');return;}
+  if(!confirm('להוסיף הזמנה ארגונית:\nחברת אמברלה — 22 מארזים\nסה"כ ₪6,487.14 כולל מע"מ?'))return;
+  const items=[
+    {name:'סנט מור',sub:'160 גרם ליחידה',qty:22,price:29.70,supplier:'מחלבת ברקנית'},
+    {name:'תבור',sub:'130 גרם ליחידה',qty:22,price:31.00,supplier:'מחלבת ברקנית'},
+    {name:'כחולה נסתרת',sub:'130 גרם ליחידה',qty:22,price:32.40,supplier:'מחלבת ברקנית'},
+    {name:'מנצ׳גו',sub:'₪18.77 ל-100 גרם | יחידה 150-200 גרם',qty:22,price:18.77,supplier:'מחלבת ברקנית'},
+    {name:'פרחים- נץ החלב לבן',sub:'זר 10 גבעולים',qty:22,price:54.00,supplier:'פרחים'},
+    {name:'רוזה 2025',sub:'יין יבש | 750 מ\'\'ל',qty:22,price:101.00,supplier:'יקב MIKA'},
+    {name:'דובדבן',sub:'½ קילו, טרי, מתוק',qty:22,price:28.00,supplier:'מקומי'}
+  ];
+  const total=items.reduce((s,i)=>s+i.price*i.qty,0);
+  const order={
+    id:'CORP-AMB-'+Date.now(),
+    name:'חברת אמברלה',
+    phone:'הזמנה ארגונית',
+    floor:'לובי',
+    notes:'22 מארזי חג שבועות · חלוקה 9.6.2026 11:00',
+    ref:'',
+    coupon:null,
+    discount:0,
+    items,
+    subtotal:parseFloat(total.toFixed(2)),
+    total:parseFloat(total.toFixed(2)),
+    date:new Date().toLocaleString('he-IL')
+  };
+  const orders=getOrders();
+  orders.push(order);
+  try{localStorage.setItem('benon_orders',JSON.stringify(orders));}catch(e){}
+  saveOrderToFirebase(order);
+  alert('✅ הזמנת אמברלה נוספה בהצלחה!');
+  renderAdmin();
+}
 function adminLogout(){
   _admin.logout();
   document.getElementById('adminView').innerHTML='';
@@ -1955,8 +1991,35 @@ function showInvDetail(key){
   const el=document.getElementById('inv-detail-'+key);
   if(el) el.style.display=el.style.display==='none'?'':'none';
 }
-const PROFIT_MARGIN=0.35;
 const VAT=1.18;
+const PRODUCT_COSTS={
+  'שמן זית 0.75L':44,'שמן זית 2.0L':100,'שמן זית 5.0L':240,
+  'סנט מור':25.96,'סנט מור נאור':27.14,'שחת':27.14,'תבור':27.14,'כחולה נסתרת':28.32,
+  'תלתן':20.06,'אלומה':22.42,'אגוז':27.14,'קורסיקה':19.94,'מרסלן פחם':19.94,
+  'מנצ׳גו':28.70,'קאפרה':28.70,'תום עזים':28.70,'שיבולת':28.70,"ז'ון":28.70,
+  'בלאנקה':28.70,'פטי גלבוע':28.70,'פלפל':28.70,'גרגרנית יוונית':28.70,
+  'תום עיזים ביין':28.70,"צ'ילי":28.70,'עזמנטל':28.70,
+  'סבניון בלאן רוסאן 2025':88.5,'ריזלינג 2024':88.5,'גוורצטרמינר 2024':88.5,'רוזה 2025':88.5,'שרדונה 2025':100.3,
+  'מארז דבש חגיגי':49.56,
+  'עגבניות שרי לובלו-משק רוזנברג':20,'אבוקדו ריד-משק רוזנברג':24,
+  'פרחים- נץ החלב לבן':30,'פרחים- נץ החלב צהוב':20,'פטריות רעמת האריה':35,
+  'אספרגוס ירוק':23.9,'מלפפון סופר קראנצ׳':10.5,'תירס צהוב מתוק':19.5,'תירס לבן מתוק':19.5,
+  'נבטי פטרוזליה':6.25,'נבטי כוסברה':6.25,'חסה גמביט':9.4,'חסה לאליק':9.4,'חסה סלנובה':9.4
+};
+const HONEY_COSTS={
+  'צנצנת 250 גרם':20.06,'צנצנת 500 גרם':30.68,'צנצנת 1 קג׳':48.38
+};
+const FRUIT_NAMES=new Set(['ענבים שחורים','אוכמניות כרמל','פטל','תות פקיסטני','ענבים ירוקים','דובדבן']);
+function getItemProfit(i){
+  if(['דבש אבוקדו','דבש הדרים','דבש שיזף','דבש פרחי בר טבעי'].includes(i.name)){
+    const c=HONEY_COSTS[i.sub];
+    if(c!==undefined) return (i.price-c)*i.qty;
+  }
+  const c=PRODUCT_COSTS[i.name];
+  if(c!==undefined) return (i.price-c)*i.qty;
+  if(FRUIT_NAMES.has(i.name)) return (i.price/VAT)*i.qty*0.20;
+  return (i.price/VAT)*i.qty*0.35;
+}
 function renderAdminWithOrders(orders){
   const inv={};
   orders.forEach(o=>o.items.forEach(i=>{
@@ -1964,7 +2027,7 @@ function renderAdminWithOrders(orders){
     if(!inv[k])inv[k]={supplier:i.supplier,name:i.name,sub:i.sub,price:i.price,qty:0,total:0,profit:0,orders:[]};
     inv[k].qty+=i.qty;
     inv[k].total+=i.price*i.qty;
-    inv[k].profit+=(i.price/VAT)*i.qty*PROFIT_MARGIN;
+    inv[k].profit+=getItemProfit(i);
     inv[k].orders.push({name:o.name,phone:o.phone,qty:i.qty,orderId:o.id});
   }));
   const rows=Object.values(inv).sort((a,b)=>a.supplier.localeCompare(b.supplier));
@@ -1974,16 +2037,16 @@ function renderAdminWithOrders(orders){
   },0);
   const grandProfit=rows.reduce((s,r)=>s+r.profit,0);
   document.getElementById('adminView').innerHTML=`
-  <div class="admin-hdr"><h1>📋 ממשק ניהול — BENON'S</h1><div style="display:flex;gap:8px"><button class="ebtn" onclick="renderAdmin()">🔄 רענן</button><button class="ebtn" onclick="exportCSV()">⬇ CSV</button><button class="ebtn" style="background:#eee;color:#555" onclick="adminLogout()">🔒 יציאה</button></div></div>
+  <div class="admin-hdr"><h1>📋 ממשק ניהול — BENON'S</h1><div style="display:flex;gap:8px"><button class="ebtn" onclick="renderAdmin()">🔄 רענן</button><button class="ebtn" onclick="exportCSV()">⬇ CSV</button><button class="ebtn" style="background:#1B3A6B;color:#F5D87A;font-weight:700" onclick="addAmbrellaOrder()">🏢 אמברלה</button><button class="ebtn" style="background:#eee;color:#555" onclick="adminLogout()">🔒 יציאה</button></div></div>
   <div class="stats-grid">
     <div class="stat-card"><div class="stat-num">${orders.length}</div><div class="stat-lbl">הזמנות</div></div>
     <div class="stat-card"><div class="stat-num">₪${grandTotal.toFixed(0)}</div><div class="stat-lbl">סה״כ מכירות</div></div>
-    <div class="stat-card"><div class="stat-num">₪${grandProfit.toFixed(0)}</div><div class="stat-lbl">רווח משוער (35%)</div></div>
+    <div class="stat-card"><div class="stat-num">₪${grandProfit.toFixed(0)}</div><div class="stat-lbl">רווח משוער</div></div>
     <div class="stat-card"><div class="stat-num">${rows.reduce((s,r)=>s+r.qty,0)}</div><div class="stat-lbl">פריטים</div></div>
   </div>
   <div class="asec">
     <div class="asec-h">📦 מלאי לספקים <span style="font-size:12px;font-weight:400">(לחץ על שורה לפירוט מזמינים)</span><button class="ebtn" onclick="printInv()">🖨 הדפסה</button></div>
-    <div class="asec-b">${rows.length?`<table class="atable"><thead><tr><th>ספק</th><th>מוצר</th><th>פירוט</th><th>כמות</th><th>סה״כ מכירה</th><th style="color:#2e7d32">רווח (35%)</th></tr></thead><tbody>${rows.map((r,ri)=>{
+    <div class="asec-b">${rows.length?`<table class="atable"><thead><tr><th>ספק</th><th>מוצר</th><th>פירוט</th><th>כמות</th><th>סה״כ מכירה</th><th style="color:#2e7d32">רווח</th></tr></thead><tbody>${rows.map((r,ri)=>{
       const detailRows=r.orders.map(od=>`<tr style="background:#f0f7f0"><td colspan="2" style="padding-right:24px;color:#555">${od.name} — ${od.phone}</td><td style="color:#555">#${od.orderId}</td><td style="text-align:center;font-weight:700;color:var(--green)">${od.qty}</td><td></td><td></td></tr>`).join('');
       return `<tr style="cursor:pointer" onclick="showInvDetail('${ri}')"><td><span class="badge bg">${r.supplier}</span></td><td style="font-weight:700">${r.name}</td><td style="color:var(--muted)">${r.sub}</td><td style="text-align:center;font-weight:700;color:var(--green)">${r.qty}</td><td style="font-weight:700">₪${r.total.toFixed(2)}</td><td style="font-weight:700;color:#2e7d32">₪${r.profit.toFixed(2)}</td></tr><tr id="inv-detail-${ri}" style="display:none"><td colspan="6" style="padding:0"><table style="width:100%;border:none">${detailRows}</table></td></tr>`;
     }).join('')}</tbody></table>`:`<div class="no-data">אין הזמנות</div>`}</div>
