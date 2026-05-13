@@ -1953,7 +1953,7 @@ function renderAdminWithOrders(orders){
   const rows=Object.values(inv).sort((a,b)=>a.supplier.localeCompare(b.supplier));
   const grandTotal=orders.reduce((s,o)=>s+o.total,0);
   document.getElementById('adminView').innerHTML=`
-  <div class="admin-hdr"><h1>📋 ממשק ניהול — BENON'S</h1><div style="display:flex;gap:8px"><button class="ebtn" onclick="exportCSV()">⬇ CSV</button><button class="ebtn" style="background:#eee;color:#555" onclick="adminLogout()">🔒 יציאה</button></div></div>
+  <div class="admin-hdr"><h1>📋 ממשק ניהול — BENON'S</h1><div style="display:flex;gap:8px"><button class="ebtn" onclick="renderAdmin()">🔄 רענן</button><button class="ebtn" onclick="exportCSV()">⬇ CSV</button><button class="ebtn" style="background:#eee;color:#555" onclick="adminLogout()">🔒 יציאה</button></div></div>
   <div class="stats-grid">
     <div class="stat-card"><div class="stat-num">${orders.length}</div><div class="stat-lbl">הזמנות</div></div>
     <div class="stat-card"><div class="stat-num">₪${grandTotal.toFixed(0)}</div><div class="stat-lbl">סה״כ מכירות</div></div>
