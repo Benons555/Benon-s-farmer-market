@@ -1963,6 +1963,43 @@ async function addAmbrellaOrder(){
   alert('✅ הזמנת אמברלה נוספה בהצלחה!');
   renderAdmin();
 }
+async function addWimiOrder(){
+  if(!_admin.ok())return;
+  const existing=getOrders().find(o=>o.name==='חברת וימי');
+  if(existing){alert('הזמנת וימי כבר קיימת (#'+existing.id+')');return;}
+  if(!confirm('להוסיף הזמנה ארגונית:\nחברת וימי — 25 מארזים\nסה"כ ₪8,988.75 כולל מע"מ?'))return;
+  const items=[
+    {name:'סנט מור',sub:'160 גרם ליחידה',qty:25,price:29.70,supplier:'מחלבת ברקנית'},
+    {name:'מנצ׳גו',sub:'₪18.77 ל-100 גרם | יחידה 150-200 גרם',qty:25,price:32.85,supplier:'מחלבת ברקנית'},
+    {name:'שמן זית 0.75L',sub:'זן: קרוניקי | עד 0.5% חמיצות',qty:25,price:50.00,supplier:'קיבוץ מגידו'},
+    {name:'דבש הדרים',sub:'צנצנת 250 גרם',qty:25,price:23.00,supplier:'משק אופיר'},
+    {name:'סבניון בלאן רוסאן 2025',sub:'יין לבן יבש | 750 מ\'ל',qty:25,price:101.00,supplier:'יקב MIKA'},
+    {name:'פטל',sub:'150 גרם, טרי',qty:25,price:41.00,supplier:'מקומי'},
+    {name:'דובדבן',sub:'½ קילו, טרי, מתוק',qty:25,price:28.00,supplier:'מקומי'},
+    {name:'פרחים- נץ החלב לבן',sub:'זר 10 גבעולים',qty:25,price:54.00,supplier:'פרחים'}
+  ];
+  const total=items.reduce((s,i)=>s+i.price*i.qty,0);
+  const order={
+    id:'CORP-WIMI-'+Date.now(),
+    name:'חברת וימי',
+    phone:'הזמנה ארגונית',
+    floor:'לובי',
+    notes:'25 מארזי חג שבועות · חלוקה 9.6.2026 11:00',
+    ref:'',
+    coupon:null,
+    discount:0,
+    items,
+    subtotal:parseFloat(total.toFixed(2)),
+    total:parseFloat(total.toFixed(2)),
+    date:new Date().toLocaleString('he-IL')
+  };
+  const orders=getOrders();
+  orders.push(order);
+  try{localStorage.setItem('benon_orders',JSON.stringify(orders));}catch(e){}
+  saveOrderToFirebase(order);
+  alert('✅ הזמנת וימי נוספה בהצלחה!');
+  renderAdmin();
+}
 function adminLogout(){
   _admin.logout();
   document.getElementById('adminView').innerHTML='';
@@ -2037,7 +2074,7 @@ function renderAdminWithOrders(orders){
   },0);
   const grandProfit=rows.reduce((s,r)=>s+r.profit,0);
   document.getElementById('adminView').innerHTML=`
-  <div class="admin-hdr"><h1>📋 ממשק ניהול — BENON'S</h1><div style="display:flex;gap:8px"><button class="ebtn" onclick="renderAdmin()">🔄 רענן</button><button class="ebtn" onclick="exportCSV()">⬇ CSV</button><button class="ebtn" style="background:#1B3A6B;color:#F5D87A;font-weight:700" onclick="addAmbrellaOrder()">🏢 אמברלה</button><button class="ebtn" style="background:#eee;color:#555" onclick="adminLogout()">🔒 יציאה</button></div></div>
+  <div class="admin-hdr"><h1>📋 ממשק ניהול — BENON'S</h1><div style="display:flex;gap:8px"><button class="ebtn" onclick="renderAdmin()">🔄 רענן</button><button class="ebtn" onclick="exportCSV()">⬇ CSV</button><button class="ebtn" style="background:#1B3A6B;color:#F5D87A;font-weight:700" onclick="addAmbrellaOrder()">🏢 אמברלה</button><button class="ebtn" style="background:#2E5E3E;color:#A8D5B5;font-weight:700" onclick="addWimiOrder()">🏢 וימי</button><button class="ebtn" style="background:#eee;color:#555" onclick="adminLogout()">🔒 יציאה</button></div></div>
   <div class="stats-grid">
     <div class="stat-card"><div class="stat-num">${orders.length}</div><div class="stat-lbl">הזמנות</div></div>
     <div class="stat-card"><div class="stat-num">₪${grandTotal.toFixed(0)}</div><div class="stat-lbl">סה״כ מכירות</div></div>
