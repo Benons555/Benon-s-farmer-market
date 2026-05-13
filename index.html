@@ -1735,14 +1735,11 @@ const ICONS={};
 
 let cart={},adminLoggedIn=false,currentOrder=null;
 
+// Restore cart from localStorage
+try{ const saved=JSON.parse(localStorage.getItem('benon_cart')||'{}'); if(typeof saved==='object'&&saved!==null) cart=saved; }catch(e){}
+
 document.getElementById('logoImg').src=LOGO;
 document.getElementById('loginLogo').src=LOGO;
-console.log("🚀 BENON SHOP v1778501394 - 1778493915");
-console.log("🚀 BENON SHOP v1778505891 - LOADED");
-console.log("✅ Cart functions check:");
-console.log("  - openCart:", typeof openCart);
-console.log("  - closeCart:", typeof closeCart);
-console.log("  - updateCartUI:", typeof updateCartUI);
 
 buildTabs(); renderShop(); updateCartUI();
 console.log("✅ Initialization complete");
@@ -1807,6 +1804,7 @@ function chg(id,d){
   const n=document.getElementById('qn'+id); if(n)n.textContent=cart[id];
   const c=document.getElementById('pc'+id); if(c){cart[id]>0?c.classList.add('in-cart'):c.classList.remove('in-cart');}
   updateCartUI();
+  try{localStorage.setItem('benon_cart',JSON.stringify(cart));}catch(e){}
 }
 
 function cartItems(){return PRODUCTS.filter(p=>(cart[p.id]||0)>0);}
@@ -1940,6 +1938,11 @@ function goToPayment(){
   document.getElementById('companyPaySection').style.display = isCompany ? '' : 'none';
   document.getElementById('payRefSection').style.display = isCompany ? 'none' : '';
   document.querySelectorAll('.pay-opt:not(#companyPaySection)').forEach(el => el.style.display = isCompany ? 'none' : '');
+  // Save pending cart to Firebase for abandoned cart tracking
+  try{
+    const pendingKey=ph.replace(/\D/g,'');
+    fbDB.ref('pending_carts/'+pendingKey).set({name:fn+' '+ln,phone:ph,items:cartItems().map(p=>({name:p.name,qty:cart[p.id]})),total,ts:Date.now()}).catch(()=>{});
+  }catch(e){}
   closeModal('checkoutModal');
   openModal('paymentModal');
 }
@@ -1957,6 +1960,8 @@ function confirmOrder(){
   currentOrder={id:orderNum,name:fn+' '+ln,phone:ph,floor:fl,notes:nt,ref,coupon:appliedCoupon?appliedCoupon.name:null,discount:appliedCoupon?appliedCoupon.discount:0,company:isCompany?companySession.name:null,items:cartItems().map(p=>{return{name:p.name,sub:p.sub,qty:cart[p.id],price:p.price,supplier:p.supplier}}),subtotal:cartTotal(),total:Math.max(0,cartTotal()-(appliedCoupon?appliedCoupon.discount:0)),date:new Date().toLocaleString('he-IL')};
   try{const o=JSON.parse(localStorage.getItem('benon_orders')||'[]');o.push(currentOrder);localStorage.setItem('benon_orders',JSON.stringify(o));}catch(e){}
   saveOrderToFirebase(currentOrder);
+  // Remove pending cart now that order is confirmed
+  try{ fbDB.ref('pending_carts/'+ph.replace(/\D/g,'')).remove().catch(()=>{}); }catch(e){}
   if(appliedCoupon) markCouponUsed(appliedCoupon.code||appliedCoupon.name, ph);
   closeModal('paymentModal');
   document.getElementById('successText').textContent=`תודה ${fn}! הזמנה #${orderNum}${isCompany?' | חברה: '+companySession.name+' | תשלום בהעברה בנקאית':''} | סה״כ ₪${Math.max(0,cartTotal()-(appliedCoupon?appliedCoupon.discount:0)).toFixed(2)}`;
@@ -2010,7 +2015,7 @@ function markCouponUsed(code, phone){
   try{ const u=JSON.parse(localStorage.getItem('benon_used_coupons')||'{}'); if(!u[code])u[code]=[]; if(!u[code].includes(phone))u[code].push(phone); localStorage.setItem('benon_used_coupons',JSON.stringify(u)); }catch(e){}
 }
 
-function resetOrder(){cart={};appliedCoupon=null;['fname','lname','fphone','ffloor','fnotes','payRef','fcoupon'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});document.getElementById('couponMsg').textContent='';updateCartUI();renderShop();}
+function resetOrder(){cart={};appliedCoupon=null;localStorage.removeItem('benon_cart');['fname','lname','fphone','ffloor','fnotes','payRef','fcoupon'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});document.getElementById('couponMsg').textContent='';updateCartUI();renderShop();}
 
 function showTab(tab){
   document.getElementById('navShop').classList.toggle('active',tab==='shop');
@@ -2031,9 +2036,16 @@ function getOrders(){try{return JSON.parse(localStorage.getItem('benon_orders')|
 
 function renderAdmin(){
   document.getElementById('adminView').innerHTML='<div style="text-align:center;padding:40px;color:#888">⏳ טוען הזמנות...</div>';
-  loadOrdersFromFirebase(function(orders){ renderAdminWithOrders(orders); });
+  loadOrdersFromFirebase(function(orders){
+    fbDB.ref('pending_carts').once('value').then(snap=>{
+      const d=snap.val();
+      const pending=d?Object.values(d).sort((a,b)=>a.ts-b.ts):[];
+      renderAdminWithOrders(orders, pending);
+    }).catch(()=>{ renderAdminWithOrders(orders, []); });
+  });
 }
-function renderAdminWithOrders(orders){
+function renderAdminWithOrders(orders, pending){
+  pending = pending||[];
   const inv={};
   orders.forEach(o=>o.items.forEach(i=>{
     const k=i.supplier+'|'+i.name+'|'+i.sub;
@@ -2056,6 +2068,18 @@ function renderAdminWithOrders(orders){
   <div class="asec">
     <div class="asec-h">📝 כל ההזמנות</div>
     <div class="asec-b">${orders.length?`<table class="atable"><thead><tr><th>#</th><th>שם</th><th>טלפון</th><th>קומה</th><th>מוצרים</th><th>קופון</th><th>סה״כ</th><th>אישור</th><th>תאריך</th><th>חשבונית</th></tr></thead><tbody>${[...orders].reverse().map(o=>`<tr><td style="font-size:11px;color:var(--muted)">${o.id}</td><td style="font-weight:700">${o.name}</td><td>${o.phone}</td><td>${o.floor||'—'}</td><td style="font-size:11px">${o.items.map(i=>i.name+'×'+i.qty).join(', ')}</td><td>${o.coupon?'<span class="badge ba">'+o.coupon+'</span>':'—'}</td><td style="font-weight:700;color:var(--green)">₪${o.total.toFixed(2)}</td><td><span class="badge ba">${o.ref}</span></td><td style="font-size:11px;color:var(--muted)">${o.date}</td><td><button id="gi_${o.id}" class="ebtn" onclick="createInvoice('${o.id}')">📄 חשבונית</button></td></tr>`).join('')}</tbody></table>`:`<div class="no-data">אין הזמנות</div>`}</div>
+  </div>
+  <div class="asec">
+    <div class="asec-h">🛒 סלים פתוחים (${pending.length})</div>
+    <div class="asec-b">${pending.length?`<table class="atable"><thead><tr><th>שם</th><th>טלפון</th><th>מוצרים</th><th>סה״כ</th><th>ממתין</th><th>תזכורת 2 שעות</th><th>תזכורת 24 שעות</th></tr></thead><tbody>${pending.map(c=>{
+      const elapsed=Math.floor((Date.now()-c.ts)/60000);
+      const h=Math.floor(elapsed/60), m=elapsed%60;
+      const timeStr=h>0?h+'ש׳ '+m+'ד\'':m+'ד\'';
+      const items2h=encodeURIComponent(c.items.map(i=>i.name+'×'+i.qty).join(', '));
+      const wa2h='https://wa.me/972'+c.phone.replace(/^0/,'').replace(/\D/g,'')+'?text='+encodeURIComponent('שלום '+c.name+'! 👋 שמנו לב שהתחלת הזמנה ב-Benons Farmer\'s Market אך לא סיימת אותה. הסל שלך ממתין עם '+c.items.length+' פריטים בסך ₪'+c.total.toFixed(2)+' 🛒\nלסיום ההזמנה: https://benons555.github.io/Benon-s-farmer-market/\nנשמח לראותך! 🌾\n— Benons Farmer\'s Market');
+      const wa24h='https://wa.me/972'+c.phone.replace(/^0/,'').replace(/\D/g,'')+'?text='+encodeURIComponent('שלום '+c.name+'! ⏰ ההזמנה שלך ב-Benons Farmer\'s Market עדיין ממתינה. המלאי לחג מוגבל — אל תפספס!\nלסיום ההזמנה: https://benons555.github.io/Benon-s-farmer-market/\n🌾 — Benons Farmer\'s Market');
+      return `<tr><td style="font-weight:700">${c.name}</td><td>${c.phone}</td><td style="font-size:11px">${c.items.map(i=>i.name+'×'+i.qty).join(', ')}</td><td style="font-weight:700;color:var(--green)">₪${c.total.toFixed(2)}</td><td style="font-size:11px;color:var(--muted)">${timeStr}</td><td><a href="${wa2h}" target="_blank" class="ebtn" style="text-decoration:none">📩 2ש׳</a></td><td><a href="${wa24h}" target="_blank" class="ebtn" style="text-decoration:none">📩 24ש׳</a></td></tr>`;
+    }).join('')}</tbody></table>`:`<div class="no-data">אין סלים פתוחים</div>`}</div>
   </div>
   <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:8px">
     <button class="btn-s" onclick="migrateLocalToFirebase()">☁️ ייבא הזמנות מקומיות ל-Firebase</button>
