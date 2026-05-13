@@ -2186,15 +2186,43 @@ function buildProfitAnalysis(orders){
   const totalRev=catList.reduce((s,[,c])=>s+c.rev,0);
   const totalProfit=catList.reduce((s,[,c])=>s+c.profit,0);
   const maxBarRatio=Math.max(...catList.map(([,c])=>c.rev>0?c.profit/c.rev:0))||1;
+  const netProfit=totalProfit-TOTAL_OVERHEAD;
   function color(m){return m>=30?'#2e7d32':m>=20?'#e65100':'#c62828';}
+  // Tax calculation
+  const taxable=netProfit>0?netProfit/1.18:0;
+  const TAX_BRACKETS=[
+    {label:'עד ₪81,480',limit:81480,rate:10},
+    {label:'₪81,480 – ₪116,760',limit:116760,rate:14},
+    {label:'₪116,760 – ₪187,440',limit:187440,rate:20},
+    {label:'₪187,440 – ₪260,520',limit:260520,rate:31},
+    {label:'₪260,520 – ₪542,160',limit:542160,rate:35},
+    {label:'מעל ₪542,160',limit:Infinity,rate:47},
+  ];
+  let incomeTax=0,prevLim=0;
+  const taxRows=[];
+  for(const b of TAX_BRACKETS){
+    if(taxable<=prevLim)break;
+    const inB=Math.min(taxable,b.limit)-prevLim;
+    const t=inB*(b.rate/100);
+    if(inB>0)taxRows.push({label:b.label,rate:b.rate,income:inB,tax:t});
+    incomeTax+=t;prevLim=b.limit;
+  }
+  const bl=taxable<=90264?taxable*0.0982:(90264*0.0982+(taxable-90264)*0.1623);
+  const netAfterTax=netProfit-incomeTax-bl;
+  const effRate=taxable>0?(incomeTax/taxable*100):0;
   return `
+  <!-- ── TABLE 1: by category ── -->
   <div class="asec">
     <div class="asec-h">📊 רווחיות לפי קטגוריה</div>
     <div class="asec-b">
       <table class="atable">
         <thead><tr>
-          <th>קטגוריה</th><th>כמות</th><th>מכירות (כולל מע״מ)</th><th>רווח גולמי</th>
-          <th>שולי רווח %</th><th style="min-width:140px">בר שוליים</th>
+          <th style="text-align:right">קטגוריה</th>
+          <th style="text-align:center">כמות</th>
+          <th style="text-align:right">מכירות (כולל מע״מ)</th>
+          <th style="text-align:right">רווח גולמי</th>
+          <th style="text-align:center">שולי רווח %</th>
+          <th style="text-align:center;min-width:140px">בר שוליים</th>
         </tr></thead>
         <tbody>
           ${catList.map(([cat,c])=>{
@@ -2202,12 +2230,12 @@ function buildProfitAnalysis(orders){
             const barW=Math.round((c.rev>0?c.profit/c.rev:0)/maxBarRatio*100);
             const cl=color(m);
             return `<tr>
-              <td style="font-weight:700">${cat}</td>
+              <td style="font-weight:700;text-align:right">${cat}</td>
               <td style="text-align:center">${c.qty}</td>
-              <td>₪${c.rev.toFixed(0)}</td>
-              <td style="font-weight:700;color:#2e7d32">₪${c.profit.toFixed(0)}</td>
-              <td style="font-weight:800;color:${cl};font-size:14px">${m.toFixed(1)}%</td>
-              <td><div style="height:10px;background:#e8e8e8;border-radius:5px;overflow:hidden">
+              <td style="text-align:right">₪${c.rev.toFixed(0)}</td>
+              <td style="font-weight:700;color:#2e7d32;text-align:right">₪${c.profit.toFixed(0)}</td>
+              <td style="font-weight:800;color:${cl};font-size:14px;text-align:center">${m.toFixed(1)}%</td>
+              <td style="text-align:center"><div style="height:10px;background:#e8e8e8;border-radius:5px;overflow:hidden;margin-bottom:2px">
                 <div style="height:100%;width:${barW}%;background:${cl};border-radius:5px"></div>
               </div><span style="font-size:10px;color:#999">${m.toFixed(1)}%</span></td>
             </tr>`;
@@ -2215,24 +2243,32 @@ function buildProfitAnalysis(orders){
         </tbody>
         <tfoot>
           <tr style="background:#1B3A6B;color:white">
-            <td style="font-weight:700;color:white">סה״כ</td>
+            <td style="font-weight:700;color:white;text-align:right">סה״כ</td>
             <td style="text-align:center;color:white">${catList.reduce((s,[,c])=>s+c.qty,0)}</td>
-            <td style="color:white">₪${totalRev.toFixed(0)}</td>
-            <td style="font-weight:700;color:#F5E87A">₪${totalProfit.toFixed(0)}</td>
-            <td style="font-weight:800;color:#F5E87A;font-size:14px">${totalRev>0?(totalProfit/totalRev*100).toFixed(1):0}%</td>
+            <td style="color:white;text-align:right">₪${totalRev.toFixed(0)}</td>
+            <td style="font-weight:700;color:#F5E87A;text-align:right">₪${totalProfit.toFixed(0)}</td>
+            <td style="font-weight:800;color:#F5E87A;font-size:14px;text-align:center">${totalRev>0?(totalProfit/totalRev*100).toFixed(1):0}%</td>
             <td></td>
           </tr>
         </tfoot>
       </table>
     </div>
   </div>
+  <!-- ── TABLE 2: by product ── -->
   <div class="asec">
     <div class="asec-h">🏆 פילוח לפי מוצר <span style="font-size:11px;font-weight:400;opacity:0.6">(ממוין לפי רווח)</span></div>
     <div class="asec-b">
       <table class="atable">
         <thead><tr>
-          <th>מוצר</th><th>פירוט</th><th>קטגוריה</th><th>כמות</th>
-          <th>מחיר</th><th>מכירות</th><th>עלות משוערת</th><th>רווח</th><th>שולי %</th>
+          <th style="text-align:right">מוצר</th>
+          <th style="text-align:right">פירוט</th>
+          <th style="text-align:center">קטגוריה</th>
+          <th style="text-align:center">כמות</th>
+          <th style="text-align:right">מחיר</th>
+          <th style="text-align:right">מכירות</th>
+          <th style="text-align:right">עלות משוערת</th>
+          <th style="text-align:right">רווח</th>
+          <th style="text-align:center">שולי %</th>
         </tr></thead>
         <tbody>
           ${prodList.map(p=>{
@@ -2240,53 +2276,122 @@ function buildProfitAnalysis(orders){
             const cost=p.rev-p.profit;
             const cl=color(m);
             return `<tr>
-              <td style="font-weight:700">${p.name}</td>
-              <td style="color:#888;font-size:11px">${p.sub}</td>
-              <td><span style="background:#f5f5f5;padding:2px 8px;border-radius:10px;font-size:11px;white-space:nowrap">${p.cat}</span></td>
+              <td style="font-weight:700;text-align:right">${p.name}</td>
+              <td style="color:#888;font-size:11px;text-align:right">${p.sub}</td>
+              <td style="text-align:center"><span style="background:#f5f5f5;padding:2px 8px;border-radius:10px;font-size:11px;white-space:nowrap">${p.cat}</span></td>
               <td style="text-align:center;font-weight:700;color:var(--green)">${p.qty}</td>
-              <td>₪${p.price.toFixed(2)}</td>
-              <td>₪${p.rev.toFixed(0)}</td>
-              <td style="color:#888">₪${cost.toFixed(0)}</td>
-              <td style="font-weight:700;color:#2e7d32">₪${p.profit.toFixed(0)}</td>
-              <td style="font-weight:800;color:${cl}">${m.toFixed(1)}%</td>
+              <td style="text-align:right">₪${p.price.toFixed(2)}</td>
+              <td style="text-align:right">₪${p.rev.toFixed(0)}</td>
+              <td style="color:#888;text-align:right">₪${cost.toFixed(0)}</td>
+              <td style="font-weight:700;color:#2e7d32;text-align:right">₪${p.profit.toFixed(0)}</td>
+              <td style="font-weight:800;color:${cl};text-align:center">${m.toFixed(1)}%</td>
             </tr>`;
           }).join('')}
         </tbody>
       </table>
     </div>
   </div>
+  <!-- ── TABLE 3: overhead ── -->
   <div class="asec">
     <div class="asec-h">🏗️ הוצאות תפעוליות קבועות</div>
     <div class="asec-b">
       <table class="atable">
         <thead><tr>
-          <th>הוצאה</th><th>פירוט</th><th>סכום</th>
+          <th style="text-align:right">הוצאה</th>
+          <th style="text-align:right">פירוט</th>
+          <th style="text-align:right">סכום</th>
         </tr></thead>
         <tbody>
           ${OVERHEAD_COSTS.map(c=>`<tr>
-            <td style="font-weight:700">${c.label}</td>
-            <td style="color:#888;font-size:12px">${c.detail}</td>
-            <td style="font-weight:700;color:#c62828">₪${c.amount.toFixed(2)}</td>
+            <td style="font-weight:700;text-align:right">${c.label}</td>
+            <td style="color:#888;font-size:12px;text-align:right">${c.detail}</td>
+            <td style="font-weight:700;color:#c62828;text-align:right">₪${c.amount.toFixed(2)}</td>
           </tr>`).join('')}
         </tbody>
         <tfoot>
           <tr style="background:#f5f5f5">
-            <td style="font-weight:700">סה״כ הוצאות קבועות</td>
-            <td style="color:#888;font-size:12px">לא כולל עלות מוצרים</td>
-            <td style="font-weight:800;color:#c62828;font-size:15px">₪${TOTAL_OVERHEAD.toFixed(2)}</td>
+            <td colspan="2" style="font-weight:700;text-align:right">סה״כ הוצאות קבועות</td>
+            <td style="font-weight:800;color:#c62828;font-size:15px;text-align:right">₪${TOTAL_OVERHEAD.toFixed(2)}</td>
           </tr>
           <tr style="background:#1B3A6B">
-            <td style="font-weight:700;color:white">רווח נטו משוער</td>
-            <td style="color:rgba(255,255,255,0.6);font-size:12px">רווח גולמי ממוצרים − הוצאות קבועות</td>
-            <td style="font-weight:800;color:#F5E87A;font-size:15px">₪${(totalProfit-TOTAL_OVERHEAD).toFixed(2)}</td>
+            <td colspan="2" style="font-weight:700;color:white;text-align:right">רווח נטו (לפני מס)</td>
+            <td style="font-weight:800;color:#F5E87A;font-size:15px;text-align:right">₪${netProfit.toFixed(2)}</td>
           </tr>
           <tr style="background:#0d2447">
-            <td style="font-weight:700;color:white">סה״כ הוצאות (מוצרים + תפעול)</td>
-            <td style="color:rgba(255,255,255,0.5);font-size:12px">עלות מוצרים + הוצאות קבועות</td>
-            <td style="font-weight:800;color:#aac8ff;font-size:13px">₪${(totalRev-totalProfit+TOTAL_OVERHEAD).toFixed(2)}</td>
+            <td colspan="2" style="font-weight:700;color:white;text-align:right">סה״כ הוצאות (מוצרים + תפעול)</td>
+            <td style="font-weight:800;color:#aac8ff;font-size:13px;text-align:right">₪${(totalRev-totalProfit+TOTAL_OVERHEAD).toFixed(2)}</td>
           </tr>
         </tfoot>
       </table>
+    </div>
+  </div>
+  <!-- ── TABLE 4: tax ── -->
+  <div class="asec">
+    <div class="asec-h">🏛️ הערכת מיסוי — ${new Date().getFullYear()} <span style="font-size:11px;font-weight:400;opacity:0.65">(אמדן בלבד, אינו ייעוץ מס)</span></div>
+    <div class="asec-b" style="padding:20px">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;align-items:start">
+        <!-- Left: summary -->
+        <div>
+          <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#888;margin-bottom:12px">סיכום מס משוער</div>
+          <table style="width:100%;border-collapse:collapse;font-size:13px">
+            <tr style="border-bottom:1px solid #eee">
+              <td style="padding:8px 0;color:#555">רווח נטו (כולל מע״מ)</td>
+              <td style="padding:8px 0;text-align:left;font-weight:600">₪${netProfit.toFixed(2)}</td>
+            </tr>
+            <tr style="border-bottom:1px solid #eee">
+              <td style="padding:8px 0;color:#555">הכנסה חייבת במס (÷1.18, ללא מע״מ)</td>
+              <td style="padding:8px 0;text-align:left;font-weight:600">₪${taxable.toFixed(2)}</td>
+            </tr>
+            <tr style="border-bottom:1px solid #eee">
+              <td style="padding:8px 0;color:#c62828">מס הכנסה משוער</td>
+              <td style="padding:8px 0;text-align:left;font-weight:700;color:#c62828">₪${incomeTax.toFixed(2)}</td>
+            </tr>
+            <tr style="border-bottom:1px solid #eee">
+              <td style="padding:8px 0;color:#c62828">ביטוח לאומי (עצמאי)</td>
+              <td style="padding:8px 0;text-align:left;font-weight:700;color:#c62828">₪${bl.toFixed(2)}</td>
+            </tr>
+            <tr style="border-bottom:2px solid #1B3A6B">
+              <td style="padding:8px 0;color:#888;font-size:11px">סה״כ מיסים משוערים</td>
+              <td style="padding:8px 0;text-align:left;font-size:11px;color:#888">₪${(incomeTax+bl).toFixed(2)}</td>
+            </tr>
+            <tr style="background:#e8f5e9">
+              <td style="padding:10px 0;font-weight:700;color:#1B3A6B;font-size:14px">רווח נטו אחרי מס</td>
+              <td style="padding:10px 0;text-align:left;font-weight:900;color:#2e7d32;font-size:18px">₪${netAfterTax.toFixed(2)}</td>
+            </tr>
+            <tr>
+              <td style="padding:6px 0;color:#999;font-size:11px">שיעור מס אפקטיבי</td>
+              <td style="padding:6px 0;text-align:left;color:#999;font-size:11px">${effRate.toFixed(1)}% על ההכנסה החייבת</td>
+            </tr>
+          </table>
+        </div>
+        <!-- Right: brackets -->
+        <div>
+          <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#888;margin-bottom:12px">מדרגות מס הכנסה 2025</div>
+          <table style="width:100%;border-collapse:collapse;font-size:12px">
+            <thead>
+              <tr style="background:#1B3A6B;color:white">
+                <th style="padding:7px 10px;text-align:right;font-weight:500">טווח הכנסה שנתית</th>
+                <th style="padding:7px 10px;text-align:center;font-weight:500">שיעור</th>
+                <th style="padding:7px 10px;text-align:right;font-weight:500">מס על הטווח</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${TAX_BRACKETS.map(b=>{
+                const row=taxRows.find(r=>r.rate===b.rate);
+                const active=row&&row.income>0;
+                return `<tr style="background:${active?'#e8f5e9':'#fafafa'};border-bottom:1px solid #eee">
+                  <td style="padding:6px 10px;text-align:right;color:${active?'#1B3A6B':'#bbb'}">${b.label}</td>
+                  <td style="padding:6px 10px;text-align:center;font-weight:${active?'800':'400'};color:${active?'#c62828':'#bbb'}">${b.rate}%</td>
+                  <td style="padding:6px 10px;text-align:right;font-weight:${active?'700':'400'};color:${active?'#2e7d32':'#bbb'}">${active?'₪'+row.tax.toFixed(2):'—'}</td>
+                </tr>`;
+              }).join('')}
+            </tbody>
+          </table>
+          <div style="margin-top:12px;padding:10px 12px;background:#fff8e1;border-right:3px solid #F5C820;border-radius:3px;font-size:11px;color:#666;line-height:1.6">
+            ⚠️ <strong>הערות:</strong> חישוב זה מניח עוסק מורשה / הכנסת עצמאי. תלוי בסוג עוסק, הכנסות שנתיות כוללות ונקודות זיכוי. מומלץ לאמת עם רו״ח.
+          </div>
+        </div>
+      </div>
     </div>
   </div>`;
 }
