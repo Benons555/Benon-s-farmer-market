@@ -2044,13 +2044,18 @@ function renderAdmin(){
     }).catch(()=>{ renderAdminWithOrders(orders, []); });
   });
 }
+function showInvDetail(key){
+  const el=document.getElementById('inv-detail-'+key);
+  if(el) el.style.display=el.style.display==='none'?'':'none';
+}
 function renderAdminWithOrders(orders, pending){
   pending = pending||[];
   const inv={};
   orders.forEach(o=>o.items.forEach(i=>{
     const k=i.supplier+'|'+i.name+'|'+i.sub;
-    if(!inv[k])inv[k]={supplier:i.supplier,name:i.name,sub:i.sub,price:i.price,qty:0,total:0};
+    if(!inv[k])inv[k]={supplier:i.supplier,name:i.name,sub:i.sub,price:i.price,qty:0,total:0,orders:[]};
     inv[k].qty+=i.qty; inv[k].total+=i.price*i.qty;
+    inv[k].orders.push({name:o.name,phone:o.phone,qty:i.qty,orderId:o.id});
   }));
   const rows=Object.values(inv).sort((a,b)=>a.supplier.localeCompare(b.supplier));
   const grandTotal=orders.reduce((s,o)=>s+o.total,0);
@@ -2062,8 +2067,12 @@ function renderAdminWithOrders(orders, pending){
     <div class="stat-card"><div class="stat-num">${rows.reduce((s,r)=>s+r.qty,0)}</div><div class="stat-lbl">פריטים</div></div>
   </div>
   <div class="asec">
-    <div class="asec-h">📦 מלאי לספקים<button class="ebtn" onclick="printInv()">🖨 הדפסה</button></div>
-    <div class="asec-b">${rows.length?`<table class="atable"><thead><tr><th>ספק</th><th>מוצר</th><th>פירוט</th><th>כמות</th><th>סה״כ</th></tr></thead><tbody>${rows.map(r=>`<tr><td><span class="badge bg">${r.supplier}</span></td><td style="font-weight:700">${r.name}</td><td style="color:var(--muted)">${r.sub}</td><td style="text-align:center;font-weight:700;color:var(--green)">${r.qty}</td><td style="font-weight:700">₪${r.total.toFixed(2)}</td></tr>`).join('')}</tbody></table>`:`<div class="no-data">אין הזמנות</div>`}</div>
+    <div class="asec-h">📦 מלאי לספקים <span style="font-size:12px;font-weight:400">(לחץ על שורה לפירוט מזמינים)</span><button class="ebtn" onclick="printInv()">🖨 הדפסה</button></div>
+    <div class="asec-b">${rows.length?`<table class="atable"><thead><tr><th>ספק</th><th>מוצר</th><th>פירוט</th><th>כמות</th><th>סה״כ</th></tr></thead><tbody>${rows.map((r,ri)=>{
+      const safeKey=ri;
+      const detailRows=r.orders.map(od=>`<tr style="background:#f0f7f0"><td colspan="2" style="padding-right:24px;color:#555">${od.name} — ${od.phone}</td><td style="color:#555">#${od.orderId}</td><td style="text-align:center;font-weight:700;color:var(--green)">${od.qty}</td><td></td></tr>`).join('');
+      return `<tr style="cursor:pointer" onclick="showInvDetail('${safeKey}')"><td><span class="badge bg">${r.supplier}</span></td><td style="font-weight:700">${r.name}</td><td style="color:var(--muted)">${r.sub}</td><td style="text-align:center;font-weight:700;color:var(--green)">${r.qty}</td><td style="font-weight:700">₪${r.total.toFixed(2)}</td></tr><tr id="inv-detail-${safeKey}" style="display:none"><td colspan="5" style="padding:0"><table style="width:100%;border:none">${detailRows}</table></td></tr>`;
+    }).join('')}</tbody></table>`:`<div class="no-data">אין הזמנות</div>`}</div>
   </div>
   <div class="asec">
     <div class="asec-h">📝 כל ההזמנות</div>
