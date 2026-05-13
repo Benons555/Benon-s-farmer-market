@@ -2188,28 +2188,21 @@ function buildProfitAnalysis(orders){
   const maxBarRatio=Math.max(...catList.map(([,c])=>c.rev>0?c.profit/c.rev:0))||1;
   const netProfit=totalProfit-TOTAL_OVERHEAD;
   function color(m){return m>=30?'#2e7d32':m>=20?'#e65100':'#c62828';}
-  // Tax calculation
-  const taxable=netProfit>0?netProfit/1.18:0;
-  const TAX_BRACKETS=[
-    {label:'עד ₪81,480',limit:81480,rate:10},
-    {label:'₪81,480 – ₪116,760',limit:116760,rate:14},
-    {label:'₪116,760 – ₪187,440',limit:187440,rate:20},
-    {label:'₪187,440 – ₪260,520',limit:260520,rate:31},
-    {label:'₪260,520 – ₪542,160',limit:542160,rate:35},
-    {label:'מעל ₪542,160',limit:Infinity,rate:47},
-  ];
-  let incomeTax=0,prevLim=0;
-  const taxRows=[];
-  for(const b of TAX_BRACKETS){
-    if(taxable<=prevLim)break;
-    const inB=Math.min(taxable,b.limit)-prevLim;
-    const t=inB*(b.rate/100);
-    if(inB>0)taxRows.push({label:b.label,rate:b.rate,income:inB,tax:t});
-    incomeTax+=t;prevLim=b.limit;
-  }
-  const bl=taxable<=90264?taxable*0.0982:(90264*0.0982+(taxable-90264)*0.1623);
-  const netAfterTax=netProfit-incomeTax-bl;
-  const effRate=taxable>0?(incomeTax/taxable*100):0;
+  // Tax calculation — חברה בע״מ 2025
+  const CORP_TAX_RATE=0.23;          // מס חברות
+  const DIV_TAX_MAJOR=0.30;          // מס דיבידנד בעל מניות מהותי (>10%)
+  const DIV_TAX_REGULAR=0.25;        // מס דיבידנד בעל מניות רגיל
+  const taxable=netProfit>0?netProfit/1.18:0;  // רווח חייב (ללא מע״מ)
+  const corpTax=taxable*CORP_TAX_RATE;
+  const profitAfterCorp=taxable-corpTax;
+  // דיבידנד: מס על הרווח שנשאר אחרי מס חברות
+  const divTaxMajor=profitAfterCorp*DIV_TAX_MAJOR;
+  const divTaxRegular=profitAfterCorp*DIV_TAX_REGULAR;
+  const netAfterMajor=profitAfterCorp-divTaxMajor;
+  const netAfterRegular=profitAfterCorp-divTaxRegular;
+  // שיעור מס אפקטיבי כולל (חברה + דיבידנד)
+  const effMajor=taxable>0?((corpTax+divTaxMajor)/taxable*100):0;
+  const effRegular=taxable>0?((corpTax+divTaxRegular)/taxable*100):0;
   return `
   <!-- ── TABLE 1: by category ── -->
   <div class="asec">
@@ -2325,70 +2318,95 @@ function buildProfitAnalysis(orders){
       </table>
     </div>
   </div>
-  <!-- ── TABLE 4: tax ── -->
+  <!-- ── TABLE 4: tax (חברה בע״מ) ── -->
   <div class="asec">
-    <div class="asec-h">🏛️ הערכת מיסוי — ${new Date().getFullYear()} <span style="font-size:11px;font-weight:400;opacity:0.65">(אמדן בלבד, אינו ייעוץ מס)</span></div>
+    <div class="asec-h">🏛️ הערכת מיסוי — חברה בע״מ 2025 <span style="font-size:11px;font-weight:400;opacity:0.65">(אמדן בלבד, אינו ייעוץ מס)</span></div>
     <div class="asec-b" style="padding:20px">
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;align-items:start">
-        <!-- Left: summary -->
+        <!-- Left: corporate tax summary -->
         <div>
-          <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#888;margin-bottom:12px">סיכום מס משוער</div>
-          <table style="width:100%;border-collapse:collapse;font-size:13px">
+          <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#888;margin-bottom:12px">שלב 1 — מס חברות (23%)</div>
+          <table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:20px">
             <tr style="border-bottom:1px solid #eee">
-              <td style="padding:8px 0;color:#555">רווח נטו (כולל מע״מ)</td>
+              <td style="padding:8px 0;color:#555">רווח נטו לפני מס (כולל מע״מ)</td>
               <td style="padding:8px 0;text-align:left;font-weight:600">₪${netProfit.toFixed(2)}</td>
             </tr>
             <tr style="border-bottom:1px solid #eee">
-              <td style="padding:8px 0;color:#555">הכנסה חייבת במס (÷1.18, ללא מע״מ)</td>
+              <td style="padding:8px 0;color:#555">רווח חייב במס (÷1.18, ללא מע״מ)</td>
               <td style="padding:8px 0;text-align:left;font-weight:600">₪${taxable.toFixed(2)}</td>
             </tr>
             <tr style="border-bottom:1px solid #eee">
-              <td style="padding:8px 0;color:#c62828">מס הכנסה משוער</td>
-              <td style="padding:8px 0;text-align:left;font-weight:700;color:#c62828">₪${incomeTax.toFixed(2)}</td>
+              <td style="padding:8px 0;color:#c62828">מס חברות — 23%</td>
+              <td style="padding:8px 0;text-align:left;font-weight:700;color:#c62828">₪${corpTax.toFixed(2)}</td>
             </tr>
-            <tr style="border-bottom:1px solid #eee">
-              <td style="padding:8px 0;color:#c62828">ביטוח לאומי (עצמאי)</td>
-              <td style="padding:8px 0;text-align:left;font-weight:700;color:#c62828">₪${bl.toFixed(2)}</td>
-            </tr>
-            <tr style="border-bottom:2px solid #1B3A6B">
-              <td style="padding:8px 0;color:#888;font-size:11px">סה״כ מיסים משוערים</td>
-              <td style="padding:8px 0;text-align:left;font-size:11px;color:#888">₪${(incomeTax+bl).toFixed(2)}</td>
-            </tr>
-            <tr style="background:#e8f5e9">
-              <td style="padding:10px 0;font-weight:700;color:#1B3A6B;font-size:14px">רווח נטו אחרי מס</td>
-              <td style="padding:10px 0;text-align:left;font-weight:900;color:#2e7d32;font-size:18px">₪${netAfterTax.toFixed(2)}</td>
-            </tr>
-            <tr>
-              <td style="padding:6px 0;color:#999;font-size:11px">שיעור מס אפקטיבי</td>
-              <td style="padding:6px 0;text-align:left;color:#999;font-size:11px">${effRate.toFixed(1)}% על ההכנסה החייבת</td>
+            <tr style="background:#e8f5e9;border-bottom:2px solid #1B3A6B">
+              <td style="padding:8px 0;font-weight:700;color:#1B3A6B">רווח בחברה אחרי מס חברות</td>
+              <td style="padding:8px 0;text-align:left;font-weight:800;color:#2e7d32;font-size:15px">₪${profitAfterCorp.toFixed(2)}</td>
             </tr>
           </table>
-        </div>
-        <!-- Right: brackets -->
-        <div>
-          <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#888;margin-bottom:12px">מדרגות מס הכנסה 2025</div>
-          <table style="width:100%;border-collapse:collapse;font-size:12px">
+          <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#888;margin-bottom:12px">שלב 2 — מס דיבידנד (חלוקה לבעלים)</div>
+          <table style="width:100%;border-collapse:collapse;font-size:13px">
             <thead>
-              <tr style="background:#1B3A6B;color:white">
-                <th style="padding:7px 10px;text-align:right;font-weight:500">טווח הכנסה שנתית</th>
-                <th style="padding:7px 10px;text-align:center;font-weight:500">שיעור</th>
-                <th style="padding:7px 10px;text-align:right;font-weight:500">מס על הטווח</th>
+              <tr style="background:#f0f0f0">
+                <th style="padding:6px 8px;text-align:right;font-weight:600;font-size:12px">סוג בעל מניות</th>
+                <th style="padding:6px 8px;text-align:center;font-weight:600;font-size:12px">שיעור דיבידנד</th>
+                <th style="padding:6px 8px;text-align:right;font-weight:600;font-size:12px">מס דיבידנד</th>
+                <th style="padding:6px 8px;text-align:right;font-weight:600;font-size:12px">נטו לכיס</th>
               </tr>
             </thead>
             <tbody>
-              ${TAX_BRACKETS.map(b=>{
-                const row=taxRows.find(r=>r.rate===b.rate);
-                const active=row&&row.income>0;
-                return `<tr style="background:${active?'#e8f5e9':'#fafafa'};border-bottom:1px solid #eee">
-                  <td style="padding:6px 10px;text-align:right;color:${active?'#1B3A6B':'#bbb'}">${b.label}</td>
-                  <td style="padding:6px 10px;text-align:center;font-weight:${active?'800':'400'};color:${active?'#c62828':'#bbb'}">${b.rate}%</td>
-                  <td style="padding:6px 10px;text-align:right;font-weight:${active?'700':'400'};color:${active?'#2e7d32':'#bbb'}">${active?'₪'+row.tax.toFixed(2):'—'}</td>
-                </tr>`;
-              }).join('')}
+              <tr style="border-bottom:1px solid #eee;background:#fdecea">
+                <td style="padding:8px;text-align:right;font-weight:600">מהותי (מחזיק >10%)</td>
+                <td style="padding:8px;text-align:center;font-weight:800;color:#c62828">30%</td>
+                <td style="padding:8px;text-align:right;color:#c62828;font-weight:700">₪${divTaxMajor.toFixed(2)}</td>
+                <td style="padding:8px;text-align:right;font-weight:800;color:#2e7d32">₪${netAfterMajor.toFixed(2)}</td>
+              </tr>
+              <tr style="background:#fff8e1">
+                <td style="padding:8px;text-align:right;font-weight:600">רגיל (מחזיק ≤10%)</td>
+                <td style="padding:8px;text-align:center;font-weight:800;color:#e65100">25%</td>
+                <td style="padding:8px;text-align:right;color:#e65100;font-weight:700">₪${divTaxRegular.toFixed(2)}</td>
+                <td style="padding:8px;text-align:right;font-weight:800;color:#2e7d32">₪${netAfterRegular.toFixed(2)}</td>
+              </tr>
             </tbody>
           </table>
-          <div style="margin-top:12px;padding:10px 12px;background:#fff8e1;border-right:3px solid #F5C820;border-radius:3px;font-size:11px;color:#666;line-height:1.6">
-            ⚠️ <strong>הערות:</strong> חישוב זה מניח עוסק מורשה / הכנסת עצמאי. תלוי בסוג עוסק, הכנסות שנתיות כוללות ונקודות זיכוי. מומלץ לאמת עם רו״ח.
+        </div>
+        <!-- Right: effective rate summary -->
+        <div>
+          <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#888;margin-bottom:12px">שיעור מס אפקטיבי כולל</div>
+          <!-- Major shareholder -->
+          <div style="border:1px solid #e0e0e0;border-radius:6px;padding:16px;margin-bottom:14px">
+            <div style="font-size:12px;color:#888;margin-bottom:8px">בעל מניות מהותי (>10%)</div>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+              <span style="font-size:13px;color:#555">מס חברות</span><span style="font-weight:700">23%</span>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+              <span style="font-size:13px;color:#555">מס דיבידנד (על הנשאר)</span><span style="font-weight:700">30%</span>
+            </div>
+            <div style="height:1px;background:#eee;margin:8px 0"></div>
+            <div style="display:flex;align-items:center;justify-content:space-between">
+              <span style="font-weight:700;color:#1B3A6B">שיעור אפקטיבי כולל</span>
+              <span style="font-size:22px;font-weight:900;color:#c62828">${effMajor.toFixed(1)}%</span>
+            </div>
+            <div style="margin-top:8px;font-size:12px;color:#2e7d32;font-weight:600">נטו לכיס מתוך הרווח: ₪${netAfterMajor.toFixed(2)}</div>
+          </div>
+          <!-- Regular shareholder -->
+          <div style="border:1px solid #e0e0e0;border-radius:6px;padding:16px;margin-bottom:14px">
+            <div style="font-size:12px;color:#888;margin-bottom:8px">בעל מניות רגיל (≤10%)</div>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+              <span style="font-size:13px;color:#555">מס חברות</span><span style="font-weight:700">23%</span>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+              <span style="font-size:13px;color:#555">מס דיבידנד (על הנשאר)</span><span style="font-weight:700">25%</span>
+            </div>
+            <div style="height:1px;background:#eee;margin:8px 0"></div>
+            <div style="display:flex;align-items:center;justify-content:space-between">
+              <span style="font-weight:700;color:#1B3A6B">שיעור אפקטיבי כולל</span>
+              <span style="font-size:22px;font-weight:900;color:#e65100">${effRegular.toFixed(1)}%</span>
+            </div>
+            <div style="margin-top:8px;font-size:12px;color:#2e7d32;font-weight:600">נטו לכיס מתוך הרווח: ₪${netAfterRegular.toFixed(2)}</div>
+          </div>
+          <div style="padding:10px 12px;background:#fff8e1;border-right:3px solid #F5C820;border-radius:3px;font-size:11px;color:#666;line-height:1.7">
+            ⚠️ <strong>הערות:</strong> אם הרווח נשאר בחברה ולא מחולק — משלמים רק 23% מס חברות. מס דיבידנד חל רק בחלוקה לבעלים. אינו כולל הוצאות הנהלה/שכר. מומלץ לאמת עם רו״ח.
           </div>
         </div>
       </div>
