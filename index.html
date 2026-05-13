@@ -1956,6 +1956,7 @@ function showInvDetail(key){
   if(el) el.style.display=el.style.display==='none'?'':'none';
 }
 const PROFIT_MARGIN=0.35;
+const VAT=1.18;
 function renderAdminWithOrders(orders){
   const inv={};
   orders.forEach(o=>o.items.forEach(i=>{
@@ -1963,7 +1964,7 @@ function renderAdminWithOrders(orders){
     if(!inv[k])inv[k]={supplier:i.supplier,name:i.name,sub:i.sub,price:i.price,qty:0,total:0,profit:0,orders:[]};
     inv[k].qty+=i.qty;
     inv[k].total+=i.price*i.qty;
-    inv[k].profit+=i.price*i.qty*PROFIT_MARGIN;
+    inv[k].profit+=(i.price/VAT)*i.qty*PROFIT_MARGIN;
     inv[k].orders.push({name:o.name,phone:o.phone,qty:i.qty,orderId:o.id});
   }));
   const rows=Object.values(inv).sort((a,b)=>a.supplier.localeCompare(b.supplier));
