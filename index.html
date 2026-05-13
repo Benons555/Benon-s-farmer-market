@@ -1395,6 +1395,7 @@ input, textarea {
 .pay-link:hover { background: var(--olive); }
 
 </style>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 </head>
 <body>
 
@@ -2203,6 +2204,12 @@ function buildProfitAnalysis(orders){
   // שיעור מס אפקטיבי כולל (חברה + דיבידנד)
   const effMajor=taxable>0?((corpTax+divTaxMajor)/taxable*100):0;
   const effRegular=taxable>0?((corpTax+divTaxRegular)/taxable*100):0;
+  // Store chart data globally so initProfitCharts() can access it after innerHTML is set
+  window._profitChartData={
+    labels:catList.map(([cat])=>cat),
+    rev:catList.map(([,c])=>+c.rev.toFixed(0)),
+    profit:catList.map(([,c])=>+c.profit.toFixed(0))
+  };
   return `
   <!-- ── TABLE 1: by category ── -->
   <div class="asec">
@@ -2245,6 +2252,22 @@ function buildProfitAnalysis(orders){
           </tr>
         </tfoot>
       </table>
+    </div>
+  </div>
+  <!-- ── PIE CHARTS ── -->
+  <div class="asec">
+    <div class="asec-h">🥧 עוגות פילוח לפי קטגוריה</div>
+    <div class="asec-b" style="padding:20px">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:32px;align-items:center">
+        <div style="text-align:center">
+          <div style="font-weight:700;font-size:13px;color:#1B3A6B;margin-bottom:12px">פילוח מכירות (₪)</div>
+          <canvas id="chartRevPie" style="max-height:280px"></canvas>
+        </div>
+        <div style="text-align:center">
+          <div style="font-weight:700;font-size:13px;color:#2e7d32;margin-bottom:12px">פילוח רווח גולמי (₪)</div>
+          <canvas id="chartProfitPie" style="max-height:280px"></canvas>
+        </div>
+      </div>
     </div>
   </div>
   <!-- ── TABLE 2: by product ── -->
@@ -2296,23 +2319,23 @@ function buildProfitAnalysis(orders){
         </tr></thead>
         <tbody>
           ${OVERHEAD_COSTS.map(c=>`<tr>
-            <td style="font-weight:700;text-align:right">${c.label}</td>
-            <td style="color:#888;font-size:12px;text-align:right">${c.detail}</td>
-            <td style="font-weight:700;color:#c62828;text-align:right">₪${c.amount.toFixed(2)}</td>
+            <td style="font-weight:600;font-size:13px;text-align:right;padding:12px 16px">${c.label}</td>
+            <td style="color:#888;font-size:13px;text-align:right;padding:12px 16px">${c.detail}</td>
+            <td style="font-weight:700;color:#c62828;font-size:13px;text-align:right;padding:12px 16px">₪${c.amount.toFixed(2)}</td>
           </tr>`).join('')}
         </tbody>
         <tfoot>
           <tr style="background:#f5f5f5">
-            <td colspan="2" style="font-weight:700;text-align:right">סה״כ הוצאות קבועות</td>
-            <td style="font-weight:800;color:#c62828;font-size:15px;text-align:right">₪${TOTAL_OVERHEAD.toFixed(2)}</td>
+            <td colspan="2" style="font-weight:700;font-size:13px;text-align:right;padding:12px 16px">סה״כ הוצאות קבועות</td>
+            <td style="font-weight:800;color:#c62828;font-size:13px;text-align:right;padding:12px 16px">₪${TOTAL_OVERHEAD.toFixed(2)}</td>
           </tr>
           <tr style="background:#1B3A6B">
-            <td colspan="2" style="font-weight:700;color:white;text-align:right">רווח נטו (לפני מס)</td>
-            <td style="font-weight:800;color:#F5E87A;font-size:15px;text-align:right">₪${netProfit.toFixed(2)}</td>
+            <td colspan="2" style="font-weight:700;font-size:13px;color:white;text-align:right;padding:12px 16px">רווח נטו (לפני מס)</td>
+            <td style="font-weight:800;color:#F5E87A;font-size:13px;text-align:right;padding:12px 16px">₪${netProfit.toFixed(2)}</td>
           </tr>
           <tr style="background:#0d2447">
-            <td colspan="2" style="font-weight:700;color:white;text-align:right">סה״כ הוצאות (מוצרים + תפעול)</td>
-            <td style="font-weight:800;color:#aac8ff;font-size:13px;text-align:right">₪${(totalRev-totalProfit+TOTAL_OVERHEAD).toFixed(2)}</td>
+            <td colspan="2" style="font-weight:700;font-size:13px;color:white;text-align:right;padding:12px 16px">סה״כ הוצאות (מוצרים + תפעול)</td>
+            <td style="font-weight:800;color:#aac8ff;font-size:13px;text-align:right;padding:12px 16px">₪${(totalRev-totalProfit+TOTAL_OVERHEAD).toFixed(2)}</td>
           </tr>
         </tfoot>
       </table>
@@ -2536,6 +2559,33 @@ function renderAdminWithOrders(orders){
     <button class="btn-s" style="background:#fdecea;color:#c0392b" onclick="if(confirm('למחוק את כל ההזמנות?')){localStorage.removeItem('benon_orders');fbDB.ref('orders').remove().catch(()=>{});renderAdmin();}">🗑 מחיקת כל ההזמנות</button>
   </div>
   `;
+  setTimeout(initProfitCharts,50);
+}
+
+function initProfitCharts(){
+  const d=window._profitChartData;
+  if(!d||!window.Chart)return;
+  const PIE_COLORS=['#1B3A6B','#2e7d32','#F5A623','#c62828','#8e44ad','#0097a7','#795548','#546e7a'];
+  const opts={
+    type:'doughnut',
+    options:{
+      responsive:true,
+      plugins:{
+        legend:{position:'bottom',labels:{font:{size:11},boxWidth:14,padding:8}},
+        tooltip:{callbacks:{label:ctx=>' ₪'+ctx.parsed.toLocaleString('he-IL')+'  ('+((ctx.parsed/ctx.dataset.data.reduce((a,b)=>a+b,0))*100).toFixed(1)+'%)'}}
+      }
+    }
+  };
+  const rc=document.getElementById('chartRevPie');
+  const pc=document.getElementById('chartProfitPie');
+  if(rc){
+    if(rc._chart)rc._chart.destroy();
+    rc._chart=new Chart(rc,{...opts,data:{labels:d.labels,datasets:[{data:d.rev,backgroundColor:PIE_COLORS,borderWidth:2,borderColor:'#fff'}]}});
+  }
+  if(pc){
+    if(pc._chart)pc._chart.destroy();
+    pc._chart=new Chart(pc,{...opts,data:{labels:d.labels,datasets:[{data:d.profit,backgroundColor:PIE_COLORS,borderWidth:2,borderColor:'#fff'}]}});
+  }
 }
 
 // ===== Green Invoice (חשבונית ירוקה) =====
