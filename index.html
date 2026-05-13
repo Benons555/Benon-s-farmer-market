@@ -2161,6 +2161,12 @@ function getCategoryForItem(i){
   return 'אחר';
 }
 
+const OVERHEAD_COSTS=[
+  {label:'אריזה — 2 עובדות × 4 שעות × ₪45',detail:'עבודת יד, אריזה ושירות',amount:360},
+  {label:'שקי יוטה למארזים',detail:'אריזות בד/יוטה לכל מארז',amount:300},
+];
+const TOTAL_OVERHEAD=OVERHEAD_COSTS.reduce((s,c)=>s+c.amount,0);
+
 function buildProfitAnalysis(orders){
   const cats={},prods={};
   orders.forEach(o=>o.items.forEach(i=>{
@@ -2248,6 +2254,40 @@ function buildProfitAnalysis(orders){
         </tbody>
       </table>
     </div>
+  </div>
+  <div class="asec">
+    <div class="asec-h">🏗️ הוצאות תפעוליות קבועות</div>
+    <div class="asec-b">
+      <table class="atable">
+        <thead><tr>
+          <th>הוצאה</th><th>פירוט</th><th>סכום</th>
+        </tr></thead>
+        <tbody>
+          ${OVERHEAD_COSTS.map(c=>`<tr>
+            <td style="font-weight:700">${c.label}</td>
+            <td style="color:#888;font-size:12px">${c.detail}</td>
+            <td style="font-weight:700;color:#c62828">₪${c.amount.toFixed(2)}</td>
+          </tr>`).join('')}
+        </tbody>
+        <tfoot>
+          <tr style="background:#f5f5f5">
+            <td style="font-weight:700">סה״כ הוצאות קבועות</td>
+            <td style="color:#888;font-size:12px">לא כולל עלות מוצרים</td>
+            <td style="font-weight:800;color:#c62828;font-size:15px">₪${TOTAL_OVERHEAD.toFixed(2)}</td>
+          </tr>
+          <tr style="background:#1B3A6B">
+            <td style="font-weight:700;color:white">רווח נטו משוער</td>
+            <td style="color:rgba(255,255,255,0.6);font-size:12px">רווח גולמי ממוצרים − הוצאות קבועות</td>
+            <td style="font-weight:800;color:#F5E87A;font-size:15px">₪${(totalProfit-TOTAL_OVERHEAD).toFixed(2)}</td>
+          </tr>
+          <tr style="background:#0d2447">
+            <td style="font-weight:700;color:white">סה״כ הוצאות (מוצרים + תפעול)</td>
+            <td style="color:rgba(255,255,255,0.5);font-size:12px">עלות מוצרים + הוצאות קבועות</td>
+            <td style="font-weight:800;color:#aac8ff;font-size:13px">₪${(totalRev-totalProfit+TOTAL_OVERHEAD).toFixed(2)}</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
   </div>`;
 }
 
@@ -2306,17 +2346,23 @@ function renderAdminWithOrders(orders){
     return s+(couponEntry&&couponEntry.sponsored?o.subtotal:o.total);
   },0);
   const grandProfit=rows.reduce((s,r)=>s+r.profit,0);
+  const netProfit=grandProfit-TOTAL_OVERHEAD;
   const avgOrderVal=orders.length?grandTotal/orders.length:0;
   const avgMargin=grandTotal>0?(grandProfit/grandTotal*100):0;
+  const netMargin=grandTotal>0?(netProfit/grandTotal*100):0;
   document.getElementById('adminView').innerHTML=`
   <div class="admin-hdr"><h1>📋 ממשק ניהול — BENON'S</h1><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="ebtn" onclick="renderAdmin()">🔄 רענן</button><button class="ebtn" onclick="exportCSV()">⬇ CSV</button><button class="ebtn" style="background:#1B3A6B;color:#F5D87A;font-weight:700" onclick="addAmbrellaOrder()">🏢 אמברלה</button><button class="ebtn" style="background:#2E5E3E;color:#A8D5B5;font-weight:700" onclick="addWimiOrder()">🏢 וימי</button><button class="ebtn" style="background:#eee;color:#555" onclick="adminLogout()">🔒 יציאה</button></div></div>
-  <div class="stats-grid" style="grid-template-columns:repeat(6,1fr)">
+  <div class="stats-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:12px">
     <div class="stat-card"><div class="stat-num">${orders.length}</div><div class="stat-lbl">הזמנות</div></div>
-    <div class="stat-card"><div class="stat-num">₪${grandTotal.toFixed(0)}</div><div class="stat-lbl">סה״כ מכירות</div></div>
-    <div class="stat-card"><div class="stat-num" style="color:#2e7d32">₪${grandProfit.toFixed(0)}</div><div class="stat-lbl">רווח גולמי</div></div>
-    <div class="stat-card"><div class="stat-num" style="color:#1B3A6B">${avgMargin.toFixed(1)}%</div><div class="stat-lbl">שולי רווח</div></div>
+    <div class="stat-card"><div class="stat-num">₪${grandTotal.toFixed(0)}</div><div class="stat-lbl">סה״כ הכנסות</div></div>
     <div class="stat-card"><div class="stat-num">₪${avgOrderVal.toFixed(0)}</div><div class="stat-lbl">ממוצע הזמנה</div></div>
     <div class="stat-card"><div class="stat-num">${rows.reduce((s,r)=>s+r.qty,0)}</div><div class="stat-lbl">פריטים</div></div>
+  </div>
+  <div class="stats-grid" style="grid-template-columns:repeat(4,1fr)">
+    <div class="stat-card" style="border-top:3px solid #2e7d32"><div class="stat-num" style="color:#2e7d32">₪${grandProfit.toFixed(0)}</div><div class="stat-lbl">רווח גולמי ממוצרים</div></div>
+    <div class="stat-card" style="border-top:3px solid #1B3A6B"><div class="stat-num" style="color:#1B3A6B">${avgMargin.toFixed(1)}%</div><div class="stat-lbl">שולי רווח גולמי</div></div>
+    <div class="stat-card" style="border-top:3px solid ${netProfit>=0?'#F5A623':'#c62828'}"><div class="stat-num" style="color:${netProfit>=0?'#e65100':'#c62828'}">₪${netProfit.toFixed(0)}</div><div class="stat-lbl">רווח נטו (אחרי הוצאות)</div></div>
+    <div class="stat-card" style="border-top:3px solid ${netProfit>=0?'#F5A623':'#c62828'}"><div class="stat-num" style="color:${netProfit>=0?'#e65100':'#c62828'}">${netMargin.toFixed(1)}%</div><div class="stat-lbl">שולי רווח נטו</div></div>
   </div>
   ${buildProfitAnalysis(orders)}
   <div class="asec">
