@@ -2019,6 +2019,238 @@ function toggleOrderDetail(id){
   if(el)el.style.display=el.style.display==='none'?'':'none';
 }
 
+// ── ORDER EDITING ──
+let _adminOrders=[];
+let _orderEdits={};
+
+function startOrderEdit(orderId){
+  const o=_adminOrders.find(x=>x.id===orderId)||getOrders().find(x=>x.id===orderId);
+  if(!o)return;
+  _orderEdits[orderId]=JSON.parse(JSON.stringify(o.items));
+  renderOrderEdit(orderId);
+}
+
+function renderOrderEdit(orderId){
+  const items=_orderEdits[orderId];
+  if(!items)return;
+  const el=document.getElementById('oe-'+orderId);
+  if(!el)return;
+  const sub=items.reduce((s,i)=>s+i.price*i.qty,0);
+  el.innerHTML=`
+    <table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:8px">
+      <thead><tr style="background:#f0f0f0">
+        <th style="padding:6px 8px;text-align:right">מוצר</th>
+        <th style="padding:6px 8px;text-align:right">פירוט</th>
+        <th style="padding:6px 8px;text-align:center;width:80px">כמות</th>
+        <th style="padding:6px 8px;text-align:right">מחיר</th>
+        <th style="padding:6px 8px;text-align:right">סה״כ</th>
+        <th style="width:32px"></th>
+      </tr></thead>
+      <tbody>${items.map((i,idx)=>`
+        <tr style="border-bottom:1px solid #eee">
+          <td style="padding:5px 8px;font-weight:600">${i.name}</td>
+          <td style="padding:5px 8px;color:#666;font-size:11px">${i.sub||''}</td>
+          <td style="padding:5px 8px;text-align:center">
+            <input type="number" min="1" value="${i.qty}" onchange="updateOrderEditQty('${orderId}',${idx},this.value)"
+              style="width:58px;text-align:center;border:1px solid #ddd;padding:3px 2px;border-radius:3px;font-size:12px">
+          </td>
+          <td style="padding:5px 8px">₪${i.price.toFixed(2)}</td>
+          <td style="padding:5px 8px;font-weight:600">₪${(i.price*i.qty).toFixed(2)}</td>
+          <td style="padding:5px 8px">
+            <button onclick="removeOrderEditItem('${orderId}',${idx})"
+              style="background:#fee;color:#c00;border:1px solid #fcc;border-radius:3px;padding:2px 7px;cursor:pointer;font-size:11px;line-height:1.4">✕</button>
+          </td>
+        </tr>`).join('')}
+      </tbody>
+    </table>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
+      <strong style="font-size:13px">סה״כ: ₪${sub.toFixed(2)}</strong>
+      <button class="ebtn" style="background:#1B3A6B;color:white;border-color:#1B3A6B" onclick="saveOrderEdits('${orderId}')">💾 שמור</button>
+      <button class="ebtn" onclick="cancelOrderEdit('${orderId}')">✕ בטל</button>
+      <button class="ebtn" style="background:#e8f5e9;color:#2e7d32;border-color:#a5d6a7" onclick="showAddItemRow('${orderId}')">+ הוסף פריט</button>
+    </div>
+    <div id="add-item-${orderId}" style="display:none;padding:10px;background:#f9f9f9;border:1px solid #eee;border-radius:4px">
+      <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:flex-end">
+        <div><label style="font-size:11px;display:block;margin-bottom:3px;font-weight:600">מוצר *</label>
+          <input id="ai-name-${orderId}" placeholder="שם המוצר" style="border:1px solid #ddd;padding:5px 7px;border-radius:3px;width:155px;font-size:12px"></div>
+        <div><label style="font-size:11px;display:block;margin-bottom:3px;font-weight:600">פירוט</label>
+          <input id="ai-sub-${orderId}" placeholder="גודל / תיאור" style="border:1px solid #ddd;padding:5px 7px;border-radius:3px;width:130px;font-size:12px"></div>
+        <div><label style="font-size:11px;display:block;margin-bottom:3px;font-weight:600">ספק</label>
+          <input id="ai-sup-${orderId}" placeholder="ספק" style="border:1px solid #ddd;padding:5px 7px;border-radius:3px;width:120px;font-size:12px"></div>
+        <div><label style="font-size:11px;display:block;margin-bottom:3px;font-weight:600">כמות</label>
+          <input id="ai-qty-${orderId}" type="number" min="1" value="1" style="border:1px solid #ddd;padding:5px 7px;border-radius:3px;width:58px;font-size:12px"></div>
+        <div><label style="font-size:11px;display:block;margin-bottom:3px;font-weight:600">מחיר ₪</label>
+          <input id="ai-price-${orderId}" type="number" step="0.01" placeholder="0.00" style="border:1px solid #ddd;padding:5px 7px;border-radius:3px;width:80px;font-size:12px"></div>
+        <button class="ebtn" style="background:#1B3A6B;color:white;border-color:#1B3A6B" onclick="confirmAddItem('${orderId}')">הוסף ✓</button>
+      </div>
+    </div>`;
+}
+
+function updateOrderEditQty(orderId,idx,val){
+  if(!_orderEdits[orderId])return;
+  _orderEdits[orderId][idx].qty=Math.max(1,parseInt(val)||1);
+  renderOrderEdit(orderId);
+}
+
+function removeOrderEditItem(orderId,idx){
+  if(!_orderEdits[orderId])return;
+  if(!confirm('להסיר פריט זה?'))return;
+  _orderEdits[orderId].splice(idx,1);
+  renderOrderEdit(orderId);
+}
+
+function showAddItemRow(orderId){
+  const el=document.getElementById('add-item-'+orderId);
+  if(el)el.style.display=el.style.display==='none'?'':'none';
+}
+
+function confirmAddItem(orderId){
+  const name=(document.getElementById('ai-name-'+orderId).value||'').trim();
+  const sub=(document.getElementById('ai-sub-'+orderId).value||'').trim();
+  const supplier=(document.getElementById('ai-sup-'+orderId).value||'').trim();
+  const qty=parseInt(document.getElementById('ai-qty-'+orderId).value)||1;
+  const price=parseFloat(document.getElementById('ai-price-'+orderId).value);
+  if(!name||isNaN(price)||price<=0){alert('נדרש שם מוצר ומחיר תקין');return;}
+  if(!_orderEdits[orderId])return;
+  _orderEdits[orderId].push({name,sub,supplier,qty,price});
+  renderOrderEdit(orderId);
+}
+
+function cancelOrderEdit(orderId){
+  delete _orderEdits[orderId];
+  const o=_adminOrders.find(x=>x.id===orderId)||getOrders().find(x=>x.id===orderId);
+  if(!o)return;
+  const el=document.getElementById('oe-'+orderId);
+  if(el)el.innerHTML=_staticOrderItems(o);
+}
+
+function _staticOrderItems(o){
+  return `<ul style="margin:4px 0 0 16px;font-size:12px">${o.items.map(i=>`<li>${i.name}${i.sub?' ('+i.sub+')':''} × ${i.qty} = ₪${(i.price*i.qty).toFixed(2)}</li>`).join('')}</ul>
+  <div style="margin-top:8px"><button class="ebtn" onclick="startOrderEdit('${o.id}')">✏️ ערוך פריטים</button></div>`;
+}
+
+async function saveOrderEdits(orderId){
+  const newItems=_orderEdits[orderId];
+  if(!newItems||newItems.length===0){alert('לא ניתן לשמור הזמנה ריקה');return;}
+  const allOrders=getOrders();
+  const idx=allOrders.findIndex(x=>x.id===orderId);
+  if(idx===-1){alert('הזמנה לא נמצאה');return;}
+  allOrders[idx].items=newItems;
+  const newSub=newItems.reduce((s,i)=>s+i.price*i.qty,0);
+  allOrders[idx].subtotal=newSub;
+  allOrders[idx].total=newSub-(allOrders[idx].discount||0);
+  localStorage.setItem('benon_orders',JSON.stringify(allOrders));
+  saveOrderToFirebase(allOrders[idx]);
+  const ai=_adminOrders.findIndex(x=>x.id===orderId);
+  if(ai!==-1)_adminOrders[ai]=allOrders[idx];
+  delete _orderEdits[orderId];
+  alert('✓ ההזמנה עודכנה');
+  renderAdmin();
+}
+
+// ── PROFIT ANALYSIS ──
+function getCategoryForItem(i){
+  const s=i.supplier||'',n=i.name||'';
+  if(s.includes('ברקנית')||s.includes('מחלבת'))return 'גבינות 🧀';
+  if(s.includes('MIKA')||s.includes('יקב'))return 'יינות 🍷';
+  if(n.includes('שמן זית')||s.includes('מגידו'))return 'שמן זית 🫒';
+  if(['דבש אבוקדו','דבש הדרים','דבש שיזף','דבש פרחי בר טבעי'].includes(n)||n.includes('מארז דבש'))return 'דבשים 🍯';
+  if(FRUIT_NAMES.has(n))return 'פירות 🍓';
+  if(n.includes('פרחים')||n.includes('נץ'))return 'פרחים 🌸';
+  if(s.includes('רוזנברג')||['עגבניות','אבוקדו','פטריות','חסה','תירס','מלפפון','נבט','אספרגוס'].some(k=>n.includes(k)))return 'ירקות 🥬';
+  return 'אחר';
+}
+
+function buildProfitAnalysis(orders){
+  const cats={},prods={};
+  orders.forEach(o=>o.items.forEach(i=>{
+    const cat=getCategoryForItem(i);
+    if(!cats[cat])cats[cat]={rev:0,profit:0,qty:0};
+    cats[cat].rev+=i.price*i.qty;
+    cats[cat].profit+=getItemProfit(i);
+    cats[cat].qty+=i.qty;
+    const pk=i.name+'|'+(i.sub||'');
+    if(!prods[pk])prods[pk]={name:i.name,sub:i.sub||'',cat,rev:0,profit:0,qty:0,price:i.price};
+    prods[pk].rev+=i.price*i.qty;
+    prods[pk].profit+=getItemProfit(i);
+    prods[pk].qty+=i.qty;
+  }));
+  const catList=Object.entries(cats).sort((a,b)=>b[1].profit-a[1].profit);
+  const prodList=Object.values(prods).sort((a,b)=>b.profit-a.profit);
+  const totalRev=catList.reduce((s,[,c])=>s+c.rev,0);
+  const totalProfit=catList.reduce((s,[,c])=>s+c.profit,0);
+  const maxBarRatio=Math.max(...catList.map(([,c])=>c.rev>0?c.profit/c.rev:0))||1;
+  function color(m){return m>=30?'#2e7d32':m>=20?'#e65100':'#c62828';}
+  return `
+  <div class="asec">
+    <div class="asec-h">📊 רווחיות לפי קטגוריה</div>
+    <div class="asec-b">
+      <table class="atable">
+        <thead><tr>
+          <th>קטגוריה</th><th>כמות</th><th>מכירות (כולל מע״מ)</th><th>רווח גולמי</th>
+          <th>שולי רווח %</th><th style="min-width:140px">בר שוליים</th>
+        </tr></thead>
+        <tbody>
+          ${catList.map(([cat,c])=>{
+            const m=c.rev>0?(c.profit/c.rev*100):0;
+            const barW=Math.round((c.rev>0?c.profit/c.rev:0)/maxBarRatio*100);
+            const cl=color(m);
+            return `<tr>
+              <td style="font-weight:700">${cat}</td>
+              <td style="text-align:center">${c.qty}</td>
+              <td>₪${c.rev.toFixed(0)}</td>
+              <td style="font-weight:700;color:#2e7d32">₪${c.profit.toFixed(0)}</td>
+              <td style="font-weight:800;color:${cl};font-size:14px">${m.toFixed(1)}%</td>
+              <td><div style="height:10px;background:#e8e8e8;border-radius:5px;overflow:hidden">
+                <div style="height:100%;width:${barW}%;background:${cl};border-radius:5px"></div>
+              </div><span style="font-size:10px;color:#999">${m.toFixed(1)}%</span></td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+        <tfoot>
+          <tr style="background:#1B3A6B;color:white">
+            <td style="font-weight:700;color:white">סה״כ</td>
+            <td style="text-align:center;color:white">${catList.reduce((s,[,c])=>s+c.qty,0)}</td>
+            <td style="color:white">₪${totalRev.toFixed(0)}</td>
+            <td style="font-weight:700;color:#F5E87A">₪${totalProfit.toFixed(0)}</td>
+            <td style="font-weight:800;color:#F5E87A;font-size:14px">${totalRev>0?(totalProfit/totalRev*100).toFixed(1):0}%</td>
+            <td></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  </div>
+  <div class="asec">
+    <div class="asec-h">🏆 פילוח לפי מוצר <span style="font-size:11px;font-weight:400;opacity:0.6">(ממוין לפי רווח)</span></div>
+    <div class="asec-b">
+      <table class="atable">
+        <thead><tr>
+          <th>מוצר</th><th>פירוט</th><th>קטגוריה</th><th>כמות</th>
+          <th>מחיר</th><th>מכירות</th><th>עלות משוערת</th><th>רווח</th><th>שולי %</th>
+        </tr></thead>
+        <tbody>
+          ${prodList.map(p=>{
+            const m=p.rev>0?(p.profit/p.rev*100):0;
+            const cost=p.rev-p.profit;
+            const cl=color(m);
+            return `<tr>
+              <td style="font-weight:700">${p.name}</td>
+              <td style="color:#888;font-size:11px">${p.sub}</td>
+              <td><span style="background:#f5f5f5;padding:2px 8px;border-radius:10px;font-size:11px;white-space:nowrap">${p.cat}</span></td>
+              <td style="text-align:center;font-weight:700;color:var(--green)">${p.qty}</td>
+              <td>₪${p.price.toFixed(2)}</td>
+              <td>₪${p.rev.toFixed(0)}</td>
+              <td style="color:#888">₪${cost.toFixed(0)}</td>
+              <td style="font-weight:700;color:#2e7d32">₪${p.profit.toFixed(0)}</td>
+              <td style="font-weight:800;color:${cl}">${m.toFixed(1)}%</td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>
+  </div>`;
+}
+
 function renderAdmin(){
   if(!_admin.ok()){openModal('adminLoginModal');return;}
   document.getElementById('adminView').innerHTML='<div style="text-align:center;padding:40px;color:#888">⏳ טוען הזמנות...</div>';
@@ -2058,6 +2290,7 @@ function getItemProfit(i){
   return (i.price/VAT)*i.qty*0.35;
 }
 function renderAdminWithOrders(orders){
+  _adminOrders=orders;
   const inv={};
   orders.forEach(o=>o.items.forEach(i=>{
     const k=i.supplier+'|'+i.name+'|'+i.sub;
@@ -2073,19 +2306,26 @@ function renderAdminWithOrders(orders){
     return s+(couponEntry&&couponEntry.sponsored?o.subtotal:o.total);
   },0);
   const grandProfit=rows.reduce((s,r)=>s+r.profit,0);
+  const avgOrderVal=orders.length?grandTotal/orders.length:0;
+  const avgMargin=grandTotal>0?(grandProfit/grandTotal*100):0;
   document.getElementById('adminView').innerHTML=`
-  <div class="admin-hdr"><h1>📋 ממשק ניהול — BENON'S</h1><div style="display:flex;gap:8px"><button class="ebtn" onclick="renderAdmin()">🔄 רענן</button><button class="ebtn" onclick="exportCSV()">⬇ CSV</button><button class="ebtn" style="background:#1B3A6B;color:#F5D87A;font-weight:700" onclick="addAmbrellaOrder()">🏢 אמברלה</button><button class="ebtn" style="background:#2E5E3E;color:#A8D5B5;font-weight:700" onclick="addWimiOrder()">🏢 וימי</button><button class="ebtn" style="background:#eee;color:#555" onclick="adminLogout()">🔒 יציאה</button></div></div>
-  <div class="stats-grid">
+  <div class="admin-hdr"><h1>📋 ממשק ניהול — BENON'S</h1><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="ebtn" onclick="renderAdmin()">🔄 רענן</button><button class="ebtn" onclick="exportCSV()">⬇ CSV</button><button class="ebtn" style="background:#1B3A6B;color:#F5D87A;font-weight:700" onclick="addAmbrellaOrder()">🏢 אמברלה</button><button class="ebtn" style="background:#2E5E3E;color:#A8D5B5;font-weight:700" onclick="addWimiOrder()">🏢 וימי</button><button class="ebtn" style="background:#eee;color:#555" onclick="adminLogout()">🔒 יציאה</button></div></div>
+  <div class="stats-grid" style="grid-template-columns:repeat(6,1fr)">
     <div class="stat-card"><div class="stat-num">${orders.length}</div><div class="stat-lbl">הזמנות</div></div>
     <div class="stat-card"><div class="stat-num">₪${grandTotal.toFixed(0)}</div><div class="stat-lbl">סה״כ מכירות</div></div>
-    <div class="stat-card"><div class="stat-num">₪${grandProfit.toFixed(0)}</div><div class="stat-lbl">רווח משוער</div></div>
+    <div class="stat-card"><div class="stat-num" style="color:#2e7d32">₪${grandProfit.toFixed(0)}</div><div class="stat-lbl">רווח גולמי</div></div>
+    <div class="stat-card"><div class="stat-num" style="color:#1B3A6B">${avgMargin.toFixed(1)}%</div><div class="stat-lbl">שולי רווח</div></div>
+    <div class="stat-card"><div class="stat-num">₪${avgOrderVal.toFixed(0)}</div><div class="stat-lbl">ממוצע הזמנה</div></div>
     <div class="stat-card"><div class="stat-num">${rows.reduce((s,r)=>s+r.qty,0)}</div><div class="stat-lbl">פריטים</div></div>
   </div>
+  ${buildProfitAnalysis(orders)}
   <div class="asec">
     <div class="asec-h">📦 מלאי לספקים <span style="font-size:12px;font-weight:400">(לחץ על שורה לפירוט מזמינים)</span><button class="ebtn" onclick="printInv()">🖨 הדפסה</button></div>
-    <div class="asec-b">${rows.length?`<table class="atable"><thead><tr><th>ספק</th><th>מוצר</th><th>פירוט</th><th>כמות</th><th>סה״כ מכירה</th><th style="color:#2e7d32">רווח</th></tr></thead><tbody>${rows.map((r,ri)=>{
-      const detailRows=r.orders.map(od=>`<tr style="background:#f0f7f0"><td colspan="2" style="padding-right:24px;color:#555">${od.name} — ${od.phone}</td><td style="color:#555">#${od.orderId}</td><td style="text-align:center;font-weight:700;color:var(--green)">${od.qty}</td><td></td><td></td></tr>`).join('');
-      return `<tr style="cursor:pointer" onclick="showInvDetail('${ri}')"><td><span class="badge bg">${r.supplier}</span></td><td style="font-weight:700">${r.name}</td><td style="color:var(--muted)">${r.sub}</td><td style="text-align:center;font-weight:700;color:var(--green)">${r.qty}</td><td style="font-weight:700">₪${r.total.toFixed(2)}</td><td style="font-weight:700;color:#2e7d32">₪${r.profit.toFixed(2)}</td></tr><tr id="inv-detail-${ri}" style="display:none"><td colspan="6" style="padding:0"><table style="width:100%;border:none">${detailRows}</table></td></tr>`;
+    <div class="asec-b">${rows.length?`<table class="atable"><thead><tr><th>ספק</th><th>מוצר</th><th>פירוט</th><th>כמות</th><th>סה״כ מכירה</th><th style="color:#2e7d32">רווח</th><th>שולי %</th></tr></thead><tbody>${rows.map((r,ri)=>{
+      const margin=r.total>0?(r.profit/r.total*100):0;
+      const cl=margin>=30?'#2e7d32':margin>=20?'#e65100':'#c62828';
+      const detailRows=r.orders.map(od=>`<tr style="background:#f0f7f0"><td colspan="2" style="padding-right:24px;color:#555">${od.name} — ${od.phone}</td><td style="color:#555">#${od.orderId}</td><td style="text-align:center;font-weight:700;color:var(--green)">${od.qty}</td><td></td><td></td><td></td></tr>`).join('');
+      return `<tr style="cursor:pointer" onclick="showInvDetail('${ri}')"><td><span class="badge bg">${r.supplier}</span></td><td style="font-weight:700">${r.name}</td><td style="color:var(--muted)">${r.sub}</td><td style="text-align:center;font-weight:700;color:var(--green)">${r.qty}</td><td style="font-weight:700">₪${r.total.toFixed(2)}</td><td style="font-weight:700;color:#2e7d32">₪${r.profit.toFixed(2)}</td><td style="font-weight:800;color:${cl}">${margin.toFixed(1)}%</td></tr><tr id="inv-detail-${ri}" style="display:none"><td colspan="7" style="padding:0"><table style="width:100%;border:none">${detailRows}</table></td></tr>`;
     }).join('')}</tbody></table>`:`<div class="no-data">אין הזמנות</div>`}</div>
   </div>
   <div class="asec">
@@ -2113,8 +2353,10 @@ function renderAdminWithOrders(orders){
             <tr><td style="color:#888">אישור</td><td>${o.ref}</td></tr>
             ${o.coupon?`<tr><td style="color:#888">קופון</td><td>${o.coupon} (-₪${o.discount.toFixed(2)})</td></tr>`:''}
           </table>
-          <div style="margin-top:8px;font-weight:700;font-size:12px">מוצרים:</div>
-          <ul style="margin:4px 0 0 16px;font-size:12px">${o.items.map(i=>`<li>${i.name} (${i.sub}) × ${i.qty} = ₪${(i.price*i.qty).toFixed(2)}</li>`).join('')}</ul>
+          <div style="margin-top:10px;font-weight:700;font-size:12px">מוצרים:</div>
+          <div id="oe-${o.id}" style="margin-top:4px">
+            ${_staticOrderItems(o)}
+          </div>
           <div style="margin-top:8px;display:flex;gap:8px">
             <button id="gi_${o.id}" class="ebtn" onclick="createInvoice('${o.id}')">📄 חשבונית</button>
           </div>
