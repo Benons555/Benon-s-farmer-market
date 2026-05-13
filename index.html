@@ -1669,7 +1669,17 @@ const CATEGORIES = CATEGORY_ORDER.filter(cat => PRODUCTS.some(p => p.cat === cat
 
 const ICONS={};
 
-let cart={},adminLoggedIn=false,currentOrder=null;
+let cart={},currentOrder=null;
+
+// Admin session — closed over, not accessible from console
+const _admin=(function(){
+  let _tok=null;
+  return {
+    login(){_tok=Math.random().toString(36).slice(2)+Math.random().toString(36).slice(2);sessionStorage.setItem('_at',_tok);},
+    logout(){_tok=null;sessionStorage.removeItem('_at');},
+    ok(){return _tok!==null&&_tok===sessionStorage.getItem('_at');}
+  };
+})();
 
 // Restore cart from localStorage
 try{ const saved=JSON.parse(localStorage.getItem('benon_cart')||'{}'); if(typeof saved==='object'&&saved!==null) cart=saved; }catch(e){}
@@ -1767,15 +1777,7 @@ function updateCartUI(){
 }
 
 
-async function checkAdmin(){
-  const h=await hashStr(document.getElementById('adminPwd').value);
-  if(h===ADMIN_PWD_HASH){
-    adminLoggedIn=true;closeModal('adminLoginModal');document.getElementById('adminPwd').value='';renderAdmin();
-  }else{document.getElementById('loginErr').textContent='סיסמה שגויה';}
-}
-
 function getOrders(){try{return JSON.parse(localStorage.getItem('benon_orders')||'[]');}catch(e){return[];}}
-
 
 function exportCSV(){
   const orders=getOrders(),inv={};
@@ -1904,27 +1906,43 @@ function showTab(tab){
   document.getElementById('shopView').style.display=tab==='shop'?'':'none';
   document.getElementById('catTabs').style.display=tab==='shop'?'':'none';
   document.getElementById('adminView').style.display=tab==='admin'?'':'none';
-  if(tab==='admin'){if(!adminLoggedIn)openModal('adminLoginModal');else renderAdmin();}
+  if(tab==='admin'){if(!_admin.ok())openModal('adminLoginModal');else renderAdmin();}
 }
 
 async function checkAdmin(){
   const h=await hashStr(document.getElementById('adminPwd').value);
   if(h===ADMIN_PWD_HASH){
-    adminLoggedIn=true;closeModal('adminLoginModal');document.getElementById('adminPwd').value='';renderAdmin();
+    _admin.login();closeModal('adminLoginModal');document.getElementById('adminPwd').value='';renderAdmin();
   }else{document.getElementById('loginErr').textContent='סיסמה שגויה';}
 }
 
-function getOrders(){try{return JSON.parse(localStorage.getItem('benon_orders')||'[]');}catch(e){return[];}}
+function adminLogout(){
+  _admin.logout();
+  document.getElementById('adminView').innerHTML='';
+  showTab('shop');
+}
+
+function deleteOrder(id){
+  if(!confirm('למחוק הזמנה '+id+'?'))return;
+  const orders=getOrders().filter(o=>o.id!==id);
+  localStorage.setItem('benon_orders',JSON.stringify(orders));
+  renderAdmin();
+}
+
+function toggleOrderDetail(id){
+  const el=document.getElementById('od-'+id);
+  if(el)el.style.display=el.style.display==='none'?'':'none';
+}
 
 function renderAdmin(){
-  renderAdminWithOrders(getOrders(), []);
+  if(!_admin.ok()){openModal('adminLoginModal');return;}
+  renderAdminWithOrders(getOrders());
 }
 function showInvDetail(key){
   const el=document.getElementById('inv-detail-'+key);
   if(el) el.style.display=el.style.display==='none'?'':'none';
 }
-function renderAdminWithOrders(orders, pending){
-  pending = pending||[];
+function renderAdminWithOrders(orders){
   const inv={};
   orders.forEach(o=>o.items.forEach(i=>{
     const k=i.supplier+'|'+i.name+'|'+i.sub;
@@ -1935,7 +1953,7 @@ function renderAdminWithOrders(orders, pending){
   const rows=Object.values(inv).sort((a,b)=>a.supplier.localeCompare(b.supplier));
   const grandTotal=orders.reduce((s,o)=>s+o.total,0);
   document.getElementById('adminView').innerHTML=`
-  <div class="admin-hdr"><h1>📋 ממשק ניהול — BENON'S</h1><button class="ebtn" onclick="exportCSV()">⬇ CSV</button></div>
+  <div class="admin-hdr"><h1>📋 ממשק ניהול — BENON'S</h1><div style="display:flex;gap:8px"><button class="ebtn" onclick="exportCSV()">⬇ CSV</button><button class="ebtn" style="background:#eee;color:#555" onclick="adminLogout()">🔒 יציאה</button></div></div>
   <div class="stats-grid">
     <div class="stat-card"><div class="stat-num">${orders.length}</div><div class="stat-lbl">הזמנות</div></div>
     <div class="stat-card"><div class="stat-num">₪${grandTotal.toFixed(0)}</div><div class="stat-lbl">סה״כ מכירות</div></div>
@@ -1944,29 +1962,45 @@ function renderAdminWithOrders(orders, pending){
   <div class="asec">
     <div class="asec-h">📦 מלאי לספקים <span style="font-size:12px;font-weight:400">(לחץ על שורה לפירוט מזמינים)</span><button class="ebtn" onclick="printInv()">🖨 הדפסה</button></div>
     <div class="asec-b">${rows.length?`<table class="atable"><thead><tr><th>ספק</th><th>מוצר</th><th>פירוט</th><th>כמות</th><th>סה״כ</th></tr></thead><tbody>${rows.map((r,ri)=>{
-      const safeKey=ri;
       const detailRows=r.orders.map(od=>`<tr style="background:#f0f7f0"><td colspan="2" style="padding-right:24px;color:#555">${od.name} — ${od.phone}</td><td style="color:#555">#${od.orderId}</td><td style="text-align:center;font-weight:700;color:var(--green)">${od.qty}</td><td></td></tr>`).join('');
-      return `<tr style="cursor:pointer" onclick="showInvDetail('${safeKey}')"><td><span class="badge bg">${r.supplier}</span></td><td style="font-weight:700">${r.name}</td><td style="color:var(--muted)">${r.sub}</td><td style="text-align:center;font-weight:700;color:var(--green)">${r.qty}</td><td style="font-weight:700">₪${r.total.toFixed(2)}</td></tr><tr id="inv-detail-${safeKey}" style="display:none"><td colspan="5" style="padding:0"><table style="width:100%;border:none">${detailRows}</table></td></tr>`;
+      return `<tr style="cursor:pointer" onclick="showInvDetail('${ri}')"><td><span class="badge bg">${r.supplier}</span></td><td style="font-weight:700">${r.name}</td><td style="color:var(--muted)">${r.sub}</td><td style="text-align:center;font-weight:700;color:var(--green)">${r.qty}</td><td style="font-weight:700">₪${r.total.toFixed(2)}</td></tr><tr id="inv-detail-${ri}" style="display:none"><td colspan="5" style="padding:0"><table style="width:100%;border:none">${detailRows}</table></td></tr>`;
     }).join('')}</tbody></table>`:`<div class="no-data">אין הזמנות</div>`}</div>
   </div>
   <div class="asec">
     <div class="asec-h">📝 כל ההזמנות</div>
-    <div class="asec-b">${orders.length?`<table class="atable"><thead><tr><th>#</th><th>שם</th><th>טלפון</th><th>קומה</th><th>מוצרים</th><th>קופון</th><th>סה״כ</th><th>אישור</th><th>תאריך</th><th>חשבונית</th></tr></thead><tbody>${[...orders].reverse().map(o=>`<tr><td style="font-size:11px;color:var(--muted)">${o.id}</td><td style="font-weight:700">${o.name}</td><td>${o.phone}</td><td>${o.floor||'—'}</td><td style="font-size:11px">${o.items.map(i=>i.name+'×'+i.qty).join(', ')}</td><td>${o.coupon?'<span class="badge ba">'+o.coupon+'</span>':'—'}</td><td style="font-weight:700;color:var(--green)">₪${o.total.toFixed(2)}</td><td><span class="badge ba">${o.ref}</span></td><td style="font-size:11px;color:var(--muted)">${o.date}</td><td><button id="gi_${o.id}" class="ebtn" onclick="createInvoice('${o.id}')">📄 חשבונית</button></td></tr>`).join('')}</tbody></table>`:`<div class="no-data">אין הזמנות</div>`}</div>
-  </div>
-  <div class="asec">
-    <div class="asec-h">🛒 סלים פתוחים (${pending.length})</div>
-    <div class="asec-b">${pending.length?`<table class="atable"><thead><tr><th>שם</th><th>טלפון</th><th>מוצרים</th><th>סה״כ</th><th>ממתין</th><th>תזכורת 2 שעות</th><th>תזכורת 24 שעות</th></tr></thead><tbody>${pending.map(c=>{
-      const elapsed=Math.floor((Date.now()-c.ts)/60000);
-      const h=Math.floor(elapsed/60), m=elapsed%60;
-      const timeStr=h>0?h+'ש׳ '+m+'ד\'':m+'ד\'';
-      const items2h=encodeURIComponent(c.items.map(i=>i.name+'×'+i.qty).join(', '));
-      const wa2h='https://wa.me/972'+c.phone.replace(/^0/,'').replace(/\D/g,'')+'?text='+encodeURIComponent('שלום '+c.name+'! 👋 שמנו לב שהתחלת הזמנה ב-Benons Farmer\'s Market אך לא סיימת אותה. הסל שלך ממתין עם '+c.items.length+' פריטים בסך ₪'+c.total.toFixed(2)+' 🛒\nלסיום ההזמנה: https://benons555.github.io/Benon-s-farmer-market/\nנשמח לראותך! 🌾\n— Benons Farmer\'s Market');
-      const wa24h='https://wa.me/972'+c.phone.replace(/^0/,'').replace(/\D/g,'')+'?text='+encodeURIComponent('שלום '+c.name+'! ⏰ ההזמנה שלך ב-Benons Farmer\'s Market עדיין ממתינה. המלאי לחג מוגבל — אל תפספס!\nלסיום ההזמנה: https://benons555.github.io/Benon-s-farmer-market/\n🌾 — Benons Farmer\'s Market');
-      return `<tr><td style="font-weight:700">${c.name}</td><td>${c.phone}</td><td style="font-size:11px">${c.items.map(i=>i.name+'×'+i.qty).join(', ')}</td><td style="font-weight:700;color:var(--green)">₪${c.total.toFixed(2)}</td><td style="font-size:11px;color:var(--muted)">${timeStr}</td><td><a href="${wa2h}" target="_blank" class="ebtn" style="text-decoration:none">📩 2ש׳</a></td><td><a href="${wa24h}" target="_blank" class="ebtn" style="text-decoration:none">📩 24ש׳</a></td></tr>`;
-    }).join('')}</tbody></table>`:`<div class="no-data">אין סלים פתוחים</div>`}</div>
+    <div class="asec-b">${orders.length?`<table class="atable"><thead><tr><th>#</th><th>שם</th><th>טלפון</th><th>סה״כ</th><th>תאריך</th><th>פעולות</th></tr></thead><tbody>${[...orders].reverse().map(o=>`
+      <tr style="cursor:pointer" onclick="toggleOrderDetail('${o.id}')">
+        <td style="font-size:11px;color:var(--muted)">${o.id}</td>
+        <td style="font-weight:700">${o.name}</td>
+        <td>${o.phone}</td>
+        <td style="font-weight:700;color:var(--green)">₪${o.total.toFixed(2)}</td>
+        <td style="font-size:11px;color:var(--muted)">${o.date}</td>
+        <td style="white-space:nowrap" onclick="event.stopPropagation()">
+          <button class="ebtn" onclick="toggleOrderDetail('${o.id}')">👁 פרטים</button>
+          <button class="ebtn" style="background:#fdecea;color:#c0392b" onclick="deleteOrder('${o.id}')">🗑 מחק</button>
+        </td>
+      </tr>
+      <tr id="od-${o.id}" style="display:none;background:#fafafa">
+        <td colspan="6" style="padding:12px 16px">
+          <div style="margin-bottom:6px;font-weight:700">פרטי הזמנה ${o.id}</div>
+          <table style="width:100%;border:none;font-size:12px">
+            <tr><td style="color:#888;width:100px">שם</td><td>${o.name}</td></tr>
+            <tr><td style="color:#888">טלפון</td><td>${o.phone}</td></tr>
+            ${o.floor?`<tr><td style="color:#888">קומה</td><td>${o.floor}</td></tr>`:''}
+            ${o.notes?`<tr><td style="color:#888">הערות</td><td>${o.notes}</td></tr>`:''}
+            <tr><td style="color:#888">אישור</td><td>${o.ref}</td></tr>
+            ${o.coupon?`<tr><td style="color:#888">קופון</td><td>${o.coupon} (-₪${o.discount.toFixed(2)})</td></tr>`:''}
+          </table>
+          <div style="margin-top:8px;font-weight:700;font-size:12px">מוצרים:</div>
+          <ul style="margin:4px 0 0 16px;font-size:12px">${o.items.map(i=>`<li>${i.name} (${i.sub}) × ${i.qty} = ₪${(i.price*i.qty).toFixed(2)}</li>`).join('')}</ul>
+          <div style="margin-top:8px;display:flex;gap:8px">
+            <button id="gi_${o.id}" class="ebtn" onclick="createInvoice('${o.id}')">📄 חשבונית</button>
+          </div>
+        </td>
+      </tr>`).join('')}</tbody></table>`:`<div class="no-data">אין הזמנות</div>`}</div>
   </div>
   <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:8px">
-    <button class="btn-s" onclick="if(confirm('למחוק את כל ההזמנות?')){localStorage.removeItem('benon_orders');renderAdmin();}">🗑 מחיקת כל ההזמנות</button>
+    <button class="btn-s" style="background:#fdecea;color:#c0392b" onclick="if(confirm('למחוק את כל ההזמנות?')){localStorage.removeItem('benon_orders');renderAdmin();}">🗑 מחיקת כל ההזמנות</button>
   </div>
   <div class="asec" style="margin-top:18px">
     <div class="asec-h" style="cursor:pointer" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'':'none'">🔐 קודים ופרטי מערכת <span style="font-size:12px;font-weight:400">(לחץ להצגה/הסתרה)</span></div>
