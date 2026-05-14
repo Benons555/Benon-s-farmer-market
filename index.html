@@ -2540,59 +2540,105 @@ function buildProfitAnalysis(orders){
 function openManualOrderModal(){
   const existing=document.getElementById('manualOrderModal');
   if(existing) existing.remove();
+  // Build category list
+  const cats=['הכל',...[...new Set(PRODUCTS.map(p=>p.cat).filter(Boolean))].sort()];
+  const catTabs=cats.map(c=>`<button onclick="moSetCat('${c}')" id="moCat_${c.replace(/[^a-zA-Zא-ת0-9]/g,'_')}" style="padding:5px 12px;border-radius:16px;border:1px solid #ccc;background:${c==='הכל'?'#4A7C59':'#fff'};color:${c==='הכל'?'#fff':'#333'};font-size:12px;cursor:pointer;white-space:nowrap;font-family:inherit">${c}</button>`).join('');
   const mo=document.createElement('div');
   mo.className='mo';
   mo.id='manualOrderModal';
   mo.style.zIndex='9999';
   mo.innerHTML=`
-  <div class="modal" style="max-width:620px;width:95vw">
+  <div class="modal" style="max-width:700px;width:98vw">
     <div class="mh">
       <h2 style="margin:0">➕ הזמנה ידנית</h2>
       <button class="xbtn" onclick="closeModal('manualOrderModal')">✕</button>
     </div>
-    <div class="mb">
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+    <div class="mb" style="padding:14px">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
         <div class="fg"><label>שם לקוח *</label><input type="text" id="moName" placeholder="שם מלא"></div>
         <div class="fg"><label>טלפון *</label><input type="text" id="moPhone" placeholder="05X-XXXXXXX"></div>
         <div class="fg"><label>קומה</label><input type="text" id="moFloor" placeholder="קומה / דירה"></div>
         <div class="fg"><label>הערות</label><input type="text" id="moNotes" placeholder="הערות לאספקה"></div>
       </div>
-      <div class="fg" style="margin-bottom:8px">
-        <label>חיפוש מוצר</label>
-        <input type="text" id="moSearch" placeholder="חפשו לפי שם, קטגוריה, ספק..." oninput="moFilterProducts(this.value)">
+      <div style="border:1px solid #e0e0e0;border-radius:10px;overflow:hidden;margin-bottom:14px">
+        <div style="background:#f8f9fa;padding:10px 12px;border-bottom:1px solid #e0e0e0">
+          <input type="text" id="moSearch" placeholder="🔍 חיפוש מוצר לפי שם, ספק..." oninput="moFilterProducts()" style="width:100%;border:1px solid #ddd;border-radius:8px;padding:7px 10px;font-size:14px;font-family:inherit;box-sizing:border-box;margin-bottom:8px">
+          <div style="display:flex;gap:6px;flex-wrap:wrap;overflow-x:auto;padding-bottom:2px">${catTabs}</div>
+        </div>
+        <div id="moProductList" style="max-height:260px;overflow-y:auto"></div>
       </div>
-      <div id="moProductList" style="max-height:200px;overflow-y:auto;border:1px solid #ddd;border-radius:8px;margin-bottom:12px"></div>
-      <div style="font-weight:700;margin-bottom:6px">🛒 פריטים שנבחרו</div>
-      <div id="moCartArea" style="min-height:40px;border:1px solid #ddd;border-radius:8px;padding:8px;margin-bottom:10px"><div style="color:#aaa;font-size:13px">טרם נבחרו פריטים</div></div>
-      <div style="font-weight:700;font-size:16px;text-align:left;margin-bottom:12px">סה״כ: ₪<span id="moTotal">0.00</span></div>
-      <button class="btn-p" style="width:100%" onclick="saveManualOrder()">💾 שמור הזמנה</button>
+      <div style="font-weight:700;margin-bottom:6px;font-size:14px">🛒 פריטים שנבחרו</div>
+      <div id="moCartArea" style="min-height:44px;border:1px solid #ddd;border-radius:8px;padding:8px;margin-bottom:10px"><div style="color:#aaa;font-size:13px">טרם נבחרו פריטים</div></div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <div style="font-weight:700;font-size:16px">סה״כ: ₪<span id="moTotal">0.00</span></div>
+        <button class="btn-p" onclick="saveManualOrder()" style="padding:10px 28px">💾 שמור הזמנה</button>
+      </div>
     </div>
   </div>`;
   document.body.appendChild(mo);
   window._moCart={};
-  moFilterProducts('');
+  window._moCat='הכל';
+  moFilterProducts();
   requestAnimationFrame(()=>mo.classList.add('open'));
 }
 
-function moFilterProducts(q){
+function moSetCat(cat){
+  window._moCat=cat;
+  // Update tab styles
+  document.querySelectorAll('[id^="moCat_"]').forEach(btn=>{
+    const active=btn.textContent===cat;
+    btn.style.background=active?'#4A7C59':'#fff';
+    btn.style.color=active?'#fff':'#333';
+  });
+  moFilterProducts();
+}
+
+function moFilterProducts(){
   const list=document.getElementById('moProductList');
   if(!list) return;
-  const lq=(q||'').trim().toLowerCase();
-  const filtered=PRODUCTS.filter(p=>!lq||p.name.toLowerCase().includes(lq)||p.cat.toLowerCase().includes(lq)||(p.supplier||'').toLowerCase().includes(lq));
-  if(!filtered.length){list.innerHTML='<div style="padding:10px;color:#aaa;font-size:13px">אין תוצאות</div>';return;}
-  list.innerHTML=filtered.map(p=>`<div style="display:flex;align-items:center;gap:8px;padding:7px 10px;border-bottom:1px solid #f0f0f0;font-size:13px">
-    <span style="flex:1;color:#666">${p.supplier||''}</span>
-    <span style="flex:2;font-weight:700">${p.name}</span>
-    <span style="flex:2;color:#888">${p.sub||''}</span>
-    <span style="flex:1;font-weight:700;color:var(--green)">₪${p.price.toFixed(2)}</span>
-    <button onclick="moAddItem('${p.id}')" style="background:#4A7C59;color:#fff;border:none;border-radius:16px;padding:4px 12px;cursor:pointer;font-size:13px">+</button>
-  </div>`).join('');
+  const q=(document.getElementById('moSearch')?.value||'').trim().toLowerCase();
+  const cat=window._moCat||'הכל';
+  let filtered=PRODUCTS.filter(p=>{
+    const matchCat=cat==='הכל'||p.cat===cat;
+    const matchQ=!q||p.name.toLowerCase().includes(q)||(p.sub||'').toLowerCase().includes(q)||(p.supplier||'').toLowerCase().includes(q);
+    return matchCat&&matchQ;
+  });
+  if(!filtered.length){list.innerHTML='<div style="padding:16px;color:#aaa;font-size:13px;text-align:center">אין תוצאות</div>';return;}
+  // Group by category if showing all
+  if(cat==='הכל'&&!q){
+    const groups={};
+    filtered.forEach(p=>{const c=p.cat||'אחר';if(!groups[c])groups[c]=[];groups[c].push(p);});
+    list.innerHTML=Object.entries(groups).map(([c,prods])=>`
+      <div style="background:#f0f4f0;padding:5px 12px;font-size:12px;font-weight:700;color:#4A7C59;border-bottom:1px solid #e8e8e8;position:sticky;top:0">${c}</div>
+      ${prods.map(p=>moProductRow(p)).join('')}
+    `).join('');
+  } else {
+    list.innerHTML=filtered.map(p=>moProductRow(p)).join('');
+  }
+}
+
+function moProductRow(p){
+  const inCart=(window._moCart&&window._moCart[p.id])||0;
+  return `<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid #f0f0f0;font-size:13px;${inCart?'background:#f0faf2':''}">
+    <div style="flex:3">
+      <div style="font-weight:700;color:#222">${p.name}</div>
+      ${p.sub?`<div style="font-size:11px;color:#888">${p.sub}</div>`:''}
+      <div style="font-size:11px;color:#aaa">${p.supplier||''}</div>
+    </div>
+    <div style="flex:1;font-weight:700;color:#4A7C59;white-space:nowrap">₪${p.price.toFixed(2)}</div>
+    ${inCart?`<div style="display:flex;align-items:center;gap:4px">
+      <button onclick="moChQty('${p.id}',-1)" style="background:#eee;border:none;border-radius:50%;width:26px;height:26px;cursor:pointer;font-size:15px;line-height:1">−</button>
+      <span style="min-width:20px;text-align:center;font-weight:700">${inCart}</span>
+      <button onclick="moChQty('${p.id}',1)" style="background:#4A7C59;color:#fff;border:none;border-radius:50%;width:26px;height:26px;cursor:pointer;font-size:15px;line-height:1">+</button>
+    </div>`:`<button onclick="moAddItem('${p.id}')" style="background:#4A7C59;color:#fff;border:none;border-radius:16px;padding:5px 14px;cursor:pointer;font-size:13px;white-space:nowrap">+ הוסף</button>`}
+  </div>`;
 }
 
 function moAddItem(id){
   if(!window._moCart) window._moCart={};
   window._moCart[id]=(window._moCart[id]||0)+1;
   moRenderCart();
+  moFilterProducts();
 }
 
 function moRenderCart(){
@@ -2626,11 +2672,13 @@ function moChQty(id,delta){
   window._moCart[id]=(window._moCart[id]||0)+delta;
   if(window._moCart[id]<=0) delete window._moCart[id];
   moRenderCart();
+  moFilterProducts();
 }
 
 function moRemItem(id){
   if(window._moCart) delete window._moCart[id];
   moRenderCart();
+  moFilterProducts();
 }
 
 function saveManualOrder(){
