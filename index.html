@@ -1868,8 +1868,8 @@ async function goToPayment(){
   if(pbLink) pbLink.href='https://links.payboxapp.com/sNy2EZpDT2b?ref='+tmpOrderId;
   // Reset payment proof for each new payment attempt
   _payProofBase64=null;
-  const prev=document.getElementById('payProofPreview');const ph=document.getElementById('payProofPlaceholder');const area=document.getElementById('payProofArea');const fi=document.getElementById('payProofFile');const pmsg=document.getElementById('payProofMsg');
-  if(prev){prev.src='';prev.style.display='none';}if(ph)ph.style.display='';if(area)area.style.borderColor='#ccc';if(fi)fi.value='';if(pmsg)pmsg.textContent='';
+  const prev=document.getElementById('payProofPreview');const phEl=document.getElementById('payProofPlaceholder');const area=document.getElementById('payProofArea');const fi=document.getElementById('payProofFile');const pmsg=document.getElementById('payProofMsg');
+  if(prev){prev.src='';prev.style.display='none';}if(phEl)phEl.style.display='';if(area)area.style.borderColor='#ccc';if(fi)fi.value='';if(pmsg)pmsg.textContent='';
   closeModal('checkoutModal');
   openModal('paymentModal');
 }
