@@ -1510,7 +1510,7 @@ input, textarea {
       <div class="pay-opt">
         <h3>💳 Paybox</h3>
         <p>לחצו לתשלום מאובטח דרך Paybox</p>
-        <a class="pay-link" href="https://links.payboxapp.com/sNy2EZpDT2b" target="_blank">לתשלום ב-Paybox →</a>
+        <a class="pay-link" id="payboxLink" href="https://links.payboxapp.com/sNy2EZpDT2b" target="_blank">לתשלום ב-Paybox →</a>
       </div>
       <div class="pay-opt">
         <h3>📱 Bit</h3>
@@ -1855,6 +1855,9 @@ async function goToPayment(){
   }
   rows+=`<div class="ost"><span>סה״כ לתשלום</span><span>₪${total.toFixed(2)}</span></div>`;
   document.getElementById('payOrderSummary').innerHTML=rows;
+  const tmpOrderId='BN'+Date.now().toString().slice(-6);
+  const pbLink=document.getElementById('payboxLink');
+  if(pbLink) pbLink.href='https://links.payboxapp.com/sNy2EZpDT2b?ref='+tmpOrderId;
   closeModal('checkoutModal');
   openModal('paymentModal');
 }
@@ -1876,7 +1879,7 @@ function confirmOrder(){
   saveOrderToFirebase(currentOrder);
   if(appliedCoupon) markCouponUsed(appliedCoupon.code, ph);
   closeModal('paymentModal');
-  document.getElementById('successText').textContent=`תודה ${fn}! הזמנה #${orderNum} | סה״כ ₪${total.toFixed(2)}`;
+  document.getElementById('successText').textContent=`תודה ${fn}! הזמנה #${orderNum} | סה״כ ₪${total.toFixed(2)} — ההזמנה תאושר לאחר אימות תשלום על ידי המנהל`;
   openModal('successModal');
   setTimeout(()=>sendWA(currentOrder),400);
 }
@@ -2005,6 +2008,16 @@ function adminLogout(){
   _admin.logout();
   document.getElementById('adminView').innerHTML='';
   showTab('shop');
+}
+
+function markPaid(id){
+  const orders=getOrders();
+  const o=orders.find(q=>q.id===id);
+  if(!o)return;
+  o.paid=!o.paid;
+  try{localStorage.setItem('benon_orders',JSON.stringify(orders));}catch(e){}
+  fbDB.ref('orders/'+id+'/paid').set(o.paid).catch(()=>{});
+  renderAdmin();
 }
 
 function deleteOrder(id){
@@ -2437,6 +2450,126 @@ function buildProfitAnalysis(orders){
   </div>`;
 }
 
+function openManualOrderModal(){
+  const existing=document.getElementById('manualOrderModal');
+  if(existing) existing.remove();
+  const mo=document.createElement('div');
+  mo.className='mo';
+  mo.id='manualOrderModal';
+  mo.style.zIndex='9999';
+  mo.innerHTML=`
+  <div class="modal" style="max-width:620px;width:95vw">
+    <div class="mh">
+      <h2 style="margin:0">➕ הזמנה ידנית</h2>
+      <button class="xbtn" onclick="closeModal('manualOrderModal')">✕</button>
+    </div>
+    <div class="mb">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+        <div class="fg"><label>שם לקוח *</label><input type="text" id="moName" placeholder="שם מלא"></div>
+        <div class="fg"><label>טלפון *</label><input type="text" id="moPhone" placeholder="05X-XXXXXXX"></div>
+        <div class="fg"><label>קומה</label><input type="text" id="moFloor" placeholder="קומה / דירה"></div>
+        <div class="fg"><label>הערות</label><input type="text" id="moNotes" placeholder="הערות לאספקה"></div>
+      </div>
+      <div class="fg" style="margin-bottom:8px">
+        <label>חיפוש מוצר</label>
+        <input type="text" id="moSearch" placeholder="חפשו לפי שם, קטגוריה, ספק..." oninput="moFilterProducts(this.value)">
+      </div>
+      <div id="moProductList" style="max-height:200px;overflow-y:auto;border:1px solid #ddd;border-radius:8px;margin-bottom:12px"></div>
+      <div style="font-weight:700;margin-bottom:6px">🛒 פריטים שנבחרו</div>
+      <div id="moCartArea" style="min-height:40px;border:1px solid #ddd;border-radius:8px;padding:8px;margin-bottom:10px"><div style="color:#aaa;font-size:13px">טרם נבחרו פריטים</div></div>
+      <div style="font-weight:700;font-size:16px;text-align:left;margin-bottom:12px">סה״כ: ₪<span id="moTotal">0.00</span></div>
+      <button class="btn-p" style="width:100%" onclick="saveManualOrder()">💾 שמור הזמנה</button>
+    </div>
+  </div>`;
+  document.body.appendChild(mo);
+  window._moCart={};
+  moFilterProducts('');
+  requestAnimationFrame(()=>mo.classList.add('open'));
+}
+
+function moFilterProducts(q){
+  const list=document.getElementById('moProductList');
+  if(!list) return;
+  const lq=(q||'').trim().toLowerCase();
+  const filtered=PRODUCTS.filter(p=>!lq||p.name.toLowerCase().includes(lq)||p.cat.toLowerCase().includes(lq)||(p.supplier||'').toLowerCase().includes(lq));
+  if(!filtered.length){list.innerHTML='<div style="padding:10px;color:#aaa;font-size:13px">אין תוצאות</div>';return;}
+  list.innerHTML=filtered.map(p=>`<div style="display:flex;align-items:center;gap:8px;padding:7px 10px;border-bottom:1px solid #f0f0f0;font-size:13px">
+    <span style="flex:1;color:#666">${p.supplier||''}</span>
+    <span style="flex:2;font-weight:700">${p.name}</span>
+    <span style="flex:2;color:#888">${p.sub||''}</span>
+    <span style="flex:1;font-weight:700;color:var(--green)">₪${p.price.toFixed(2)}</span>
+    <button onclick="moAddItem('${p.id}')" style="background:#4A7C59;color:#fff;border:none;border-radius:16px;padding:4px 12px;cursor:pointer;font-size:13px">+</button>
+  </div>`).join('');
+}
+
+function moAddItem(id){
+  if(!window._moCart) window._moCart={};
+  window._moCart[id]=(window._moCart[id]||0)+1;
+  moRenderCart();
+}
+
+function moRenderCart(){
+  const area=document.getElementById('moCartArea');
+  const totEl=document.getElementById('moTotal');
+  if(!area) return;
+  const c=window._moCart||{};
+  const keys=Object.keys(c).filter(k=>c[k]>0);
+  if(!keys.length){area.innerHTML='<div style="color:#aaa;font-size:13px">טרם נבחרו פריטים</div>';if(totEl)totEl.textContent='0.00';return;}
+  let total=0;
+  area.innerHTML=keys.map(id=>{
+    const p=PRODUCTS.find(x=>x.id===id);
+    if(!p) return '';
+    const lineTotal=p.price*c[id];
+    total+=lineTotal;
+    return `<div style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:13px;border-bottom:1px solid #f5f5f5">
+      <span style="flex:3;font-weight:700">${p.name} <span style="font-weight:400;color:#888">${p.sub||''}</span></span>
+      <span style="flex:1;color:var(--green)">₪${p.price.toFixed(2)}</span>
+      <button onclick="moChQty('${id}',-1)" style="background:#eee;border:none;border-radius:50%;width:24px;height:24px;cursor:pointer;font-size:14px;line-height:1">−</button>
+      <span style="min-width:20px;text-align:center;font-weight:700">${c[id]}</span>
+      <button onclick="moChQty('${id}',1)" style="background:#eee;border:none;border-radius:50%;width:24px;height:24px;cursor:pointer;font-size:14px;line-height:1">+</button>
+      <button onclick="moRemItem('${id}')" style="background:#fdecea;color:#c0392b;border:none;border-radius:50%;width:24px;height:24px;cursor:pointer;font-size:14px;line-height:1">✕</button>
+      <span style="flex:1;text-align:left;font-weight:700">₪${lineTotal.toFixed(2)}</span>
+    </div>`;
+  }).join('');
+  if(totEl) totEl.textContent=total.toFixed(2);
+}
+
+function moChQty(id,delta){
+  if(!window._moCart) return;
+  window._moCart[id]=(window._moCart[id]||0)+delta;
+  if(window._moCart[id]<=0) delete window._moCart[id];
+  moRenderCart();
+}
+
+function moRemItem(id){
+  if(window._moCart) delete window._moCart[id];
+  moRenderCart();
+}
+
+function saveManualOrder(){
+  const name=(document.getElementById('moName').value||'').trim();
+  const phone=(document.getElementById('moPhone').value||'').trim();
+  const floor=(document.getElementById('moFloor').value||'').trim();
+  const notes=(document.getElementById('moNotes').value||'').trim();
+  if(!name){alert('אנא הכניסו שם לקוח');return;}
+  if(!phone){alert('אנא הכניסו טלפון');return;}
+  const c=window._moCart||{};
+  const keys=Object.keys(c).filter(k=>c[k]>0);
+  if(!keys.length){alert('אנא הוסיפו לפחות מוצר אחד');return;}
+  const items=keys.map(id=>{
+    const p=PRODUCTS.find(x=>x.id===id);
+    return {name:p.name,sub:p.sub||'',qty:c[id],price:p.price,supplier:p.supplier||''};
+  });
+  const subtotal=items.reduce((s,i)=>s+i.price*i.qty,0);
+  const total=subtotal;
+  const orderId='MAN-'+Date.now();
+  const order={id:orderId,name,phone,floor,notes,ref:'ידני',coupon:null,discount:0,items,subtotal,total,date:new Date().toLocaleString('he-IL'),paid:false};
+  try{const arr=JSON.parse(localStorage.getItem('benon_orders')||'[]');arr.push(order);localStorage.setItem('benon_orders',JSON.stringify(arr));}catch(e){}
+  saveOrderToFirebase(order);
+  closeModal('manualOrderModal');
+  renderAdmin();
+}
+
 function renderAdmin(){
   if(!_admin.ok()){openModal('adminLoginModal');return;}
   document.getElementById('adminView').innerHTML='<div style="text-align:center;padding:40px;color:#888">⏳ טוען הזמנות...</div>';
@@ -2497,7 +2630,7 @@ function renderAdminWithOrders(orders){
   const avgMargin=grandTotal>0?(grandProfit/grandTotal*100):0;
   const netMargin=grandTotal>0?(netProfit/grandTotal*100):0;
   document.getElementById('adminView').innerHTML=`
-  <div class="admin-hdr"><h1>📋 ממשק ניהול — BENON'S</h1><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="ebtn" onclick="renderAdmin()">🔄 רענן</button><button class="ebtn" onclick="exportCSV()">⬇ CSV</button><button class="ebtn" style="background:#1B3A6B;color:#F5D87A;font-weight:700" onclick="addAmbrellaOrder()">🏢 אמברלה</button><button class="ebtn" style="background:#2E5E3E;color:#A8D5B5;font-weight:700" onclick="addWimiOrder()">🏢 וימי</button><button class="ebtn" style="background:#eee;color:#555" onclick="adminLogout()">🔒 יציאה</button></div></div>
+  <div class="admin-hdr"><h1>📋 ממשק ניהול — BENON'S</h1><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="ebtn" onclick="renderAdmin()">🔄 רענן</button><button class="ebtn" onclick="exportCSV()">⬇ CSV</button><button class="ebtn" style="background:#1B3A6B;color:#F5D87A;font-weight:700" onclick="addAmbrellaOrder()">🏢 אמברלה</button><button class="ebtn" style="background:#2E5E3E;color:#A8D5B5;font-weight:700" onclick="addWimiOrder()">🏢 וימי</button><button class="ebtn" style="background:#4A7C59;color:#fff;font-weight:700" onclick="openManualOrderModal()">➕ הזמנה ידנית</button><button class="ebtn" style="background:#eee;color:#555" onclick="adminLogout()">🔒 יציאה</button></div></div>
   <div class="stats-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:12px">
     <div class="stat-card"><div class="stat-num">${orders.length}</div><div class="stat-lbl">הזמנות</div></div>
     <div class="stat-card"><div class="stat-num">₪${grandTotal.toFixed(0)}</div><div class="stat-lbl">סה״כ הכנסות</div></div>
@@ -2521,16 +2654,42 @@ function renderAdminWithOrders(orders){
     }).join('')}</tbody></table>`:`<div class="no-data">אין הזמנות</div>`}</div>
   </div>
   <div class="asec">
-    <div class="asec-h">📝 כל ההזמנות</div>
-    <div class="asec-b">${orders.length?`<table class="atable"><thead><tr><th>#</th><th>שם</th><th>טלפון</th><th>סה״כ</th><th>תאריך</th><th>פעולות</th></tr></thead><tbody>${[...orders].reverse().map(o=>`
-      <tr style="cursor:pointer" onclick="toggleOrderDetail('${o.id}')">
+    <div class="asec-h">🏪 רשימות לפי ספק</div>
+    <div class="asec-b">${(()=>{
+      if(!orders.length) return '<div class="no-data">אין הזמנות</div>';
+      const suppMap={};
+      orders.forEach(o=>o.items.forEach(i=>{
+        const sk=i.supplier;
+        if(!suppMap[sk]) suppMap[sk]={};
+        const pk=i.name+'|'+i.sub;
+        if(!suppMap[sk][pk]) suppMap[sk][pk]={name:i.name,sub:i.sub,qty:0,customers:[]};
+        suppMap[sk][pk].qty+=i.qty;
+        suppMap[sk][pk].customers.push({name:o.name,qty:i.qty});
+      }));
+      return Object.keys(suppMap).sort((a,b)=>a.localeCompare(b,'he')).map(sup=>{
+        const products=Object.values(suppMap[sup]);
+        const rows=products.map(p=>`<tr><td style="font-weight:700">${p.name}</td><td style="color:var(--muted)">${p.sub}</td><td style="text-align:center;font-weight:700;color:var(--green)">${p.qty}</td><td style="font-size:12px">${p.customers.map(c=>`${c.name} (${c.qty} יח')`).join(', ')}</td></tr>`).join('');
+        return `<div style="margin-bottom:16px"><div style="font-weight:700;font-size:15px;margin-bottom:6px;padding:4px 8px;background:#e8f2e0;border-radius:6px">${sup}</div><table class="atable"><thead><tr><th>מוצר</th><th>פירוט</th><th>כמות כוללת</th><th>לקוחות</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+      }).join('');
+    })()}</div>
+  </div>
+  <div class="asec">
+    <div class="asec-h">📝 כל ההזמנות ${(()=>{const uc=orders.filter(o=>!o.paid).length;return uc>0?`<span style="background:#c62828;color:white;border-radius:10px;padding:2px 8px;font-size:12px;margin-right:6px">${uc} ממתינים לאישור תשלום</span>`:'';})()} </div>
+    <div class="asec-b">${orders.length?`<table class="atable"><thead><tr><th>#</th><th>שם</th><th>טלפון</th><th>סה״כ</th><th>תאריך</th><th>תשלום</th><th>פעולות</th></tr></thead><tbody>${[...orders].reverse().map(o=>`
+      <tr style="cursor:pointer;background:${o.paid?'#f0faf0':''}" onclick="toggleOrderDetail('${o.id}')">
         <td style="font-size:11px;color:var(--muted)">${o.id}</td>
         <td style="font-weight:700">${o.name}</td>
         <td>${o.phone}</td>
         <td style="font-weight:700;color:var(--green)">₪${o.total.toFixed(2)}</td>
         <td style="font-size:11px;color:var(--muted)">${o.date}</td>
+        <td style="text-align:center" onclick="event.stopPropagation()">
+          ${o.paid
+            ? `<span style="color:#2e7d32;font-weight:700;font-size:13px">✅ שולם</span>`
+            : `<span style="color:#c0392b;font-size:13px">⏳ ממתין</span>`}
+        </td>
         <td style="white-space:nowrap" onclick="event.stopPropagation()">
           <button class="ebtn" onclick="toggleOrderDetail('${o.id}')">👁 פרטים</button>
+          <button class="ebtn" style="background:${o.paid?'#fdecea':'#e8f5e9'};color:${o.paid?'#c0392b':'#2e7d32'}" onclick="markPaid('${o.id}')">${o.paid?'↩ בטל תשלום':'💳 תשלום עבר'}</button>
           <button class="ebtn" style="background:#fdecea;color:#c0392b" onclick="deleteOrder('${o.id}')">🗑 מחק</button>
         </td>
       </tr>
