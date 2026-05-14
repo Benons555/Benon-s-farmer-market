@@ -1524,8 +1524,16 @@ input, textarea {
       </div>
       <div style="margin-top:14px">
         <div class="fg">
-          <label>אישור תשלום — 4 ספרות אחרונות של העסקה *</label>
-          <input type="text" id="payRef" placeholder="לדוגמה: 1234" maxlength="10">
+          <label>📸 צרפו צילום מסך של אישור התשלום (Paybox / Bit) *</label>
+          <div id="payProofArea" onclick="document.getElementById('payProofFile').click()" style="border:2px dashed #ccc;border-radius:10px;padding:16px;text-align:center;cursor:pointer;transition:border-color .2s">
+            <div id="payProofPlaceholder">
+              <div style="font-size:2rem">📷</div>
+              <div style="color:#888;font-size:13px">לחצו לבחירת תמונה</div>
+            </div>
+            <img id="payProofPreview" style="max-width:100%;max-height:160px;display:none;border-radius:8px;object-fit:contain">
+          </div>
+          <input type="file" id="payProofFile" accept="image/*" style="display:none" onchange="handlePayProof(this)">
+          <p id="payProofMsg" style="color:#c0392b;font-size:12px;min-height:16px;margin:4px 0 0"></p>
         </div>
       </div>
       <button class="btn-p" onclick="confirmOrder()">💬 אישור ושליחה בוואטסאפ</button>
@@ -1858,13 +1866,50 @@ async function goToPayment(){
   const tmpOrderId='BN'+Date.now().toString().slice(-6);
   const pbLink=document.getElementById('payboxLink');
   if(pbLink) pbLink.href='https://links.payboxapp.com/sNy2EZpDT2b?ref='+tmpOrderId;
+  // Reset payment proof for each new payment attempt
+  _payProofBase64=null;
+  const prev=document.getElementById('payProofPreview');const ph=document.getElementById('payProofPlaceholder');const area=document.getElementById('payProofArea');const fi=document.getElementById('payProofFile');const pmsg=document.getElementById('payProofMsg');
+  if(prev){prev.src='';prev.style.display='none';}if(ph)ph.style.display='';if(area)area.style.borderColor='#ccc';if(fi)fi.value='';if(pmsg)pmsg.textContent='';
   closeModal('checkoutModal');
   openModal('paymentModal');
 }
 
+let _payProofBase64=null;
+function handlePayProof(input){
+  const file=input.files[0];
+  if(!file)return;
+  const reader=new FileReader();
+  reader.onload=function(e){
+    const img=new Image();
+    img.onload=function(){
+      const canvas=document.createElement('canvas');
+      const scale=Math.min(1,900/img.width);
+      canvas.width=Math.round(img.width*scale);
+      canvas.height=Math.round(img.height*scale);
+      canvas.getContext('2d').drawImage(img,0,0,canvas.width,canvas.height);
+      _payProofBase64=canvas.toDataURL('image/jpeg',0.7);
+      const prev=document.getElementById('payProofPreview');
+      const ph=document.getElementById('payProofPlaceholder');
+      const area=document.getElementById('payProofArea');
+      if(prev){prev.src=_payProofBase64;prev.style.display='block';}
+      if(ph)ph.style.display='none';
+      if(area)area.style.borderColor='#4A7C59';
+      const msg=document.getElementById('payProofMsg');
+      if(msg)msg.textContent='';
+    };
+    img.src=e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
 function confirmOrder(){
-  const ref=document.getElementById('payRef').value.trim();
-  if(!ref){alert('אנא הכניסו אישור תשלום');return;}
+  if(!_payProofBase64){
+    const msg=document.getElementById('payProofMsg');
+    if(msg)msg.textContent='יש לצרף צילום מסך של אישור התשלום';
+    document.getElementById('payProofArea').style.borderColor='#c0392b';
+    return;
+  }
+  const ref='תמונה';
   const fn=document.getElementById('fname').value.trim(),ln=document.getElementById('lname').value.trim(),ph=document.getElementById('fphone').value.trim(),fl=document.getElementById('ffloor').value.trim(),nt=document.getElementById('fnotes').value.trim();
   if(appliedCoupon && isCouponUsed(appliedCoupon.code, ph)){
     alert('קוד הקופון כבר נוצל על ידי מספר טלפון זה');
@@ -1874,7 +1919,7 @@ function confirmOrder(){
   const discount=appliedCoupon?(appliedCoupon.type==='percent'?subtotal*appliedCoupon.discount/100:appliedCoupon.discount):0;
   const total=Math.max(0,subtotal-discount);
   const orderNum='BN'+Date.now().toString().slice(-6);
-  currentOrder={id:orderNum,name:fn+' '+ln,phone:ph,floor:fl,notes:nt,ref,coupon:appliedCoupon?appliedCoupon.name:null,discount,items:cartItems().map(p=>({name:p.name,sub:p.sub,qty:cart[p.id],price:p.price,supplier:p.supplier})),subtotal,total,date:new Date().toLocaleString('he-IL')};
+  currentOrder={id:orderNum,name:fn+' '+ln,phone:ph,floor:fl,notes:nt,ref,coupon:appliedCoupon?appliedCoupon.name:null,discount,items:cartItems().map(p=>({name:p.name,sub:p.sub,qty:cart[p.id],price:p.price,supplier:p.supplier})),subtotal,total,date:new Date().toLocaleString('he-IL'),paymentProof:_payProofBase64||null};
   try{const o=JSON.parse(localStorage.getItem('benon_orders')||'[]');o.push(currentOrder);localStorage.setItem('benon_orders',JSON.stringify(o));}catch(e){}
   saveOrderToFirebase(currentOrder);
   if(appliedCoupon) markCouponUsed(appliedCoupon.code, ph);
@@ -1913,7 +1958,7 @@ function markCouponUsed(code, phone){
   try{ const u=JSON.parse(localStorage.getItem('benon_used_coupons')||'{}'); if(!u[code])u[code]=[]; if(!u[code].includes(phone))u[code].push(phone); localStorage.setItem('benon_used_coupons',JSON.stringify(u)); }catch(e){}
 }
 
-function resetOrder(){cart={};appliedCoupon=null;localStorage.removeItem('benon_cart');['fname','lname','fphone','ffloor','fnotes','payRef','fcoupon'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});document.getElementById('couponMsg').textContent='';updateCartUI();renderShop();}
+function resetOrder(){cart={};appliedCoupon=null;_payProofBase64=null;localStorage.removeItem('benon_cart');['fname','lname','fphone','ffloor','fnotes','fcoupon'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});const prev=document.getElementById('payProofPreview');const ph=document.getElementById('payProofPlaceholder');const area=document.getElementById('payProofArea');const fi=document.getElementById('payProofFile');if(prev){prev.src='';prev.style.display='none';}if(ph)ph.style.display='';if(area)area.style.borderColor='#ccc';if(fi)fi.value='';document.getElementById('couponMsg').textContent='';updateCartUI();renderShop();}
 
 function showTab(tab){
   document.getElementById('navShop').classList.toggle('active',tab==='shop');
@@ -2517,7 +2562,7 @@ function moRenderCart(){
   if(!keys.length){area.innerHTML='<div style="color:#aaa;font-size:13px">טרם נבחרו פריטים</div>';if(totEl)totEl.textContent='0.00';return;}
   let total=0;
   area.innerHTML=keys.map(id=>{
-    const p=PRODUCTS.find(x=>x.id===id);
+    const p=PRODUCTS.find(x=>String(x.id)===String(id));
     if(!p) return '';
     const lineTotal=p.price*c[id];
     total+=lineTotal;
@@ -2557,7 +2602,7 @@ function saveManualOrder(){
   const keys=Object.keys(c).filter(k=>c[k]>0);
   if(!keys.length){alert('אנא הוסיפו לפחות מוצר אחד');return;}
   const items=keys.map(id=>{
-    const p=PRODUCTS.find(x=>x.id===id);
+    const p=PRODUCTS.find(x=>String(x.id)===String(id));
     return {name:p.name,sub:p.sub||'',qty:c[id],price:p.price,supplier:p.supplier||''};
   });
   const subtotal=items.reduce((s,i)=>s+i.price*i.qty,0);
@@ -2659,10 +2704,10 @@ function renderAdminWithOrders(orders){
       if(!orders.length) return '<div class="no-data">אין הזמנות</div>';
       const suppMap={};
       orders.forEach(o=>o.items.forEach(i=>{
-        const sk=i.supplier;
+        const sk=(i.supplier||'ללא ספק').trim();
         if(!suppMap[sk]) suppMap[sk]={};
-        const pk=i.name+'|'+i.sub;
-        if(!suppMap[sk][pk]) suppMap[sk][pk]={name:i.name,sub:i.sub,qty:0,customers:[]};
+        const pk=i.name.trim().toLowerCase();
+        if(!suppMap[sk][pk]) suppMap[sk][pk]={name:i.name.trim(),sub:i.sub||'',qty:0,customers:[]};
         suppMap[sk][pk].qty+=i.qty;
         suppMap[sk][pk].customers.push({name:o.name,qty:i.qty});
       }));
@@ -2683,13 +2728,10 @@ function renderAdminWithOrders(orders){
         <td style="font-weight:700;color:var(--green)">₪${o.total.toFixed(2)}</td>
         <td style="font-size:11px;color:var(--muted)">${o.date}</td>
         <td style="text-align:center" onclick="event.stopPropagation()">
-          ${o.paid
-            ? `<span style="color:#2e7d32;font-weight:700;font-size:13px">✅ שולם</span>`
-            : `<span style="color:#c0392b;font-size:13px">⏳ ממתין</span>`}
+          <button class="ebtn" style="background:${o.paid?'#e8f5e9':'#fdecea'};color:${o.paid?'#2e7d32':'#c0392b'};font-weight:700" onclick="markPaid('${o.id}')">${o.paid?'✅ שולם':'⏳ ממתין'}</button>
         </td>
         <td style="white-space:nowrap" onclick="event.stopPropagation()">
           <button class="ebtn" onclick="toggleOrderDetail('${o.id}')">👁 פרטים</button>
-          <button class="ebtn" style="background:${o.paid?'#fdecea':'#e8f5e9'};color:${o.paid?'#c0392b':'#2e7d32'}" onclick="markPaid('${o.id}')">${o.paid?'↩ בטל תשלום':'💳 תשלום עבר'}</button>
           <button class="ebtn" style="background:#fdecea;color:#c0392b" onclick="deleteOrder('${o.id}')">🗑 מחק</button>
         </td>
       </tr>
@@ -2701,7 +2743,7 @@ function renderAdminWithOrders(orders){
             <tr><td style="color:#888">טלפון</td><td>${o.phone}</td></tr>
             ${o.floor?`<tr><td style="color:#888">קומה</td><td>${o.floor}</td></tr>`:''}
             ${o.notes?`<tr><td style="color:#888">הערות</td><td>${o.notes}</td></tr>`:''}
-            <tr><td style="color:#888">אישור</td><td>${o.ref}</td></tr>
+            <tr><td style="color:#888">אישור</td><td>${o.paymentProof?`<a href="${o.paymentProof}" target="_blank"><img src="${o.paymentProof}" style="max-height:80px;border-radius:6px;border:1px solid #ddd;cursor:pointer" title="לחץ לתצוגה מלאה"></a>`:o.ref}</td></tr>
             ${o.coupon?`<tr><td style="color:#888">קופון</td><td>${o.coupon} (-₪${o.discount.toFixed(2)})</td></tr>`:''}
           </table>
           <div style="margin-top:10px;font-weight:700;font-size:12px">מוצרים:</div>
