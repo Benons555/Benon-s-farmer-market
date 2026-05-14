@@ -2170,19 +2170,28 @@ function renderOrderEdit(orderId){
       <button class="ebtn" onclick="cancelOrderEdit('${orderId}')">✕ בטל</button>
       <button class="ebtn" style="background:#e8f5e9;color:#2e7d32;border-color:#a5d6a7" onclick="showAddItemRow('${orderId}')">+ הוסף פריט</button>
     </div>
-    <div id="add-item-${orderId}" style="display:none;padding:10px;background:#f9f9f9;border:1px solid #eee;border-radius:4px">
-      <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:flex-end">
-        <div><label style="font-size:11px;display:block;margin-bottom:3px;font-weight:600">מוצר *</label>
-          <input id="ai-name-${orderId}" placeholder="שם המוצר" style="border:1px solid #ddd;padding:5px 7px;border-radius:3px;width:155px;font-size:12px"></div>
-        <div><label style="font-size:11px;display:block;margin-bottom:3px;font-weight:600">פירוט</label>
-          <input id="ai-sub-${orderId}" placeholder="גודל / תיאור" style="border:1px solid #ddd;padding:5px 7px;border-radius:3px;width:130px;font-size:12px"></div>
-        <div><label style="font-size:11px;display:block;margin-bottom:3px;font-weight:600">ספק</label>
-          <input id="ai-sup-${orderId}" placeholder="ספק" style="border:1px solid #ddd;padding:5px 7px;border-radius:3px;width:120px;font-size:12px"></div>
-        <div><label style="font-size:11px;display:block;margin-bottom:3px;font-weight:600">כמות</label>
-          <input id="ai-qty-${orderId}" type="number" min="1" value="1" style="border:1px solid #ddd;padding:5px 7px;border-radius:3px;width:58px;font-size:12px"></div>
-        <div><label style="font-size:11px;display:block;margin-bottom:3px;font-weight:600">מחיר ₪</label>
-          <input id="ai-price-${orderId}" type="number" step="0.01" placeholder="0.00" style="border:1px solid #ddd;padding:5px 7px;border-radius:3px;width:80px;font-size:12px"></div>
-        <button class="ebtn" style="background:#1B3A6B;color:white;border-color:#1B3A6B" onclick="confirmAddItem('${orderId}')">הוסף ✓</button>
+    <div id="add-item-${orderId}" style="display:none;border:1px solid #ddd;border-radius:8px;overflow:hidden;margin-bottom:8px">
+      <div style="background:#f0f4f0;padding:8px 12px;border-bottom:1px solid #ddd">
+        <input id="ai-search-${orderId}" type="text" placeholder="🔍 חיפוש מוצר..." oninput="eiPickerFilter('${orderId}')"
+          style="width:100%;border:1px solid #ddd;border-radius:6px;padding:6px 10px;font-size:13px;font-family:inherit;box-sizing:border-box;margin-bottom:6px">
+        <div id="ai-cats-${orderId}" style="display:flex;gap:5px;flex-wrap:wrap"></div>
+      </div>
+      <div id="ai-list-${orderId}" style="max-height:220px;overflow-y:auto"></div>
+      <div style="border-top:1px solid #eee;padding:8px 12px;background:#fafafa">
+        <details><summary style="font-size:12px;color:#888;cursor:pointer">✏️ הוספה ידנית (מוצר שאינו בקטלוג)</summary>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:flex-end;margin-top:8px">
+          <div><label style="font-size:11px;display:block;margin-bottom:2px;font-weight:600">מוצר *</label>
+            <input id="ai-name-${orderId}" placeholder="שם" style="border:1px solid #ddd;padding:4px 6px;border-radius:3px;width:140px;font-size:12px"></div>
+          <div><label style="font-size:11px;display:block;margin-bottom:2px;font-weight:600">פירוט</label>
+            <input id="ai-sub-${orderId}" placeholder="גודל/תיאור" style="border:1px solid #ddd;padding:4px 6px;border-radius:3px;width:120px;font-size:12px"></div>
+          <div><label style="font-size:11px;display:block;margin-bottom:2px;font-weight:600">ספק</label>
+            <input id="ai-sup-${orderId}" placeholder="ספק" style="border:1px solid #ddd;padding:4px 6px;border-radius:3px;width:110px;font-size:12px"></div>
+          <div><label style="font-size:11px;display:block;margin-bottom:2px;font-weight:600">כמות</label>
+            <input id="ai-qty-${orderId}" type="number" min="1" value="1" style="border:1px solid #ddd;padding:4px 6px;border-radius:3px;width:54px;font-size:12px"></div>
+          <div><label style="font-size:11px;display:block;margin-bottom:2px;font-weight:600">מחיר ₪</label>
+            <input id="ai-price-${orderId}" type="number" step="0.01" placeholder="0.00" style="border:1px solid #ddd;padding:4px 6px;border-radius:3px;width:76px;font-size:12px"></div>
+          <button class="ebtn" style="background:#1B3A6B;color:white;border-color:#1B3A6B" onclick="confirmAddItem('${orderId}')">הוסף ✓</button>
+        </div></details>
       </div>
     </div>`;
 }
@@ -2202,7 +2211,82 @@ function removeOrderEditItem(orderId,idx){
 
 function showAddItemRow(orderId){
   const el=document.getElementById('add-item-'+orderId);
-  if(el)el.style.display=el.style.display==='none'?'':'none';
+  if(!el)return;
+  const isHidden=el.style.display==='none';
+  el.style.display=isHidden?'':'none';
+  if(isHidden){
+    const cats=['הכל',...[...new Set(PRODUCTS.map(p=>p.cat).filter(Boolean))].sort()];
+    const catsEl=document.getElementById('ai-cats-'+orderId);
+    if(catsEl){
+      window['_eiCat_'+orderId]='הכל';
+      catsEl.innerHTML=cats.map(c=>`<button onclick="eiPickerSetCat('${orderId}','${c}')" id="eiCat_${orderId}_${c.replace(/\s/g,'_')}" style="padding:4px 10px;border-radius:14px;border:1px solid #ccc;background:${c==='הכל'?'#4A7C59':'#fff'};color:${c==='הכל'?'#fff':'#333'};font-size:11px;cursor:pointer;white-space:nowrap;font-family:inherit">${c}</button>`).join('');
+    }
+    eiPickerFilter(orderId);
+    setTimeout(()=>document.getElementById('ai-search-'+orderId)?.focus(),50);
+  }
+}
+
+function eiPickerSetCat(orderId,cat){
+  window['_eiCat_'+orderId]=cat;
+  document.querySelectorAll('[id^="eiCat_'+orderId+'_"]').forEach(btn=>{
+    const active=btn.textContent===cat;
+    btn.style.background=active?'#4A7C59':'#fff';
+    btn.style.color=active?'#fff':'#333';
+  });
+  eiPickerFilter(orderId);
+}
+
+function eiPickerFilter(orderId){
+  const list=document.getElementById('ai-list-'+orderId);
+  if(!list)return;
+  const q=(document.getElementById('ai-search-'+orderId)?.value||'').trim().toLowerCase();
+  const cat=window['_eiCat_'+orderId]||'הכל';
+  const filtered=PRODUCTS.filter(p=>{
+    const matchCat=cat==='הכל'||p.cat===cat;
+    const matchQ=!q||p.name.toLowerCase().includes(q)||(p.sub||'').toLowerCase().includes(q)||(p.supplier||'').toLowerCase().includes(q);
+    return matchCat&&matchQ;
+  });
+  if(!filtered.length){list.innerHTML='<div style="padding:12px;color:#aaa;font-size:13px;text-align:center">אין תוצאות</div>';return;}
+  if(cat==='הכל'&&!q){
+    const groups={};
+    filtered.forEach(p=>{const c=p.cat||'אחר';if(!groups[c])groups[c]=[];groups[c].push(p);});
+    list.innerHTML=Object.entries(groups).map(([c,prods])=>
+      `<div style="background:#f0f4f0;padding:4px 10px;font-size:11px;font-weight:700;color:#4A7C59;border-bottom:1px solid #e0e0e0;position:sticky;top:0">${c}</div>`+
+      prods.map(p=>eiPickerRow(orderId,p)).join('')
+    ).join('');
+  } else {
+    list.innerHTML=filtered.map(p=>eiPickerRow(orderId,p)).join('');
+  }
+}
+
+function eiPickerRow(orderId,p){
+  return `<div style="display:flex;align-items:center;gap:8px;padding:7px 10px;border-bottom:1px solid #f0f0f0;font-size:12px">
+    <div style="flex:3"><div style="font-weight:700">${p.name}</div>${p.sub?`<div style="font-size:11px;color:#888">${p.sub}</div>`:''}<div style="font-size:10px;color:#bbb">${p.supplier||''}</div></div>
+    <div style="font-weight:700;color:#4A7C59;white-space:nowrap">₪${p.price.toFixed(2)}</div>
+    <button onclick="eiPickerAdd('${orderId}','${p.id}')" style="background:#4A7C59;color:#fff;border:none;border-radius:14px;padding:4px 12px;cursor:pointer;font-size:12px;white-space:nowrap">+ הוסף</button>
+  </div>`;
+}
+
+function eiPickerAdd(orderId,pid){
+  if(!_orderEdits[orderId])return;
+  const p=PRODUCTS.find(x=>String(x.id)===String(pid));
+  if(!p)return;
+  const existing=_orderEdits[orderId].find(i=>i.name===p.name&&Math.abs(i.price-p.price)<0.01);
+  if(existing){existing.qty+=1;}
+  else{_orderEdits[orderId].push({name:p.name,sub:p.sub||'',supplier:p.supplier||'',qty:1,price:p.price});}
+  renderOrderEdit(orderId);
+  // Re-open picker and restore state
+  setTimeout(()=>{
+    const el=document.getElementById('add-item-'+orderId);
+    if(el&&el.style.display==='none') el.style.display='';
+    const cats=['הכל',...[...new Set(PRODUCTS.map(p=>p.cat).filter(Boolean))].sort()];
+    const catsEl=document.getElementById('ai-cats-'+orderId);
+    const currentCat=window['_eiCat_'+orderId]||'הכל';
+    if(catsEl){
+      catsEl.innerHTML=cats.map(c=>`<button onclick="eiPickerSetCat('${orderId}','${c}')" id="eiCat_${orderId}_${c.replace(/\s/g,'_')}" style="padding:4px 10px;border-radius:14px;border:1px solid #ccc;background:${c===currentCat?'#4A7C59':'#fff'};color:${c===currentCat?'#fff':'#333'};font-size:11px;cursor:pointer;white-space:nowrap;font-family:inherit">${c}</button>`).join('');
+    }
+    eiPickerFilter(orderId);
+  },10);
 }
 
 function confirmAddItem(orderId){
