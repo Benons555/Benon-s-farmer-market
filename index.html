@@ -3128,6 +3128,38 @@ function renderAdminWithOrders(orders){
     })()}</div>
   </div>
   <div class="asec">
+    <div class="asec-h">🏷 שימוש בקופונים</div>
+    <div class="asec-b">${(()=>{
+      const couponList=Object.values(COUPONS);
+      if(!couponList.length) return '<div class="no-data">אין קופונים מוגדרים</div>';
+      const rows=couponList.map(cpn=>{
+        const used=orders.filter(o=>o.coupon===cpn.name);
+        const totalDiscount=used.reduce((s,o)=>s+(o.discount||0),0);
+        const discStr=cpn.type==='percent'?cpn.discount+'%':'₪'+cpn.discount;
+        const expiry=cpn.expiry?cpn.expiry.split('-').reverse().join('/'):'ללא';
+        const expired=cpn.expiry&&new Date().toISOString().slice(0,10)>cpn.expiry;
+        const statusBadge=expired
+          ?'<span style="background:#c62828;color:#fff;border-radius:4px;padding:2px 7px;font-size:11px">פג תוקף</span>'
+          :'<span style="background:#2e7d32;color:#fff;border-radius:4px;padding:2px 7px;font-size:11px">פעיל</span>';
+        const usersHtml=used.length
+          ?used.map(o=>`<span style="display:inline-block;background:#f5f5f5;border-radius:4px;padding:2px 8px;font-size:11px;margin:2px">${o.name} — ₪${(o.discount||0).toFixed(2)}</span>`).join('')
+          :'<span style="color:#aaa;font-size:12px">לא נוצל עדיין</span>';
+        return `<tr>
+          <td style="font-weight:700">${cpn.name} ${statusBadge}</td>
+          <td style="text-align:center">${discStr}</td>
+          <td style="text-align:center;font-size:12px;color:#666">${expiry}</td>
+          <td style="text-align:center;font-weight:700;color:${used.length?'#1B3A6B':'#aaa'}">${used.length}</td>
+          <td style="font-weight:700;color:#c62828">${totalDiscount>0?'-₪'+totalDiscount.toFixed(2):'—'}</td>
+          <td style="font-size:11px">${usersHtml}</td>
+        </tr>`;
+      }).join('');
+      return `<table class="atable"><thead><tr>
+        <th>קופון</th><th style="text-align:center">הנחה</th><th style="text-align:center">תוקף</th>
+        <th style="text-align:center">שימושים</th><th>סה״כ הנחה</th><th>מי השתמש</th>
+      </tr></thead><tbody>${rows}</tbody></table>`;
+    })()}</div>
+  </div>
+  <div class="asec">
     <div class="asec-h">📝 כל ההזמנות ${(()=>{const uc=orders.filter(o=>!o.paid).length;return uc>0?`<span style="background:#c62828;color:white;border-radius:10px;padding:2px 8px;font-size:12px;margin-right:6px">${uc} ממתינים לאישור תשלום</span>`:'';})()} </div>
     <div class="asec-b">${orders.length?`<table class="atable"><thead><tr><th>#</th><th>שם</th><th>טלפון</th><th>סה״כ</th><th>תאריך</th><th>תשלום</th><th>פעולות</th></tr></thead><tbody>${[...orders].reverse().map(o=>`
       <tr style="cursor:pointer;background:${o.paid?'#f0faf0':''}" onclick="toggleOrderDetail('${o.id}')">
