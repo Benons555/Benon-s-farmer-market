@@ -2270,7 +2270,7 @@ function exportSupplierPDF(sup){
   const rows=products.map(p=>{
     const finalQty=p.qty+getSuppExtra(sup,p.name.trim().toLowerCase());
     const prod=PRODUCTS.find(pr=>pr.name.trim().toLowerCase()===p.name.trim().toLowerCase()&&(pr.sub||'')===(p.sub||''));
-    const unitCost=getItemCostBeforeVat(p.name,p.sub||'',prod?prod.price:0);
+    const unitCost=getItemCostByName(p.name,p.sub||'',prod?prod.price:0);
     const lineTotal=unitCost*finalQty;
     totalBeforeVat+=lineTotal;
     return '<tr>'
@@ -2282,7 +2282,7 @@ function exportSupplierPDF(sup){
       +'</tr>';
   }).join('')+manuals.map(m=>{
     const prod=PRODUCTS.find(pr=>pr.name.trim().toLowerCase()===m.name.trim().toLowerCase()&&(pr.sub||'')===(m.sub||''));
-    const unitCost=getItemCostBeforeVat(m.name,m.sub||'',prod?prod.price:0);
+    const unitCost=getItemCostByName(m.name,m.sub||'',prod?prod.price:0);
     const lineTotal=unitCost*m.qty;
     totalBeforeVat+=lineTotal;
     return '<tr style="background:#fffbf0">'
@@ -3045,15 +3045,6 @@ function getItemCostByName(name,sub,fallbackPrice){
     const c=HONEY_COSTS[sub]; if(c!==undefined)return c;
   }
   const c=PRODUCT_COSTS[name]; if(c!==undefined)return c;
-  if(FRUIT_NAMES.has(name))return (fallbackPrice/VAT)*0.80;
-  return (fallbackPrice/VAT)*0.65;
-}
-// מחיר ספק לפני מע"מ — PRODUCT_COSTS ו-HONEY_COSTS כוללים מע"מ, פירות/fallback כבר לפני
-function getItemCostBeforeVat(name,sub,fallbackPrice){
-  if(['דבש אבוקדו','דבש הדרים','דבש שיזף','דבש פרחי בר טבעי'].includes(name)){
-    const c=HONEY_COSTS[sub]; if(c!==undefined)return c/VAT;
-  }
-  const c=PRODUCT_COSTS[name]; if(c!==undefined)return c/VAT;
   if(FRUIT_NAMES.has(name))return (fallbackPrice/VAT)*0.80;
   return (fallbackPrice/VAT)*0.65;
 }
