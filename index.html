@@ -2208,7 +2208,7 @@ function renderManualItems(sup){
   const sid=supId(sup);
   const el=document.getElementById('sm-list-'+sid);
   if(!el)return;
-  const escSup=sup.replace(/'/g,"\\'");
+  const escSup=sup.replace(/'/g,"\\'").replace(/"/g,'&quot;');
   const items=_suppManual[sup]||[];
   if(!items.length){el.innerHTML='';return;}
   el.innerHTML=items.map((m,i)=>{
@@ -2263,7 +2263,8 @@ function exportSupplierPDF(sup){
   const products=Object.values(_suppMap[sup]||{});
   if(!products.length)return;
   const date=new Date().toLocaleDateString('he-IL');
-  const manuals=_suppManual[sup]||[];
+  const orderedPksPdf=new Set(products.map(p=>p.name.trim().toLowerCase()+'|'+(p.sub||'').trim().toLowerCase()));
+  const manuals=(_suppManual[sup]||[]).filter(m=>!orderedPksPdf.has(m.name.trim().toLowerCase()+'|'+(m.sub||'').trim().toLowerCase()));
   const totalQty=products.reduce((s,p)=>s+p.qty+getSuppExtra(sup,p.name.trim().toLowerCase()+'|'+(p.sub||'').trim().toLowerCase()),0)+manuals.reduce((s,m)=>s+m.qty,0);
   // calc totals using pre-VAT unit costs
   let totalBeforeVat=0;
@@ -2280,13 +2281,13 @@ function exportSupplierPDF(sup){
       +'<td style="text-align:center;padding:10px 14px;font-weight:700;color:#1B3A6B;width:110px">₪'+lineTotal.toFixed(2)+'</td>'
       +'<td style="padding:10px 14px;min-width:160px">&nbsp;</td>'
       +'</tr>';
-  }).join('')+manuals.map(m=>{
+  }).join('')+manuals.filter(m=>!Object.values(_suppMap[sup]||{}).some(p=>p.name.trim().toLowerCase()===m.name.trim().toLowerCase()&&(p.sub||'').trim().toLowerCase()===(m.sub||'').trim().toLowerCase())).map(m=>{
     const prod=PRODUCTS.find(pr=>pr.name.trim().toLowerCase()===m.name.trim().toLowerCase()&&(pr.sub||'')===(m.sub||''));
     const unitCost=getItemCostByName(m.name,m.sub||'',prod?prod.price:0);
     const lineTotal=unitCost*m.qty;
     totalBeforeVat+=lineTotal;
-    return '<tr style="background:#fffbf0">'
-      +'<td style="font-weight:700;padding:10px 14px">'+m.name+(m.sub?'<div style="font-size:11px;font-weight:400;color:#888">'+m.sub+'</div>':'')+'<span style="font-size:10px;color:#e65100;margin-right:6px">ידני</span></td>'
+    return '<tr>'
+      +'<td style="font-weight:700;padding:10px 14px">'+m.name+(m.sub?'<div style="font-size:11px;font-weight:400;color:#888">'+m.sub+'</div>':'')+'</td>'
       +'<td style="text-align:center;padding:10px 14px;font-weight:800;font-size:15px;color:#1B3A6B">'+m.qty+'</td>'
       +'<td style="text-align:center;padding:10px 14px;color:#444">₪'+unitCost.toFixed(2)+'</td>'
       +'<td style="text-align:center;padding:10px 14px;font-weight:700;color:#1B3A6B">₪'+lineTotal.toFixed(2)+'</td>'
@@ -3153,10 +3154,11 @@ function renderAdminWithOrders(orders){
         const products=Object.values(_suppMap[sup]);
         const manuals=_suppManual[sup]||[];
         const totalQty=products.reduce((s,p)=>s+p.qty+getSuppExtra(sup,p.name.trim().toLowerCase()+'|'+(p.sub||'').trim().toLowerCase()),0)+manuals.reduce((s,m)=>s+m.qty,0);
-        const escSup=sup.replace(/'/g,"\\'");
+        const escSup=sup.replace(/'/g,"\\'").replace(/"/g,'&quot;');
         const sid=supId(sup);
         const prodRows=products.map(p=>{
           const pk=p.name.trim().toLowerCase()+'|'+(p.sub||'').trim().toLowerCase();
+          const pkEsc=pk.replace(/'/g,"\\'").replace(/"/g,'&quot;');
           const pkId=supId(pk);
           const extra=getSuppExtra(sup,pk);
           const finalQty=p.qty+extra;
@@ -3165,9 +3167,9 @@ function renderAdminWithOrders(orders){
             <td style="text-align:center;font-weight:700;color:var(--green)">${p.qty}</td>
             <td style="text-align:center">
               <div style="display:flex;align-items:center;justify-content:center;gap:3px">
-                <button onclick="changeSuppExtra('${escSup}','${pk.replace(/'/g,"\\'")}',-1)" style="width:24px;height:24px;border:1px solid #ddd;border-radius:50%;cursor:pointer;font-size:13px;background:#fff;line-height:1">−</button>
+                <button onclick="changeSuppExtra('${escSup}','${pkEsc}',-1)" style="width:24px;height:24px;border:1px solid #ddd;border-radius:50%;cursor:pointer;font-size:13px;background:#fff;line-height:1">−</button>
                 <span id="se-q-${sid}-${pkId}" style="min-width:26px;text-align:center;font-size:12px;font-weight:700;color:${extra>0?'#e65100':extra<0?'#c00':'#bbb'}">${extra>0?'+':''+(extra||'0')}</span>
-                <button onclick="changeSuppExtra('${escSup}','${pk.replace(/'/g,"\\'")}',1)" style="width:24px;height:24px;border:1px solid #ddd;border-radius:50%;cursor:pointer;font-size:13px;background:#fff;line-height:1">+</button>
+                <button onclick="changeSuppExtra('${escSup}','${pkEsc}',1)" style="width:24px;height:24px;border:1px solid #ddd;border-radius:50%;cursor:pointer;font-size:13px;background:#fff;line-height:1">+</button>
               </div>
             </td>
             <td style="text-align:center;font-weight:800;font-size:15px;color:#1B3A6B" id="se-total-${sid}-${pkId}">${finalQty}</td>
@@ -3200,8 +3202,9 @@ function renderAdminWithOrders(orders){
           <div style="padding:8px 12px;background:#fafafa;border-top:1px solid #eee">
             <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
               ${(()=>{
-                const orderedKeys=new Set(Object.values(_suppMap[sup]||{}).map(p=>p.name.trim().toLowerCase()+'|'+(p.sub||'')));
-                const available=PRODUCTS.filter(p=>p.supplier===sup&&!orderedKeys.has(p.name.trim().toLowerCase()+'|'+(p.sub||'')));
+                const orderedKeys=new Set(Object.values(_suppMap[sup]||{}).map(p=>p.name.trim().toLowerCase()+'|'+(p.sub||'').trim().toLowerCase()));
+                const manualKeys=new Set((_suppManual[sup]||[]).map(m=>m.name.trim().toLowerCase()+'|'+(m.sub||'').trim().toLowerCase()));
+                const available=PRODUCTS.filter(p=>p.supplier===sup&&!orderedKeys.has(p.name.trim().toLowerCase()+'|'+(p.sub||'').trim().toLowerCase())&&!manualKeys.has(p.name.trim().toLowerCase()+'|'+(p.sub||'').trim().toLowerCase()));
                 if(!available.length)return `<span style="color:#aaa;font-size:12px;padding:4px">כל המוצרים כבר נמצאים ברשימה</span>`;
                 return `<select id="sm-sel-${sid}" style="border:1px solid #ddd;border-radius:6px;padding:5px 8px;font-size:13px;font-family:inherit;min-width:200px;direction:rtl"><option value="">— בחר מוצר להוסיף —</option>${available.map(p=>`<option value="${p.id}">${p.name}${p.sub?' — '+p.sub:''}</option>`).join('')}</select><input id="sm-qty-${sid}" type="number" min="1" value="1" style="border:1px solid #ddd;border-radius:6px;padding:5px 8px;font-size:13px;font-family:inherit;width:60px;text-align:center"><button onclick="addManualSupItem('${escSup}')" style="background:#4A7C59;color:#fff;border:none;border-radius:6px;padding:6px 14px;cursor:pointer;font-size:13px;font-family:inherit">+ הוסף פריט</button>`;
               })()}
@@ -3325,7 +3328,8 @@ function initProfitCharts(){
 
 // ===== Coupon management =====
 function clearSuppData(){
-  if(!confirm('לאפס את כל התוספות הידניות ורשימות ספקים?'))return;
+  if(!confirm('שים לב: פעולה זו תמחק לצמיתות את כל הפריטים הידניים ותוספות הכמות. האם להמשיך?'))return;
+  if(!confirm('אישור סופי — בטוח למחוק הכל?'))return;
   _suppExtras={};_suppManual={};_saveSupp();renderAdmin();
 }
 
