@@ -2134,6 +2134,13 @@ let _orderEdits={};
 let _suppMap={};   // {sup: {pk: {name,sub,qty,customers}}}
 let _suppExtras={}; // {sup: {pk: extraQty}}  — adjustments to existing items
 let _suppManual={}; // {sup: [{name,sub,qty}]}  — manually added items
+// Persist extras & manual items across page refreshes
+try{_suppExtras=JSON.parse(localStorage.getItem('benon_supp_extras')||'{}');}catch(e){_suppExtras={};}
+try{_suppManual=JSON.parse(localStorage.getItem('benon_supp_manual')||'{}');}catch(e){_suppManual={};}
+function _saveSupp(){
+  try{localStorage.setItem('benon_supp_extras',JSON.stringify(_suppExtras));}catch(e){}
+  try{localStorage.setItem('benon_supp_manual',JSON.stringify(_suppManual));}catch(e){}
+}
 
 function supId(s){return s.replace(/[^a-zA-Zא-ת0-9]/g,'_');}
 
@@ -2145,6 +2152,7 @@ function changeSuppExtra(sup,pk,delta){
   const cur=_suppExtras[sup][pk]||0;
   const next=Math.max(-base, cur+delta); // can't go below 0 total
   _suppExtras[sup][pk]=next;
+  _saveSupp();
   const sid=supId(sup), pid=supId(pk);
   const qEl=document.getElementById(`se-q-${sid}-${pid}`);
   const tEl=document.getElementById(`se-total-${sid}-${pid}`);
@@ -2174,6 +2182,7 @@ function addManualSupItem(sup){
   const qty=Math.max(1,parseInt(qtyEl?.value)||1);
   if(!_suppManual[sup])_suppManual[sup]=[];
   _suppManual[sup].push({name:prod.name,sub:prod.sub||'',qty});
+  _saveSupp();
   selEl.value='';selEl.style.borderColor='';
   if(qtyEl)qtyEl.value='1';
   renderManualItems(sup);
@@ -2182,6 +2191,7 @@ function addManualSupItem(sup){
 
 function removeManualSupItem(sup,idx){
   if(_suppManual[sup])_suppManual[sup].splice(idx,1);
+  _saveSupp();
   renderManualItems(sup);
   updateSuppTotal(sup);
 }
@@ -2189,6 +2199,7 @@ function removeManualSupItem(sup,idx){
 function changeManualQty(sup,idx,delta){
   if(!_suppManual[sup])return;
   _suppManual[sup][idx].qty=Math.max(1,(_suppManual[sup][idx].qty||1)+delta);
+  _saveSupp();
   renderManualItems(sup);
   updateSuppTotal(sup);
 }
@@ -3111,7 +3122,7 @@ function renderAdminWithOrders(orders){
     }).join('')}</tbody></table>`:`<div class="no-data">אין הזמנות</div>`}</div>
   </div>
   <div class="asec">
-    <div class="asec-h">🏪 רשימות לפי ספק</div>
+    <div class="asec-h">🏪 רשימות לפי ספק<button class="ebtn" style="background:#fdecea;color:#c0392b;margin-right:8px;font-size:11px" onclick="clearSuppData()">🗑 אפס תוספות</button></div>
     <div class="asec-b">${(()=>{
       if(!orders.length) return '<div class="no-data">אין הזמנות</div>';
       // _suppMap already built above before stats render
@@ -3289,6 +3300,11 @@ function initProfitCharts(){
 }
 
 // ===== Coupon management =====
+function clearSuppData(){
+  if(!confirm('לאפס את כל התוספות הידניות ורשימות ספקים?'))return;
+  _suppExtras={};_suppManual={};_saveSupp();renderAdmin();
+}
+
 function toggleCouponActive(hash){
   const list=JSON.parse(localStorage.getItem('benon_disabled_coupons')||'[]');
   const idx=list.indexOf(hash);
