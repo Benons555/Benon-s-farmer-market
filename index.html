@@ -2030,12 +2030,12 @@ async function addAmbrellaOrder(){
   if(!_admin.ok())return;
   const existing=getOrders().find(o=>o.name==='חברת אמברלה');
   if(existing){alert('הזמנת אמברלה כבר קיימת (#'+existing.id+')');return;}
-  if(!confirm('להוסיף הזמנה ארגונית:\nחברת אמברלה — 22 מארזים\nסה"כ ₪6,487.14 כולל מע"מ?'))return;
+  if(!confirm('להוסיף הזמנה ארגונית:\nחברת אמברלה — 22 מארזים\nסה"כ ₪6,796.90 כולל מע"מ?'))return;
   const items=[
     {name:'סנט מור',sub:'160 גרם ליחידה',qty:22,price:29.70,supplier:'ברקנית'},
     {name:'תבור',sub:'130 גרם ליחידה',qty:22,price:31.00,supplier:'ברקנית'},
     {name:'כחולה נסתרת',sub:'130 גרם ליחידה',qty:22,price:32.40,supplier:'ברקנית'},
-    {name:'מנצ׳גו',sub:'₪18.77 ל-100 גרם | יחידה 150-200 גרם',qty:22,price:18.77,supplier:'ברקנית'},
+    {name:'מנצ׳גו',sub:'₪18.77 ל-100 גרם | יחידה 150-200 גרם',qty:22,price:32.85,supplier:'ברקנית'},
     {name:'פרחים- נץ החלב לבן',sub:'זר 10 גבעולים',qty:22,price:54.00,supplier:'פרחי יובל'},
     {name:'רוזה 2025',sub:'יין יבש | 750 מ"ל | 12% אלכוהול',qty:22,price:101.00,supplier:'מיקה'},
     {name:'דובדבן',sub:'½ קילו, טרי, מתוק',qty:22,price:28.00,supplier:'עידו'}
