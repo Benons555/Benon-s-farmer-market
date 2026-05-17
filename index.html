@@ -1565,7 +1565,7 @@ input, textarea {
         <img id="loginLogo" src="" alt="Logo">
         <h2>ממשק ניהול</h2>
         <p>הכניסו סיסמת מנהל</p>
-        <div class="fg"><input type="password" id="adminPwd" placeholder="סיסמה" onkeydown="if(event.key==='Enter')checkAdmin()"></div>
+        <div class="fg" style="position:relative;display:flex;align-items:center"><input type="password" id="adminPwd" placeholder="סיסמה" onkeydown="if(event.key==='Enter')checkAdmin()" style="padding-left:36px;width:100%"><button type="button" onclick="const i=document.getElementById('adminPwd');i.type=i.type==='password'?'text':'password';this.textContent=i.type==='password'?'👁':'🙈'" style="position:absolute;left:8px;background:none;border:none;cursor:pointer;font-size:16px;padding:0;line-height:1">👁</button></div>
         <button class="btn-p" onclick="checkAdmin()">כניסה</button>
         <p id="loginErr" style="color:var(--red);font-size:13px;margin-top:8px"></p>
       </div>
@@ -3150,9 +3150,11 @@ function renderAdminWithOrders(orders){
     <div class="asec-b">${(()=>{
       if(!orders.length) return '<div class="no-data">אין הזמנות</div>';
       // _suppMap already built above before stats render
-      return Object.keys(_suppMap).sort((a,b)=>a.localeCompare(b,'he')).map(sup=>{
-        const products=Object.values(_suppMap[sup]);
-        const manuals=_suppManual[sup]||[];
+      const allSups=new Set([...Object.keys(_suppMap),...Object.keys(_suppManual)]);
+      return [...allSups].sort((a,b)=>a.localeCompare(b,'he')).map(sup=>{
+        const products=Object.values(_suppMap[sup]||{});
+        const orderedPks=new Set(products.map(p=>p.name.trim().toLowerCase()+'|'+(p.sub||'').trim().toLowerCase()));
+        const manuals=(_suppManual[sup]||[]).filter(m=>!orderedPks.has(m.name.trim().toLowerCase()+'|'+(m.sub||'').trim().toLowerCase()));
         const totalQty=products.reduce((s,p)=>s+p.qty+getSuppExtra(sup,p.name.trim().toLowerCase()+'|'+(p.sub||'').trim().toLowerCase()),0)+manuals.reduce((s,m)=>s+m.qty,0);
         const escSup=sup.replace(/'/g,"\\'").replace(/"/g,'&quot;');
         const sid=supId(sup);
