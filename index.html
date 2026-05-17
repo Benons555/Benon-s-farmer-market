@@ -3177,7 +3177,8 @@ function renderAdminWithOrders(orders){
           <div style="padding:8px 12px;background:#fafafa;border-top:1px solid #eee">
             <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
               ${(()=>{
-                const available=PRODUCTS.filter(p=>p.supplier===sup&&!_suppMap[sup][p.name.trim().toLowerCase()]);
+                const orderedKeys=new Set(Object.values(_suppMap[sup]||{}).map(p=>p.name.trim().toLowerCase()+'|'+(p.sub||'')));
+                const available=PRODUCTS.filter(p=>p.supplier===sup&&!orderedKeys.has(p.name.trim().toLowerCase()+'|'+(p.sub||'')));
                 if(!available.length)return `<span style="color:#aaa;font-size:12px;padding:4px">כל המוצרים כבר נמצאים ברשימה</span>`;
                 return `<select id="sm-sel-${sid}" style="border:1px solid #ddd;border-radius:6px;padding:5px 8px;font-size:13px;font-family:inherit;min-width:200px;direction:rtl"><option value="">— בחר מוצר להוסיף —</option>${available.map(p=>`<option value="${p.id}">${p.name}${p.sub?' — '+p.sub:''}</option>`).join('')}</select><input id="sm-qty-${sid}" type="number" min="1" value="1" style="border:1px solid #ddd;border-radius:6px;padding:5px 8px;font-size:13px;font-family:inherit;width:60px;text-align:center"><button onclick="addManualSupItem('${escSup}')" style="background:#4A7C59;color:#fff;border:none;border-radius:6px;padding:6px 14px;cursor:pointer;font-size:13px;font-family:inherit">+ הוסף פריט</button>`;
               })()}
