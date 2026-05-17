@@ -2209,8 +2209,7 @@ function renderManualItems(sup){
   const el=document.getElementById('sm-list-'+sid);
   if(!el)return;
   const escSup=sup.replace(/'/g,"\\'").replace(/"/g,'&quot;');
-  const ordPks=new Set(Object.values(_suppMap[sup]||{}).map(p=>p.name.trim().toLowerCase()+'|'+(p.sub||'').trim().toLowerCase()));
-  const items=(_suppManual[sup]||[]).map((m,origIdx)=>({...m,origIdx})).filter(m=>!ordPks.has(m.name.trim().toLowerCase()+'|'+(m.sub||'').trim().toLowerCase()));
+  const items=(_suppManual[sup]||[]).map((m,origIdx)=>({...m,origIdx}));
   if(!items.length){el.innerHTML='';return;}
   el.innerHTML=items.map((m)=>{
     const namePart=m.name+(m.sub?'<div style="font-size:11px;font-weight:400;color:#aaa">'+m.sub+'</div>':'');
@@ -3147,15 +3146,14 @@ function renderAdminWithOrders(orders){
     }).join('')}</tbody></table>`:`<div class="no-data">אין הזמנות</div>`}</div>
   </div>
   <div class="asec">
-    <div class="asec-h">🏪 רשימות לפי ספק<button class="ebtn" style="background:#fdecea;color:#c0392b;margin-right:8px;font-size:11px" onclick="clearSuppData()">🗑 אפס תוספות</button></div>
+    <div class="asec-h">🏪 רשימות לפי ספק<span style="display:flex;gap:6px;align-items:center"><button class="ebtn" style="background:#e8f2e0;color:#1B6B2E;font-size:11px" onclick="exportSuppData()">💾 גיבוי</button><button class="ebtn" style="background:#e8f2e0;color:#1B6B2E;font-size:11px" onclick="document.getElementById('suppImportFile').click()">📂 שחזור</button><input type="file" id="suppImportFile" accept=".json" style="display:none" onchange="importSuppData(this)"><button class="ebtn" style="background:#fdecea;color:#c0392b;font-size:11px" onclick="clearSuppData()">🗑 אפס</button></span></div>
     <div class="asec-b">${(()=>{
       if(!orders.length) return '<div class="no-data">אין הזמנות</div>';
       // _suppMap already built above before stats render
       const allSups=new Set([...Object.keys(_suppMap),...Object.keys(_suppManual)]);
       return [...allSups].sort((a,b)=>a.localeCompare(b,'he')).map(sup=>{
         const products=Object.values(_suppMap[sup]||{});
-        const orderedPks=new Set(products.map(p=>p.name.trim().toLowerCase()+'|'+(p.sub||'').trim().toLowerCase()));
-        const manuals=(_suppManual[sup]||[]).map((m,origIdx)=>({...m,origIdx})).filter(m=>!orderedPks.has(m.name.trim().toLowerCase()+'|'+(m.sub||'').trim().toLowerCase()));
+        const manuals=(_suppManual[sup]||[]).map((m,origIdx)=>({...m,origIdx}));
         const totalQty=products.reduce((s,p)=>s+p.qty+getSuppExtra(sup,p.name.trim().toLowerCase()+'|'+(p.sub||'').trim().toLowerCase()),0)+manuals.reduce((s,m)=>s+m.qty,0);
         const escSup=sup.replace(/'/g,"\\'").replace(/"/g,'&quot;');
         const sid=supId(sup);
@@ -3334,6 +3332,28 @@ function clearSuppData(){
   if(!confirm('שים לב: פעולה זו תמחק לצמיתות את כל הפריטים הידניים ותוספות הכמות. האם להמשיך?'))return;
   if(!confirm('אישור סופי — בטוח למחוק הכל?'))return;
   _suppExtras={};_suppManual={};_saveSupp();renderAdmin();
+}
+function exportSuppData(){
+  const data={extras:_suppExtras,manual:_suppManual,date:new Date().toLocaleString('he-IL')};
+  const a=document.createElement('a');
+  a.href='data:application/json;charset=utf-8,'+encodeURIComponent(JSON.stringify(data,null,2));
+  a.download='supp_backup_'+new Date().toISOString().slice(0,10)+'.json';
+  a.click();
+}
+function importSuppData(input){
+  const file=input.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try{
+      const data=JSON.parse(e.target.result);
+      if(data.extras)_suppExtras=data.extras;
+      if(data.manual)_suppManual=data.manual;
+      _saveSupp();renderAdmin();
+      alert('✅ שוחזר בהצלחה!');
+    }catch(err){alert('שגיאה בקובץ הגיבוי');}
+    input.value='';
+  };
+  reader.readAsText(file);
 }
 
 function toggleCouponActive(hash){
