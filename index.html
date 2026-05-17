@@ -1837,6 +1837,13 @@ async function applyCoupon(){
     msg.style.color='var(--red)';
     return;
   }
+  const _disabledCoupons=JSON.parse(localStorage.getItem('benon_disabled_coupons')||'[]');
+  if(_disabledCoupons.includes(hashed)){
+    appliedCoupon=null;
+    msg.textContent='✗ קופון זה אינו פעיל כרגע';
+    msg.style.color='var(--red)';
+    return;
+  }
   if(coupon.expiry && new Date().toISOString().slice(0,10)>coupon.expiry){
     appliedCoupon=null;
     msg.textContent='✗ קוד הקופון פג תוקף ב-'+coupon.expiry.split('-').reverse().join('/');
@@ -3136,17 +3143,25 @@ function renderAdminWithOrders(orders){
   <div class="asec">
     <div class="asec-h">🏷 שימוש בקופונים</div>
     <div class="asec-b">${(()=>{
-      const couponList=Object.values(COUPONS);
-      if(!couponList.length) return '<div class="no-data">אין קופונים מוגדרים</div>';
-      const rows=couponList.map(cpn=>{
+      const couponEntries=Object.entries(COUPONS);
+      if(!couponEntries.length) return '<div class="no-data">אין קופונים מוגדרים</div>';
+      const disabledList=JSON.parse(localStorage.getItem('benon_disabled_coupons')||'[]');
+      const hexagonUsed=orders.filter(o=>{const ce=o.coupon?Object.values(COUPONS).find(c=>c.name===o.coupon):null;return ce&&ce.sponsored;});
+      const hexagonTotal=hexagonUsed.reduce((s,o)=>s+(o.discount||0),0);
+      const rows=couponEntries.map(([hash,cpn])=>{
         const used=orders.filter(o=>o.coupon===cpn.name);
         const totalDiscount=used.reduce((s,o)=>s+(o.discount||0),0);
         const discStr=cpn.type==='percent'?cpn.discount+'%':'₪'+cpn.discount;
         const expiry=cpn.expiry?cpn.expiry.split('-').reverse().join('/'):'ללא';
         const expired=cpn.expiry&&new Date().toISOString().slice(0,10)>cpn.expiry;
-        const statusBadge=expired
-          ?'<span style="background:#c62828;color:#fff;border-radius:4px;padding:2px 7px;font-size:11px">פג תוקף</span>'
-          :'<span style="background:#2e7d32;color:#fff;border-radius:4px;padding:2px 7px;font-size:11px">פעיל</span>';
+        const isDisabled=disabledList.includes(hash);
+        const statusBadge=isDisabled
+          ?'<span style="background:#888;color:#fff;border-radius:4px;padding:2px 7px;font-size:11px">מושבת</span>'
+          :expired
+            ?'<span style="background:#c62828;color:#fff;border-radius:4px;padding:2px 7px;font-size:11px">פג תוקף</span>'
+            :'<span style="background:#2e7d32;color:#fff;border-radius:4px;padding:2px 7px;font-size:11px">פעיל</span>';
+        const toggleBtn=`<button onclick="toggleCouponActive('${hash}')" style="background:${isDisabled?'#2e7d32':'#c62828'};color:#fff;border:none;border-radius:4px;padding:3px 9px;font-size:11px;cursor:pointer;font-family:inherit">${isDisabled?'הפעל':'בטל'}</button>`;
+        const hexInvBtn=cpn.sponsored&&hexagonTotal>0?`<button id="hexagon-inv-btn" onclick="createHexagonInvoice()" style="background:#1B3A6B;color:#fff;border:none;border-radius:4px;padding:3px 9px;font-size:11px;cursor:pointer;font-family:inherit;margin-right:4px">📄 חשבונית ל-Hexagon (₪${hexagonTotal.toFixed(2)})</button>`:'';
         const usersHtml=used.length
           ?used.map(o=>`<span style="display:inline-block;background:#f5f5f5;border-radius:4px;padding:2px 8px;font-size:11px;margin:2px">${o.name} — ₪${(o.discount||0).toFixed(2)}</span>`).join('')
           :'<span style="color:#aaa;font-size:12px">לא נוצל עדיין</span>';
@@ -3157,11 +3172,12 @@ function renderAdminWithOrders(orders){
           <td style="text-align:center;font-weight:700;color:${used.length?'#1B3A6B':'#aaa'}">${used.length}</td>
           <td style="font-weight:700;color:${cpn.sponsored?'#1B3A6B':'#c62828'}">${totalDiscount>0?(cpn.sponsored?'+₪'+totalDiscount.toFixed(2)+' (מ-Hexagon)':'-₪'+totalDiscount.toFixed(2)):'—'}</td>
           <td style="font-size:11px">${usersHtml}</td>
+          <td>${hexInvBtn}${toggleBtn}</td>
         </tr>`;
       }).join('');
       return `<table class="atable"><thead><tr>
         <th>קופון</th><th style="text-align:center">הנחה</th><th style="text-align:center">תוקף</th>
-        <th style="text-align:center">שימושים</th><th>סה״כ הנחה</th><th>מי השתמש</th>
+        <th style="text-align:center">שימושים</th><th>סה״כ הנחה</th><th>מי השתמש</th><th>פעולות</th>
       </tr></thead><tbody>${rows}</tbody></table>`;
     })()}</div>
   </div>
@@ -3233,6 +3249,54 @@ function initProfitCharts(){
   if(pc){
     if(pc._chart)pc._chart.destroy();
     pc._chart=new Chart(pc,{...opts,data:{labels:d.labels,datasets:[{data:d.profit,backgroundColor:PIE_COLORS,borderWidth:2,borderColor:'#fff'}]}});
+  }
+}
+
+// ===== Coupon management =====
+function toggleCouponActive(hash){
+  const list=JSON.parse(localStorage.getItem('benon_disabled_coupons')||'[]');
+  const idx=list.indexOf(hash);
+  if(idx>=0) list.splice(idx,1); else list.push(hash);
+  localStorage.setItem('benon_disabled_coupons',JSON.stringify(list));
+  renderAdmin();
+}
+
+async function createHexagonInvoice(){
+  const btn=document.getElementById('hexagon-inv-btn');
+  if(btn){btn.disabled=true;btn.textContent='...';}
+  try{
+    const orders=(_adminOrders.length?_adminOrders:getOrders());
+    const hexOrders=orders.filter(o=>{
+      const ce=o.coupon?Object.values(COUPONS).find(c=>c.name===o.coupon):null;
+      return ce&&ce.sponsored;
+    });
+    if(!hexOrders.length){alert('אין הזמנות עם קופון Hexagon');if(btn){btn.disabled=false;btn.textContent='📄 חשבונית ל-Hexagon';}return;}
+    const token=await giToken();
+    const today=new Date().toISOString().slice(0,10);
+    const income=hexOrders.map(o=>({
+      description:'קופון Hexagon — '+o.name+' (#'+o.id+')',
+      quantity:1,
+      price:parseFloat((o.discount||0).toFixed(2)),
+      currency:'ILS',
+      vatType:0
+    }));
+    const total=hexOrders.reduce((s,o)=>s+(o.discount||0),0);
+    const payload={
+      description:'תמיכת קופון Hexagon — BENON'S Farmer's Market',
+      type:400,date:today,dueDate:today,lang:'he',currency:'ILS',vatType:0,
+      client:{name:'Hexagon'},
+      income,
+      payment:[{type:1,price:parseFloat(total.toFixed(2)),currency:'ILS',date:today}]
+    };
+    const res=await fetch(GI_BASE+'/documents',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify(payload)});
+    const doc=await res.json();
+    if(doc.id){
+      if(btn){btn.textContent='✓ נוצרה';btn.style.cssText='background:var(--green);color:white;border-color:var(--green)';btn.disabled=false;btn.onclick=()=>window.open('https://app.greeninvoice.co.il/documents/'+doc.id,'_blank');}
+    } else { throw new Error(JSON.stringify(doc)); }
+  }catch(e){
+    if(btn){btn.textContent='✗ שגיאה';btn.style.cssText='background:var(--red);color:white;border-color:var(--red)';btn.disabled=false;}
+    alert('שגיאה ביצירת חשבונית:
+'+e.message);
   }
 }
 
