@@ -2255,7 +2255,7 @@ function exportSupplierPDF(sup){
       <td style="text-align:center;padding:8px 12px;font-weight:700;color:#2e7d32">${p.qty}</td>
       <td style="text-align:center;padding:8px 12px">
         <div style="display:flex;align-items:center;justify-content:center;gap:4px">
-          <button onclick="changeSuppExtra('${sup.replace(/'/g,"\\'")}','${p.name.trim().toLowerCase().replace(/'/g,"\\'")}',−1)" style="width:26px;height:26px;border:1px solid #ddd;border-radius:50%;cursor:pointer;font-size:14px;background:#fff;line-height:1">−</button>
+          <button onclick="changeSuppExtra('${sup.replace(/'/g,"\\'")}','${p.name.trim().toLowerCase().replace(/'/g,"\\'")}',-1)" style="width:26px;height:26px;border:1px solid #ddd;border-radius:50%;cursor:pointer;font-size:14px;background:#fff;line-height:1">−</button>
           <span style="min-width:28px;text-align:center;font-weight:700;color:${extra>0?'#e65100':extra<0?'#c00':'#aaa'}">${extra>0?'+':''+(extra||'0')}</span>
           <button onclick="changeSuppExtra('${sup.replace(/'/g,"\\'")}','${p.name.trim().toLowerCase().replace(/'/g,"\\'")}',1)" style="width:26px;height:26px;border:1px solid #ddd;border-radius:50%;cursor:pointer;font-size:14px;background:#fff;line-height:1">+</button>
         </div>
@@ -3084,7 +3084,7 @@ function renderAdminWithOrders(orders){
             <td style="text-align:center;font-weight:700;color:var(--green)">${p.qty}</td>
             <td style="text-align:center">
               <div style="display:flex;align-items:center;justify-content:center;gap:3px">
-                <button onclick="changeSuppExtra('${escSup}','${pk.replace(/'/g,"\\'")}',−1)" style="width:24px;height:24px;border:1px solid #ddd;border-radius:50%;cursor:pointer;font-size:13px;background:#fff;line-height:1">−</button>
+                <button onclick="changeSuppExtra('${escSup}','${pk.replace(/'/g,"\\'")}',-1)" style="width:24px;height:24px;border:1px solid #ddd;border-radius:50%;cursor:pointer;font-size:13px;background:#fff;line-height:1">−</button>
                 <span id="se-q-${sid}-${pkId}" style="min-width:26px;text-align:center;font-size:12px;font-weight:700;color:${extra>0?'#e65100':extra<0?'#c00':'#bbb'}">${extra>0?'+':''+(extra||'0')}</span>
                 <button onclick="changeSuppExtra('${escSup}','${pk.replace(/'/g,"\\'")}',1)" style="width:24px;height:24px;border:1px solid #ddd;border-radius:50%;cursor:pointer;font-size:13px;background:#fff;line-height:1">+</button>
               </div>
