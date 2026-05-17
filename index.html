@@ -2265,21 +2265,36 @@ function exportSupplierPDF(sup){
   const date=new Date().toLocaleDateString('he-IL');
   const manuals=_suppManual[sup]||[];
   const totalQty=products.reduce((s,p)=>s+p.qty+getSuppExtra(sup,p.name.trim().toLowerCase()),0)+manuals.reduce((s,m)=>s+m.qty,0);
+  // calc totals (before VAT)
+  let totalBeforeVat=0;
   const rows=products.map(p=>{
     const finalQty=p.qty+getSuppExtra(sup,p.name.trim().toLowerCase());
+    const prod=PRODUCTS.find(pr=>pr.name.trim().toLowerCase()===p.name.trim().toLowerCase()&&(pr.sub||'')===(p.sub||''));
+    const unitCost=getItemCostByName(p.name,p.sub||'',prod?prod.price:0);
+    const lineTotal=unitCost*finalQty;
+    totalBeforeVat+=lineTotal;
     return '<tr>'
       +'<td style="font-weight:700;padding:10px 14px">'+p.name+(p.sub?'<div style="font-size:11px;font-weight:400;color:#888">'+p.sub+'</div>':'')+'</td>'
-      +'<td style="text-align:center;padding:10px 14px;font-weight:800;font-size:16px;color:#1B3A6B;width:80px">'+finalQty+'</td>'
-      +'<td style="padding:10px 14px;color:#aaa;min-width:180px">&nbsp;</td>'
+      +'<td style="text-align:center;padding:10px 14px;font-weight:800;font-size:15px;color:#1B3A6B;width:70px">'+finalQty+'</td>'
+      +'<td style="text-align:center;padding:10px 14px;color:#444;width:100px">₪'+unitCost.toFixed(2)+'</td>'
+      +'<td style="text-align:center;padding:10px 14px;font-weight:700;color:#1B3A6B;width:110px">₪'+lineTotal.toFixed(2)+'</td>'
+      +'<td style="padding:10px 14px;min-width:160px">&nbsp;</td>'
       +'</tr>';
-  }).join('')+manuals.map(m=>
-    '<tr style="background:#fffbf0">'
-    +'<td style="font-weight:700;padding:10px 14px">'+m.name+(m.sub?'<div style="font-size:11px;font-weight:400;color:#888">'+m.sub+'</div>':'')+'<span style="font-size:10px;color:#e65100;margin-right:6px">ידני</span></td>'
-    +'<td style="text-align:center;padding:10px 14px;font-weight:800;font-size:16px;color:#1B3A6B">'+m.qty+'</td>'
-    +'<td style="padding:10px 14px;min-width:180px">&nbsp;</td>'
-    +'</tr>'
-  ).join('');
-  const win=window.open('','_blank','width=800,height=700');
+  }).join('')+manuals.map(m=>{
+    const prod=PRODUCTS.find(pr=>pr.name.trim().toLowerCase()===m.name.trim().toLowerCase()&&(pr.sub||'')===(m.sub||''));
+    const unitCost=getItemCostByName(m.name,m.sub||'',prod?prod.price:0);
+    const lineTotal=unitCost*m.qty;
+    totalBeforeVat+=lineTotal;
+    return '<tr style="background:#fffbf0">'
+      +'<td style="font-weight:700;padding:10px 14px">'+m.name+(m.sub?'<div style="font-size:11px;font-weight:400;color:#888">'+m.sub+'</div>':'')+'<span style="font-size:10px;color:#e65100;margin-right:6px">ידני</span></td>'
+      +'<td style="text-align:center;padding:10px 14px;font-weight:800;font-size:15px;color:#1B3A6B">'+m.qty+'</td>'
+      +'<td style="text-align:center;padding:10px 14px;color:#444">₪'+unitCost.toFixed(2)+'</td>'
+      +'<td style="text-align:center;padding:10px 14px;font-weight:700;color:#1B3A6B">₪'+lineTotal.toFixed(2)+'</td>'
+      +'<td style="padding:10px 14px;min-width:160px">&nbsp;</td>'
+      +'</tr>';
+  }).join('');
+  const totalWithVat=totalBeforeVat*1.18;
+  const win=window.open('','_blank','width=860,height=700');
   win.document.write('<!DOCTYPE html><html dir="rtl" lang="he"><head><meta charset="UTF-8">'
     +'<title>הזמנה לספק '+sup+'</title>'
     +'<style>'
@@ -2292,7 +2307,9 @@ function exportSupplierPDF(sup){
     +'thead th{background:#1B3A6B;color:#fff;padding:10px 14px;text-align:right;font-size:13px}'
     +'tbody tr{border-bottom:1px solid #e0e0e0}'
     +'tbody tr:nth-child(even){background:#f4f8f4}'
-    +'.total-row{background:#e8f2e0;font-weight:700;font-size:14px;padding:10px 14px;margin-top:12px;border-radius:6px;display:flex;justify-content:space-between}'
+    +'.summary{margin-top:14px;border:1px solid #c8dfc8;border-radius:8px;overflow:hidden;width:340px;margin-right:auto}'
+    +'.summary-row{display:flex;justify-content:space-between;padding:9px 16px;font-size:14px;border-bottom:1px solid #e0ece0}'
+    +'.summary-row:last-child{border-bottom:none;background:#1B3A6B;color:#fff;font-weight:700;font-size:15px}'
     +'.print-btn{background:#1B3A6B;color:#fff;border:none;padding:12px 24px;border-radius:8px;cursor:pointer;font-size:15px;margin-top:20px}'
     +'@media print{.print-btn{display:none}}'
     +'</style></head><body>'
@@ -2302,12 +2319,18 @@ function exportSupplierPDF(sup){
     +'<table>'
     +'<thead><tr>'
     +'<th>מוצר</th>'
-    +'<th style="text-align:center;width:80px">כמות</th>'
-    +'<th style="min-width:200px">הערה</th>'
+    +'<th style="text-align:center;width:70px">כמות</th>'
+    +'<th style="text-align:center;width:100px">מחיר יחידה</th>'
+    +'<th style="text-align:center;width:110px">סה״כ שורה</th>'
+    +'<th style="min-width:160px">הערה</th>'
     +'</tr></thead>'
     +'<tbody>'+rows+'</tbody>'
     +'</table>'
-    +'<div class="total-row"><span>סה״כ פריטים</span><span>'+totalQty+'</span></div>'
+    +'<div class="summary">'
+    +'<div class="summary-row"><span>סה״כ לפני מע״מ</span><span>₪'+totalBeforeVat.toFixed(2)+'</span></div>'
+    +'<div class="summary-row"><span>מע״מ (18%)</span><span>₪'+(totalBeforeVat*0.18).toFixed(2)+'</span></div>'
+    +'<div class="summary-row"><span>סה״כ כולל מע״מ</span><span>₪'+totalWithVat.toFixed(2)+'</span></div>'
+    +'</div>'
     +'<br><button class="print-btn" onclick="window.print()">🖨 הדפס / שמור PDF</button>'
     +'</body></html>');
   win.document.close();
