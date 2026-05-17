@@ -2209,22 +2209,23 @@ function renderManualItems(sup){
   const el=document.getElementById('sm-list-'+sid);
   if(!el)return;
   const escSup=sup.replace(/'/g,"\\'").replace(/"/g,'&quot;');
-  const items=_suppManual[sup]||[];
+  const ordPks=new Set(Object.values(_suppMap[sup]||{}).map(p=>p.name.trim().toLowerCase()+'|'+(p.sub||'').trim().toLowerCase()));
+  const items=(_suppManual[sup]||[]).map((m,origIdx)=>({...m,origIdx})).filter(m=>!ordPks.has(m.name.trim().toLowerCase()+'|'+(m.sub||'').trim().toLowerCase()));
   if(!items.length){el.innerHTML='';return;}
-  el.innerHTML=items.map((m,i)=>{
+  el.innerHTML=items.map((m)=>{
     const namePart=m.name+(m.sub?'<div style="font-size:11px;font-weight:400;color:#aaa">'+m.sub+'</div>':'');
     const badge='<span style="font-size:10px;background:#e65100;color:#fff;border-radius:3px;padding:1px 4px">ידני</span>';
     const btns='<div style="display:flex;align-items:center;justify-content:center;gap:3px">'
-      +'<button onclick="changeManualQty(\''+escSup+'\','+i+',-1)" style="width:24px;height:24px;border:1px solid #ddd;border-radius:50%;cursor:pointer;font-size:13px;background:#fff">−</button>'
+      +'<button onclick="changeManualQty(\''+escSup+'\','+m.origIdx+',-1)" style="width:24px;height:24px;border:1px solid #ddd;border-radius:50%;cursor:pointer;font-size:13px;background:#fff">−</button>'
       +'<span style="min-width:26px;text-align:center;font-weight:700">'+m.qty+'</span>'
-      +'<button onclick="changeManualQty(\''+escSup+'\','+i+',1)" style="width:24px;height:24px;border:1px solid #ddd;border-radius:50%;cursor:pointer;font-size:13px;background:#fff">+</button>'
+      +'<button onclick="changeManualQty(\''+escSup+'\','+m.origIdx+',1)" style="width:24px;height:24px;border:1px solid #ddd;border-radius:50%;cursor:pointer;font-size:13px;background:#fff">+</button>'
       +'</div>';
     return '<tr style="background:#fffbf0">'
       +'<td style="font-weight:700">'+namePart+' '+badge+'</td>'
       +'<td style="text-align:center;color:#aaa">—</td>'
       +'<td style="text-align:center">'+btns+'</td>'
       +'<td style="text-align:center;font-weight:800;font-size:15px;color:#1B3A6B">'+m.qty+'</td>'
-      +'<td><button onclick="removeManualSupItem(\''+escSup+'\','+i+')" style="color:#c00;border:none;background:none;cursor:pointer;font-size:12px">✕ הסר</button></td>'
+      +'<td><button onclick="removeManualSupItem(\''+escSup+'\','+m.origIdx+')" style="color:#c00;border:none;background:none;cursor:pointer;font-size:12px">✕ הסר</button></td>'
       +'</tr>';
   }).join('');
 }
@@ -3154,7 +3155,7 @@ function renderAdminWithOrders(orders){
       return [...allSups].sort((a,b)=>a.localeCompare(b,'he')).map(sup=>{
         const products=Object.values(_suppMap[sup]||{});
         const orderedPks=new Set(products.map(p=>p.name.trim().toLowerCase()+'|'+(p.sub||'').trim().toLowerCase()));
-        const manuals=(_suppManual[sup]||[]).filter(m=>!orderedPks.has(m.name.trim().toLowerCase()+'|'+(m.sub||'').trim().toLowerCase()));
+        const manuals=(_suppManual[sup]||[]).map((m,origIdx)=>({...m,origIdx})).filter(m=>!orderedPks.has(m.name.trim().toLowerCase()+'|'+(m.sub||'').trim().toLowerCase()));
         const totalQty=products.reduce((s,p)=>s+p.qty+getSuppExtra(sup,p.name.trim().toLowerCase()+'|'+(p.sub||'').trim().toLowerCase()),0)+manuals.reduce((s,m)=>s+m.qty,0);
         const escSup=sup.replace(/'/g,"\\'").replace(/"/g,'&quot;');
         const sid=supId(sup);
@@ -3178,18 +3179,18 @@ function renderAdminWithOrders(orders){
             <td style="font-size:11px;color:var(--muted)">${p.customers.map(c=>`${c.name} (${c.qty})`).join(', ')}</td>
           </tr>`;
         }).join('');
-        const manualRows=manuals.map((m,i)=>`<tr style="background:#fffbf0">
+        const manualRows=manuals.map((m)=>`<tr style="background:#fffbf0">
           <td style="font-weight:700">${m.name}${m.sub?`<div style="font-size:11px;font-weight:400;color:#aaa">${m.sub}</div>`:''} <span style="font-size:10px;background:#e65100;color:#fff;border-radius:3px;padding:1px 4px">ידני</span></td>
           <td style="text-align:center;color:#aaa">—</td>
           <td style="text-align:center">
             <div style="display:flex;align-items:center;justify-content:center;gap:3px">
-              <button onclick="changeManualQty('${escSup}',${i},-1)" style="width:24px;height:24px;border:1px solid #ddd;border-radius:50%;cursor:pointer;font-size:13px;background:#fff">−</button>
+              <button onclick="changeManualQty('${escSup}',${m.origIdx},-1)" style="width:24px;height:24px;border:1px solid #ddd;border-radius:50%;cursor:pointer;font-size:13px;background:#fff">−</button>
               <span style="min-width:26px;text-align:center;font-weight:700">${m.qty}</span>
-              <button onclick="changeManualQty('${escSup}',${i},1)" style="width:24px;height:24px;border:1px solid #ddd;border-radius:50%;cursor:pointer;font-size:13px;background:#fff">+</button>
+              <button onclick="changeManualQty('${escSup}',${m.origIdx},1)" style="width:24px;height:24px;border:1px solid #ddd;border-radius:50%;cursor:pointer;font-size:13px;background:#fff">+</button>
             </div>
           </td>
           <td style="text-align:center;font-weight:800;font-size:15px;color:#1B3A6B">${m.qty}</td>
-          <td><button onclick="removeManualSupItem('${escSup}',${i})" style="color:#c00;border:none;background:none;cursor:pointer;font-size:12px">✕ הסר</button></td>
+          <td><button onclick="removeManualSupItem('${escSup}',${m.origIdx})" style="color:#c00;border:none;background:none;cursor:pointer;font-size:12px">✕ הסר</button></td>
         </tr>`).join('');
         return `<div style="margin-bottom:24px;border:1px solid #e0e0e0;border-radius:10px;overflow:hidden">
           <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:#e8f2e0">
