@@ -2266,50 +2266,50 @@ function exportSupplierPDF(sup){
   const manuals=_suppManual[sup]||[];
   const totalQty=products.reduce((s,p)=>s+p.qty+getSuppExtra(sup,p.name.trim().toLowerCase()),0)+manuals.reduce((s,m)=>s+m.qty,0);
   const rows=products.map(p=>{
-    const extra=getSuppExtra(sup,p.name.trim().toLowerCase());
-    const finalQty=p.qty+extra;
-    const extraStr=extra>0?'+'+extra:extra<0?String(extra):'—';
+    const finalQty=p.qty+getSuppExtra(sup,p.name.trim().toLowerCase());
     return '<tr>'
-      +'<td style="font-weight:700;padding:8px 12px">'+p.name+(p.sub?'<div style="font-size:11px;font-weight:400;color:#888">'+p.sub+'</div>':'')+'</td>'
-      +'<td style="text-align:center;padding:8px 12px;font-weight:700;color:#2e7d32">'+p.qty+'</td>'
-      +'<td style="text-align:center;padding:8px 12px;color:'+(extra>0?'#e65100':extra<0?'#c00':'#aaa')+'">'+extraStr+'</td>'
-      +'<td style="text-align:center;font-weight:800;font-size:16px;color:#1B3A6B;padding:8px 12px">'+finalQty+'</td>'
+      +'<td style="font-weight:700;padding:10px 14px">'+p.name+(p.sub?'<div style="font-size:11px;font-weight:400;color:#888">'+p.sub+'</div>':'')+'</td>'
+      +'<td style="text-align:center;padding:10px 14px;font-weight:800;font-size:16px;color:#1B3A6B;width:80px">'+finalQty+'</td>'
+      +'<td style="padding:10px 14px;color:#aaa;min-width:180px">&nbsp;</td>'
       +'</tr>';
   }).join('')+manuals.map(m=>
     '<tr style="background:#fffbf0">'
-    +'<td style="font-weight:700;padding:8px 12px">'+m.name+(m.sub?'<div style="font-size:11px;font-weight:400;color:#888">'+m.sub+'</div>':'')+'<span style="font-size:10px;color:#e65100;margin-right:4px"> ידני</span></td>'
-    +'<td style="text-align:center;padding:8px 12px;color:#aaa">—</td>'
-    +'<td style="text-align:center;padding:8px 12px;color:#aaa">—</td>'
-    +'<td style="text-align:center;font-weight:800;font-size:16px;color:#1B3A6B;padding:8px 12px">'+m.qty+'</td>'
+    +'<td style="font-weight:700;padding:10px 14px">'+m.name+(m.sub?'<div style="font-size:11px;font-weight:400;color:#888">'+m.sub+'</div>':'')+'<span style="font-size:10px;color:#e65100;margin-right:6px">ידני</span></td>'
+    +'<td style="text-align:center;padding:10px 14px;font-weight:800;font-size:16px;color:#1B3A6B">'+m.qty+'</td>'
+    +'<td style="padding:10px 14px;min-width:180px">&nbsp;</td>'
     +'</tr>'
   ).join('');
-  const win=window.open('','_blank','width=900,height=700');
-  win.document.write(`<!DOCTYPE html><html dir="rtl" lang="he"><head><meta charset="UTF-8">
-<title>הזמנה לספק ${sup}</title>
-<style>
-  *{font-family:Arial,sans-serif;box-sizing:border-box}
-  body{padding:30px 40px;direction:rtl;color:#222;background:#fff}
-  .logo{color:#4A7C59;font-size:13px;font-weight:700;letter-spacing:1px;margin-bottom:4px}
-  h1{color:#1B3A6B;font-size:26px;margin:0 0 4px}
-  .meta{color:#888;font-size:13px;margin-bottom:20px;border-bottom:2px solid #1B3A6B;padding-bottom:12px}
-  table{width:100%;border-collapse:collapse;font-size:13px}
-  thead th{background:#1B3A6B;color:#fff;padding:10px 12px;text-align:right;font-size:13px}
-  tbody tr:nth-child(even){background:#f4f8f4}
-  tbody tr:hover{background:#e8f2e0}
-  .total-row{background:#e8f2e0;font-weight:700;font-size:14px;padding:10px 12px;margin-top:12px;border-radius:6px;display:flex;justify-content:space-between}
-  .print-btn{background:#1B3A6B;color:#fff;border:none;padding:12px 24px;border-radius:8px;cursor:pointer;font-size:15px;margin-top:20px}
-  @media print{.print-btn{display:none}.meta{border-bottom:1px solid #ccc}}
-</style></head><body>
-<div class="logo">BENON'S FARMER'S MARKET</div>
-<h1>הזמנה לספק: ${sup}</h1>
-<div class="meta">תאריך הפקה: ${date} &nbsp;|&nbsp; סה״כ: ${totalQty} פריטים</div>
-<table>
-  <thead><tr><th>מוצר</th><th style="text-align:center;width:80px">הזמנות</th><th style="text-align:center;width:70px">תוספת</th><th style="text-align:center;width:70px">סה״כ</th></tr></thead>
-  <tbody>${rows}</tbody>
-</table>
-<div class="total-row"><span>סה״כ פריטים</span><span>${totalQty}</span></div>
-<br><button class="print-btn" onclick="window.print()">🖨 הדפס / שמור PDF</button>
-</body></html>`);
+  const win=window.open('','_blank','width=800,height=700');
+  win.document.write('<!DOCTYPE html><html dir="rtl" lang="he"><head><meta charset="UTF-8">'
+    +'<title>הזמנה לספק '+sup+'</title>'
+    +'<style>'
+    +'*{font-family:Arial,sans-serif;box-sizing:border-box}'
+    +'body{padding:30px 40px;direction:rtl;color:#222;background:#fff}'
+    +'.logo{color:#4A7C59;font-size:13px;font-weight:700;letter-spacing:1px;margin-bottom:4px}'
+    +'h1{color:#1B3A6B;font-size:26px;margin:0 0 4px}'
+    +'.meta{color:#888;font-size:13px;margin-bottom:20px;border-bottom:2px solid #1B3A6B;padding-bottom:12px}'
+    +'table{width:100%;border-collapse:collapse;font-size:14px}'
+    +'thead th{background:#1B3A6B;color:#fff;padding:10px 14px;text-align:right;font-size:13px}'
+    +'tbody tr{border-bottom:1px solid #e0e0e0}'
+    +'tbody tr:nth-child(even){background:#f4f8f4}'
+    +'.total-row{background:#e8f2e0;font-weight:700;font-size:14px;padding:10px 14px;margin-top:12px;border-radius:6px;display:flex;justify-content:space-between}'
+    +'.print-btn{background:#1B3A6B;color:#fff;border:none;padding:12px 24px;border-radius:8px;cursor:pointer;font-size:15px;margin-top:20px}'
+    +'@media print{.print-btn{display:none}}'
+    +'</style></head><body>'
+    +'<div class="logo">BENON\'S FARMER\'S MARKET</div>'
+    +'<h1>הזמנה לספק: '+sup+'</h1>'
+    +'<div class="meta">תאריך הפקה: '+date+' &nbsp;|&nbsp; סה״כ: '+totalQty+' פריטים</div>'
+    +'<table>'
+    +'<thead><tr>'
+    +'<th>מוצר</th>'
+    +'<th style="text-align:center;width:80px">כמות</th>'
+    +'<th style="min-width:200px">הערה</th>'
+    +'</tr></thead>'
+    +'<tbody>'+rows+'</tbody>'
+    +'</table>'
+    +'<div class="total-row"><span>סה״כ פריטים</span><span>'+totalQty+'</span></div>'
+    +'<br><button class="print-btn" onclick="window.print()">🖨 הדפס / שמור PDF</button>'
+    +'</body></html>');
   win.document.close();
   setTimeout(()=>win.print(),600);
 }
