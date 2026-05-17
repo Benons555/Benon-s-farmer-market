@@ -2165,7 +2165,7 @@ function changeSuppExtra(sup,pk,delta){
 function updateSuppTotal(sup){
   const products=Object.values(_suppMap[sup]||{});
   const manuals=_suppManual[sup]||[];
-  const t=products.reduce((s,p)=>s+p.qty+getSuppExtra(sup,p.name.trim().toLowerCase()),0)
+  const t=products.reduce((s,p)=>s+p.qty+getSuppExtra(sup,p.name.trim().toLowerCase()+'|'+(p.sub||'').trim().toLowerCase()),0)
           +manuals.reduce((s,m)=>s+m.qty,0);
   const el=document.getElementById('se-hdr-total-'+supId(sup));
   if(el)el.textContent=`(סה״כ: ${t} יח')`;
@@ -2236,7 +2236,7 @@ function exportSupplierExcel(sup){
   const date=new Date().toLocaleDateString('he-IL');
   const allRows=[
     ...products.map(p=>{
-      const extra=getSuppExtra(sup,p.name.trim().toLowerCase());
+      const extra=getSuppExtra(sup,p.name.trim().toLowerCase()+'|'+(p.sub||'').trim().toLowerCase());
       const final=p.qty+extra;
       return [p.name, p.sub||'', p.qty, extra||'', final, p.customers.map(c=>`${c.name} (${c.qty} יח')`).join(' | ')];
     }),
@@ -2264,11 +2264,11 @@ function exportSupplierPDF(sup){
   if(!products.length)return;
   const date=new Date().toLocaleDateString('he-IL');
   const manuals=_suppManual[sup]||[];
-  const totalQty=products.reduce((s,p)=>s+p.qty+getSuppExtra(sup,p.name.trim().toLowerCase()),0)+manuals.reduce((s,m)=>s+m.qty,0);
+  const totalQty=products.reduce((s,p)=>s+p.qty+getSuppExtra(sup,p.name.trim().toLowerCase()+'|'+(p.sub||'').trim().toLowerCase()),0)+manuals.reduce((s,m)=>s+m.qty,0);
   // calc totals using pre-VAT unit costs
   let totalBeforeVat=0;
   const rows=products.map(p=>{
-    const finalQty=p.qty+getSuppExtra(sup,p.name.trim().toLowerCase());
+    const finalQty=p.qty+getSuppExtra(sup,p.name.trim().toLowerCase()+'|'+(p.sub||'').trim().toLowerCase());
     const prod=PRODUCTS.find(pr=>pr.name.trim().toLowerCase()===p.name.trim().toLowerCase()&&(pr.sub||'')===(p.sub||''));
     const unitCost=getItemCostByName(p.name,p.sub||'',prod?prod.price:0);
     const lineTotal=unitCost*finalQty;
@@ -3066,7 +3066,8 @@ function calcExtrasAndManualCost(){
       if(extra<=0)return;
       const pData=_suppMap[sup]&&_suppMap[sup][pk];
       if(!pData)return;
-      const prod=PRODUCTS.find(p=>p.name.trim().toLowerCase()===pk);
+      const namePart=pk.split('|')[0], subPart=pk.split('|')[1]||'';
+      const prod=PRODUCTS.find(p=>p.name.trim().toLowerCase()===namePart&&(p.sub||'').trim().toLowerCase()===subPart);
       cost+=getItemCostByName(pData.name,pData.sub||'',prod?prod.price:0)*extra;
     });
   });
@@ -3097,7 +3098,7 @@ function renderAdminWithOrders(orders){
   orders.forEach(o=>o.items.forEach(i=>{
     const sk=(i.supplier||'ללא ספק').trim();
     if(!_suppMap[sk])_suppMap[sk]={};
-    const pk=i.name.trim().toLowerCase();
+    const pk=i.name.trim().toLowerCase()+'|'+(i.sub||'').trim().toLowerCase();
     if(!_suppMap[sk][pk])_suppMap[sk][pk]={name:i.name.trim(),sub:i.sub||'',qty:0,customers:[]};
     _suppMap[sk][pk].qty+=i.qty;
     _suppMap[sk][pk].customers.push({name:o.name,qty:i.qty});
@@ -3151,11 +3152,11 @@ function renderAdminWithOrders(orders){
       return Object.keys(_suppMap).sort((a,b)=>a.localeCompare(b,'he')).map(sup=>{
         const products=Object.values(_suppMap[sup]);
         const manuals=_suppManual[sup]||[];
-        const totalQty=products.reduce((s,p)=>s+p.qty+getSuppExtra(sup,p.name.trim().toLowerCase()),0)+manuals.reduce((s,m)=>s+m.qty,0);
+        const totalQty=products.reduce((s,p)=>s+p.qty+getSuppExtra(sup,p.name.trim().toLowerCase()+'|'+(p.sub||'').trim().toLowerCase()),0)+manuals.reduce((s,m)=>s+m.qty,0);
         const escSup=sup.replace(/'/g,"\\'");
         const sid=supId(sup);
         const prodRows=products.map(p=>{
-          const pk=p.name.trim().toLowerCase();
+          const pk=p.name.trim().toLowerCase()+'|'+(p.sub||'').trim().toLowerCase();
           const pkId=supId(pk);
           const extra=getSuppExtra(sup,pk);
           const finalQty=p.qty+extra;
