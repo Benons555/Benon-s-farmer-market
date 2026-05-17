@@ -3024,6 +3024,12 @@ function renderAdminWithOrders(orders){
     const couponEntry=o.coupon?Object.values(COUPONS).find(c=>c.name===o.coupon):null;
     return s+(couponEntry&&couponEntry.sponsored?o.subtotal:o.total);
   },0);
+  // Sponsored income: discounts covered by sponsor (Hexagon etc.)
+  const sponsoredIncome=orders.reduce((s,o)=>{
+    const couponEntry=o.coupon?Object.values(COUPONS).find(c=>c.name===o.coupon):null;
+    return s+(couponEntry&&couponEntry.sponsored?(o.discount||0):0);
+  },0);
+  const sponsoredOrders=orders.filter(o=>{const ce=o.coupon?Object.values(COUPONS).find(c=>c.name===o.coupon):null;return ce&&ce.sponsored;});
   const grandProfit=rows.reduce((s,r)=>s+r.profit,0);
   const netProfit=grandProfit-TOTAL_OVERHEAD;
   const avgOrderVal=orders.length?grandTotal/orders.length:0;
@@ -3033,9 +3039,9 @@ function renderAdminWithOrders(orders){
   <div class="admin-hdr"><h1>📋 ממשק ניהול — BENON'S</h1><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="ebtn" onclick="renderAdmin()">🔄 רענן</button><button class="ebtn" onclick="exportCSV()">⬇ CSV</button><button class="ebtn" style="background:#1B3A6B;color:#F5D87A;font-weight:700" onclick="addAmbrellaOrder()">🏢 אמברלה</button><button class="ebtn" style="background:#2E5E3E;color:#A8D5B5;font-weight:700" onclick="addWimiOrder()">🏢 וימי</button><button class="ebtn" style="background:#4A7C59;color:#fff;font-weight:700" onclick="openManualOrderModal()">➕ הזמנה ידנית</button><button class="ebtn" style="background:#eee;color:#555" onclick="adminLogout()">🔒 יציאה</button></div></div>
   <div class="stats-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:12px">
     <div class="stat-card"><div class="stat-num">${orders.length}</div><div class="stat-lbl">הזמנות</div></div>
-    <div class="stat-card"><div class="stat-num">₪${grandTotal.toFixed(0)}</div><div class="stat-lbl">סה״כ הכנסות</div></div>
+    <div class="stat-card"><div class="stat-num">₪${grandTotal.toFixed(0)}</div><div class="stat-lbl">סה״כ הכנסות${sponsoredIncome>0?`<div style="font-size:11px;color:#1B3A6B;margin-top:2px">כולל ₪${sponsoredIncome.toFixed(0)} מ-Hexagon</div>`:''}</div></div>
     <div class="stat-card"><div class="stat-num">₪${avgOrderVal.toFixed(0)}</div><div class="stat-lbl">ממוצע הזמנה</div></div>
-    <div class="stat-card"><div class="stat-num">${rows.reduce((s,r)=>s+r.qty,0)}</div><div class="stat-lbl">פריטים</div></div>
+    <div class="stat-card" style="${sponsoredIncome>0?'border-top:3px solid #1B3A6B':''}"><div class="stat-num" style="color:#1B3A6B">₪${sponsoredIncome.toFixed(0)}</div><div class="stat-lbl">תמיכת Hexagon<div style="font-size:11px;font-weight:400;color:#888">${sponsoredOrders.length} שימושים</div></div></div>
   </div>
   <div class="stats-grid" style="grid-template-columns:repeat(4,1fr)">
     <div class="stat-card" style="border-top:3px solid #2e7d32"><div class="stat-num" style="color:#2e7d32">₪${grandProfit.toFixed(0)}</div><div class="stat-lbl">רווח גולמי ממוצרים</div></div>
@@ -3149,7 +3155,7 @@ function renderAdminWithOrders(orders){
           <td style="text-align:center">${discStr}</td>
           <td style="text-align:center;font-size:12px;color:#666">${expiry}</td>
           <td style="text-align:center;font-weight:700;color:${used.length?'#1B3A6B':'#aaa'}">${used.length}</td>
-          <td style="font-weight:700;color:#c62828">${totalDiscount>0?'-₪'+totalDiscount.toFixed(2):'—'}</td>
+          <td style="font-weight:700;color:${cpn.sponsored?'#1B3A6B':'#c62828'}">${totalDiscount>0?(cpn.sponsored?'+₪'+totalDiscount.toFixed(2)+' (מ-Hexagon)':'-₪'+totalDiscount.toFixed(2)):'—'}</td>
           <td style="font-size:11px">${usersHtml}</td>
         </tr>`;
       }).join('');
