@@ -13,6 +13,7 @@
 <!-- Version: v1778493915 -->
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=5">
 <script src='https://unpkg.com/tesseract.js@4/dist/tesseract.min.js'></script>
+<script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
 <title>BENON'S — Farmer's Market | שבועות 2026</title>
@@ -2123,6 +2124,76 @@ function toggleOrderDetail(id){
 // ── ORDER EDITING ──
 let _adminOrders=[];
 let _orderEdits={};
+let _suppMap={};  // global supplier map for exports
+
+function exportSupplierExcel(sup){
+  const products=Object.values(_suppMap[sup]||{});
+  if(!products.length)return;
+  const date=new Date().toLocaleDateString('he-IL');
+  const totalQty=products.reduce((s,p)=>s+p.qty,0);
+  const wsData=[
+    [`הזמנה לספק: ${sup}`,'','',''],
+    [`תאריך: ${date} | BENON'S Farmer's Market`,'','',''],
+    [],
+    ['מוצר','פירוט','כמות כוללת','לקוחות'],
+    ...products.map(p=>[p.name, p.sub||'', p.qty, p.customers.map(c=>`${c.name} (${c.qty} יח')`).join(' | ')]),
+    [],
+    [`סה"כ פריטים: ${totalQty}`,'','','']
+  ];
+  const wb=XLSX.utils.book_new();
+  const ws=XLSX.utils.aoa_to_sheet(wsData);
+  ws['!cols']=[{wch:28},{wch:22},{wch:12},{wch:55}];
+  // Style header rows
+  ['A1','B1','C1','D1','A4','B4','C4','D4'].forEach(cell=>{
+    if(!ws[cell])return;
+    ws[cell].s={font:{bold:true},fill:{fgColor:{rgb:'1B3A6B'}},alignment:{horizontal:'right'}};
+  });
+  XLSX.utils.book_append_sheet(wb, ws, sup.substring(0,31));
+  XLSX.writeFile(wb, `הזמנה_${sup}_${date.replace(/\//g,'-')}.xlsx`);
+}
+
+function exportSupplierPDF(sup){
+  const products=Object.values(_suppMap[sup]||{});
+  if(!products.length)return;
+  const date=new Date().toLocaleDateString('he-IL');
+  const totalQty=products.reduce((s,p)=>s+p.qty,0);
+  const rows=products.map(p=>`
+    <tr>
+      <td style="font-weight:700;padding:8px 12px">${p.name}</td>
+      <td style="color:#555;padding:8px 12px">${p.sub||''}</td>
+      <td style="text-align:center;font-weight:800;font-size:16px;color:#1B3A6B;padding:8px 12px">${p.qty}</td>
+      <td style="font-size:11px;color:#555;padding:8px 12px">${p.customers.map(c=>`${c.name} (${c.qty})`).join(' • ')}</td>
+    </tr>`).join('');
+  const win=window.open('','_blank','width=900,height=700');
+  win.document.write(`<!DOCTYPE html><html dir="rtl" lang="he"><head><meta charset="UTF-8">
+<title>הזמנה לספק ${sup}</title>
+<style>
+  *{font-family:Arial,sans-serif;box-sizing:border-box}
+  body{padding:30px 40px;direction:rtl;color:#222;background:#fff}
+  .logo{color:#4A7C59;font-size:13px;font-weight:700;letter-spacing:1px;margin-bottom:4px}
+  h1{color:#1B3A6B;font-size:26px;margin:0 0 4px}
+  .meta{color:#888;font-size:13px;margin-bottom:20px;border-bottom:2px solid #1B3A6B;padding-bottom:12px}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  thead th{background:#1B3A6B;color:#fff;padding:10px 12px;text-align:right;font-size:13px}
+  tbody tr:nth-child(even){background:#f4f8f4}
+  tbody tr:hover{background:#e8f2e0}
+  .total-row{background:#e8f2e0;font-weight:700;font-size:14px;padding:10px 12px;margin-top:12px;border-radius:6px;display:flex;justify-content:space-between}
+  .print-btn{background:#1B3A6B;color:#fff;border:none;padding:12px 24px;border-radius:8px;cursor:pointer;font-size:15px;margin-top:20px}
+  @media print{.print-btn{display:none}.meta{border-bottom:1px solid #ccc}}
+</style></head><body>
+<div class="logo">BENON'S FARMER'S MARKET</div>
+<h1>הזמנה לספק: ${sup}</h1>
+<div class="meta">תאריך הפקה: ${date} &nbsp;|&nbsp; סה״כ: ${totalQty} פריטים</div>
+<table>
+  <thead><tr><th>מוצר</th><th>פירוט</th><th style="text-align:center;width:80px">כמות</th><th>רשימת לקוחות</th></tr></thead>
+  <tbody>${rows}</tbody>
+</table>
+<div class="total-row"><span>סה״כ פריטים</span><span>${totalQty}</span></div>
+<br><button class="print-btn" onclick="window.print()">🖨 הדפס / שמור PDF</button>
+</body></html>`);
+  win.document.close();
+  setTimeout(()=>win.print(),600);
+}
 
 function startOrderEdit(orderId){
   const o=_adminOrders.find(x=>x.id===orderId)||getOrders().find(x=>x.id===orderId);
@@ -2876,19 +2947,30 @@ function renderAdminWithOrders(orders){
     <div class="asec-h">🏪 רשימות לפי ספק</div>
     <div class="asec-b">${(()=>{
       if(!orders.length) return '<div class="no-data">אין הזמנות</div>';
-      const suppMap={};
+      _suppMap={};
       orders.forEach(o=>o.items.forEach(i=>{
         const sk=(i.supplier||'ללא ספק').trim();
-        if(!suppMap[sk]) suppMap[sk]={};
+        if(!_suppMap[sk]) _suppMap[sk]={};
         const pk=i.name.trim().toLowerCase();
-        if(!suppMap[sk][pk]) suppMap[sk][pk]={name:i.name.trim(),sub:i.sub||'',qty:0,customers:[]};
-        suppMap[sk][pk].qty+=i.qty;
-        suppMap[sk][pk].customers.push({name:o.name,qty:i.qty});
+        if(!_suppMap[sk][pk]) _suppMap[sk][pk]={name:i.name.trim(),sub:i.sub||'',qty:0,customers:[]};
+        _suppMap[sk][pk].qty+=i.qty;
+        _suppMap[sk][pk].customers.push({name:o.name,qty:i.qty});
       }));
-      return Object.keys(suppMap).sort((a,b)=>a.localeCompare(b,'he')).map(sup=>{
-        const products=Object.values(suppMap[sup]);
+      return Object.keys(_suppMap).sort((a,b)=>a.localeCompare(b,'he')).map(sup=>{
+        const products=Object.values(_suppMap[sup]);
+        const totalQty=products.reduce((s,p)=>s+p.qty,0);
         const rows=products.map(p=>`<tr><td style="font-weight:700">${p.name}</td><td style="color:var(--muted)">${p.sub}</td><td style="text-align:center;font-weight:700;color:var(--green)">${p.qty}</td><td style="font-size:12px">${p.customers.map(c=>`${c.name} (${c.qty} יח')`).join(', ')}</td></tr>`).join('');
-        return `<div style="margin-bottom:16px"><div style="font-weight:700;font-size:15px;margin-bottom:6px;padding:4px 8px;background:#e8f2e0;border-radius:6px">${sup}</div><table class="atable"><thead><tr><th>מוצר</th><th>פירוט</th><th>כמות כוללת</th><th>לקוחות</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+        const escSup=sup.replace(/'/g,"\\'");
+        return `<div style="margin-bottom:20px">
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 10px;background:#e8f2e0;border-radius:6px;margin-bottom:6px">
+            <span style="font-weight:700;font-size:15px">${sup} <span style="font-size:12px;color:#666;font-weight:400">(${totalQty} פריטים)</span></span>
+            <div style="display:flex;gap:6px">
+              <button onclick="exportSupplierExcel('${escSup}')" style="background:#1B6B2E;color:#fff;border:none;border-radius:6px;padding:5px 12px;cursor:pointer;font-size:12px;font-family:inherit">📊 Excel</button>
+              <button onclick="exportSupplierPDF('${escSup}')" style="background:#1B3A6B;color:#fff;border:none;border-radius:6px;padding:5px 12px;cursor:pointer;font-size:12px;font-family:inherit">📄 PDF</button>
+            </div>
+          </div>
+          <table class="atable"><thead><tr><th>מוצר</th><th>פירוט</th><th>כמות כוללת</th><th>לקוחות</th></tr></thead><tbody>${rows}</tbody></table>
+        </div>`;
       }).join('');
     })()}</div>
   </div>
