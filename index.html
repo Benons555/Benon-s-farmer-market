@@ -2124,42 +2124,119 @@ function toggleOrderDetail(id){
 // ── ORDER EDITING ──
 let _adminOrders=[];
 let _orderEdits={};
-let _suppMap={};  // global supplier map for exports
-let _suppExtras={};  // extra quantities: {sup: {productKey: extraQty}}
+let _suppMap={};   // {sup: {pk: {name,sub,qty,customers}}}
+let _suppExtras={}; // {sup: {pk: extraQty}}  — adjustments to existing items
+let _suppManual={}; // {sup: [{name,sub,qty}]}  — manually added items
+
+function supId(s){return s.replace(/[^a-zA-Zא-ת0-9]/g,'_');}
 
 function getSuppExtra(sup,pk){return (_suppExtras[sup]&&_suppExtras[sup][pk])||0;}
-function setSuppExtra(sup,pk,val){
+
+function changeSuppExtra(sup,pk,delta){
   if(!_suppExtras[sup])_suppExtras[sup]={};
-  const n=Math.max(0,parseInt(val)||0);
-  _suppExtras[sup][pk]=n;
-  // update display
-  const totalEl=document.getElementById('se-total-'+sup.replace(/[^a-zA-Zא-ת0-9]/g,'_')+'-'+pk.replace(/[^a-zA-Zא-ת0-9]/g,'_'));
-  const baseQty=(_suppMap[sup]&&_suppMap[sup][pk])?_suppMap[sup][pk].qty:0;
-  if(totalEl)totalEl.textContent=baseQty+n;
+  const base=(_suppMap[sup]&&_suppMap[sup][pk])?_suppMap[sup][pk].qty:0;
+  const cur=_suppExtras[sup][pk]||0;
+  const next=Math.max(-base, cur+delta); // can't go below 0 total
+  _suppExtras[sup][pk]=next;
+  const sid=supId(sup), pid=supId(pk);
+  const qEl=document.getElementById(`se-q-${sid}-${pid}`);
+  const tEl=document.getElementById(`se-total-${sid}-${pid}`);
+  if(qEl)qEl.textContent=(next>0?'+':'')+next;
+  if(tEl)tEl.textContent=base+next;
+  // update header total
+  updateSuppTotal(sup);
+}
+
+function updateSuppTotal(sup){
+  const products=Object.values(_suppMap[sup]||{});
+  const manuals=_suppManual[sup]||[];
+  const t=products.reduce((s,p)=>s+p.qty+getSuppExtra(sup,p.name.trim().toLowerCase()),0)
+          +manuals.reduce((s,m)=>s+m.qty,0);
+  const el=document.getElementById('se-hdr-total-'+supId(sup));
+  if(el)el.textContent=`(סה״כ: ${t} יח')`;
+}
+
+function addManualSupItem(sup){
+  const sid=supId(sup);
+  const nameEl=document.getElementById(`sm-name-${sid}`);
+  const subEl=document.getElementById(`sm-sub-${sid}`);
+  const qtyEl=document.getElementById(`sm-qty-${sid}`);
+  const name=(nameEl?.value||'').trim();
+  const sub=(subEl?.value||'').trim();
+  const qty=Math.max(1,parseInt(qtyEl?.value)||1);
+  if(!name){nameEl.style.borderColor='#c00';return;}
+  if(!_suppManual[sup])_suppManual[sup]=[];
+  _suppManual[sup].push({name,sub,qty});
+  // clear inputs
+  nameEl.value='';if(subEl)subEl.value='';if(qtyEl)qtyEl.value='1';
+  nameEl.style.borderColor='';
+  // re-render manual list
+  renderManualItems(sup);
+  updateSuppTotal(sup);
+}
+
+function removeManualSupItem(sup,idx){
+  if(_suppManual[sup])_suppManual[sup].splice(idx,1);
+  renderManualItems(sup);
+  updateSuppTotal(sup);
+}
+
+function changeManualQty(sup,idx,delta){
+  if(!_suppManual[sup])return;
+  _suppManual[sup][idx].qty=Math.max(1,(_suppManual[sup][idx].qty||1)+delta);
+  renderManualItems(sup);
+  updateSuppTotal(sup);
+}
+
+function renderManualItems(sup){
+  const sid=supId(sup);
+  const el=document.getElementById(`sm-list-${sid}`);
+  if(!el)return;
+  const items=_suppManual[sup]||[];
+  if(!items.length){el.innerHTML='';return;}
+  el.innerHTML=items.map((m,i)=>`
+    <tr style="background:#fffbf0">
+      <td style="font-weight:700">${m.name} <span style="font-size:10px;color:#e65100;font-weight:400">ידני</span></td>
+      <td style="color:var(--muted);font-size:12px">${m.sub||''}</td>
+      <td style="text-align:center">—</td>
+      <td style="text-align:center">
+        <div style="display:flex;align-items:center;justify-content:center;gap:4px">
+          <button onclick="changeManualQty('${sup.replace(/'/g,"\\'")}',${i},-1)" style="width:26px;height:26px;border:1px solid #ddd;border-radius:50%;cursor:pointer;font-size:14px;background:#fff">−</button>
+          <span style="min-width:24px;text-align:center;font-weight:700">${m.qty}</span>
+          <button onclick="changeManualQty('${sup.replace(/'/g,"\\'")}',${i},1)" style="width:26px;height:26px;border:1px solid #ddd;border-radius:50%;cursor:pointer;font-size:14px;background:#fff">+</button>
+        </div>
+      </td>
+      <td style="text-align:center;font-weight:800;color:#1B3A6B">${m.qty}</td>
+      <td><button onclick="removeManualSupItem('${sup.replace(/'/g,"\\'")}',${i})" style="color:#c00;border:none;background:none;cursor:pointer;font-size:16px">✕</button></td>
+    </tr>`).join('');
 }
 
 function exportSupplierExcel(sup){
   const products=Object.values(_suppMap[sup]||{});
-  if(!products.length)return;
+  const manuals=_suppManual[sup]||[];
+  if(!products.length&&!manuals.length)return;
   const date=new Date().toLocaleDateString('he-IL');
-  const totalQty=products.reduce((s,p)=>s+p.qty+getSuppExtra(sup,p.name.trim().toLowerCase()),0);
+  const allRows=[
+    ...products.map(p=>{
+      const extra=getSuppExtra(sup,p.name.trim().toLowerCase());
+      const final=p.qty+extra;
+      return [p.name, p.sub||'', p.qty, extra||'', final, p.customers.map(c=>`${c.name} (${c.qty} יח')`).join(' | ')];
+    }),
+    ...manuals.map(m=>[m.name, m.sub||'', '—', m.qty, m.qty, 'הוספה ידנית'])
+  ];
+  const totalQty=allRows.reduce((s,r)=>s+(r[4]||0),0);
   const wsData=[
-    [`הזמנה לספק: ${sup}`,'','',''],
-    [`תאריך: ${date} | BENON'S Farmer's Market`,'','',''],
+    [`הזמנה לספק: ${sup}`,'','','','',''],
+    [`תאריך: ${date} | BENON'S Farmer's Market`,'','','','',''],
     [],
-    ['מוצר','פירוט','כמות הזמנות','תוספת','סה"כ להזמנה','לקוחות'],
-    ...products.map(p=>{const extra=getSuppExtra(sup,p.name.trim().toLowerCase());return [p.name, p.sub||'', p.qty, extra||'', p.qty+extra, p.customers.map(c=>`${c.name} (${c.qty} יח')`).join(' | ')]}),
+    ['מוצר','פירוט','הזמנות','תוספת','סה"כ','לקוחות'],
+    ...allRows,
     [],
-    [`סה"כ פריטים: ${totalQty}`,'','','']
+    [`סה"כ: ${totalQty} יחידות`,'','','','','']
   ];
   const wb=XLSX.utils.book_new();
   const ws=XLSX.utils.aoa_to_sheet(wsData);
-  ws['!cols']=[{wch:28},{wch:22},{wch:12},{wch:55}];
-  // Style header rows
-  ['A1','B1','C1','D1','A4','B4','C4','D4'].forEach(cell=>{
-    if(!ws[cell])return;
-    ws[cell].s={font:{bold:true},fill:{fgColor:{rgb:'1B3A6B'}},alignment:{horizontal:'right'}};
-  });
+  ws['!cols']=[{wch:28},{wch:22},{wch:10},{wch:8},{wch:10},{wch:55}];
   XLSX.utils.book_append_sheet(wb, ws, sup.substring(0,31));
   XLSX.writeFile(wb, `הזמנה_${sup}_${date.replace(/\//g,'-')}.xlsx`);
 }
@@ -2168,17 +2245,37 @@ function exportSupplierPDF(sup){
   const products=Object.values(_suppMap[sup]||{});
   if(!products.length)return;
   const date=new Date().toLocaleDateString('he-IL');
-  const totalQty=products.reduce((s,p)=>s+p.qty+getSuppExtra(sup,p.name.trim().toLowerCase()),0);
+  const manuals=_suppManual[sup]||[];
+  const totalQty=products.reduce((s,p)=>s+p.qty+getSuppExtra(sup,p.name.trim().toLowerCase()),0)+manuals.reduce((s,m)=>s+m.qty,0);
   const rows=products.map(p=>{
     const extra=getSuppExtra(sup,p.name.trim().toLowerCase());
     const finalQty=p.qty+extra;
     return `<tr>
-      <td style="font-weight:700;padding:8px 12px">${p.name}</td>
-      <td style="color:#555;padding:8px 12px">${p.sub||''}</td>
-      <td style="text-align:center;font-weight:800;font-size:16px;color:#1B3A6B;padding:8px 12px">${finalQty}${extra>0?`<div style="font-size:10px;color:#888">(${p.qty}+${extra})</div>`:''}</td>
+      <td style="font-weight:700;padding:8px 12px">${p.name}${p.sub?`<div style="font-size:11px;font-weight:400;color:#888">${p.sub}</div>`:''}</td>
+      <td style="text-align:center;padding:8px 12px;font-weight:700;color:#2e7d32">${p.qty}</td>
+      <td style="text-align:center;padding:8px 12px">
+        <div style="display:flex;align-items:center;justify-content:center;gap:4px">
+          <button onclick="changeSuppExtra('${sup.replace(/'/g,"\\'")}','${p.name.trim().toLowerCase().replace(/'/g,"\\'")}',−1)" style="width:26px;height:26px;border:1px solid #ddd;border-radius:50%;cursor:pointer;font-size:14px;background:#fff;line-height:1">−</button>
+          <span style="min-width:28px;text-align:center;font-weight:700;color:${extra>0?'#e65100':extra<0?'#c00':'#aaa'}">${extra>0?'+':''+(extra||'0')}</span>
+          <button onclick="changeSuppExtra('${sup.replace(/'/g,"\\'")}','${p.name.trim().toLowerCase().replace(/'/g,"\\'")}',1)" style="width:26px;height:26px;border:1px solid #ddd;border-radius:50%;cursor:pointer;font-size:14px;background:#fff;line-height:1">+</button>
+        </div>
+      </td>
+      <td style="text-align:center;font-weight:800;font-size:16px;color:#1B3A6B;padding:8px 12px" id="se-total-PDF_${sup.replace(/[^a-zA-Zא-ת0-9]/g,'_')}-${p.name.trim().toLowerCase().replace(/[^a-zA-Zא-ת0-9]/g,'_')}">${finalQty}</td>
       <td style="font-size:11px;color:#555;padding:8px 12px">${p.customers.map(c=>`${c.name} (${c.qty})`).join(' • ')}</td>
     </tr>`;
-  }).join('');
+  }).join('')+manuals.map((m,i)=>`<tr style="background:#fffbf0">
+    <td style="font-weight:700;padding:8px 12px">${m.name}${m.sub?`<div style="font-size:11px;font-weight:400;color:#888">${m.sub}</div>`:''}<span style="font-size:10px;color:#e65100;margin-right:4px">ידני</span></td>
+    <td style="text-align:center;padding:8px 12px;color:#aaa">—</td>
+    <td style="text-align:center;padding:8px 12px">
+      <div style="display:flex;align-items:center;justify-content:center;gap:4px">
+        <button onclick="changeManualQty('${sup.replace(/'/g,"\\'")}',${i},-1)" style="width:26px;height:26px;border:1px solid #ddd;border-radius:50%;cursor:pointer;font-size:14px;background:#fff">−</button>
+        <span style="min-width:28px;text-align:center;font-weight:700">${m.qty}</span>
+        <button onclick="changeManualQty('${sup.replace(/'/g,"\\'")}',${i},1)" style="width:26px;height:26px;border:1px solid #ddd;border-radius:50%;cursor:pointer;font-size:14px;background:#fff">+</button>
+      </div>
+    </td>
+    <td style="text-align:center;font-weight:800;font-size:16px;color:#1B3A6B;padding:8px 12px">${m.qty}</td>
+    <td><button onclick="removeManualSupItem('${sup.replace(/'/g,"\\'")}',${i})" style="color:#c00;border:none;background:none;cursor:pointer;font-size:14px">✕ הסר</button></td>
+  </tr>`).join('');
   const win=window.open('','_blank','width=900,height=700');
   win.document.write(`<!DOCTYPE html><html dir="rtl" lang="he"><head><meta charset="UTF-8">
 <title>הזמנה לספק ${sup}</title>
@@ -2973,36 +3070,60 @@ function renderAdminWithOrders(orders){
       }));
       return Object.keys(_suppMap).sort((a,b)=>a.localeCompare(b,'he')).map(sup=>{
         const products=Object.values(_suppMap[sup]);
-        const totalQty=products.reduce((s,p)=>s+p.qty+getSuppExtra(sup,p.name.trim().toLowerCase()),0);
+        const manuals=_suppManual[sup]||[];
+        const totalQty=products.reduce((s,p)=>s+p.qty+getSuppExtra(sup,p.name.trim().toLowerCase()),0)+manuals.reduce((s,m)=>s+m.qty,0);
         const escSup=sup.replace(/'/g,"\\'");
-        const supId=sup.replace(/[^a-zA-Zא-ת0-9]/g,'_');
-        const rows=products.map(p=>{
+        const sid=supId(sup);
+        const prodRows=products.map(p=>{
           const pk=p.name.trim().toLowerCase();
-          const pkId=pk.replace(/[^a-zA-Zא-ת0-9]/g,'_');
+          const pkId=supId(pk);
           const extra=getSuppExtra(sup,pk);
           const finalQty=p.qty+extra;
           return `<tr>
-            <td style="font-weight:700">${p.name}</td>
-            <td style="color:var(--muted);font-size:12px">${p.sub}</td>
+            <td style="font-weight:700">${p.name}${p.sub?`<div style="font-size:11px;font-weight:400;color:#aaa">${p.sub}</div>`:''}</td>
             <td style="text-align:center;font-weight:700;color:var(--green)">${p.qty}</td>
             <td style="text-align:center">
-              <input type="number" min="0" value="${extra||''}" placeholder="0"
-                onchange="setSuppExtra('${escSup}','${pk.replace(/'/g,"\\'")}',this.value)"
-                style="width:58px;text-align:center;border:1px solid #ddd;border-radius:4px;padding:3px;font-size:13px;font-family:inherit">
+              <div style="display:flex;align-items:center;justify-content:center;gap:3px">
+                <button onclick="changeSuppExtra('${escSup}','${pk.replace(/'/g,"\\'")}',−1)" style="width:24px;height:24px;border:1px solid #ddd;border-radius:50%;cursor:pointer;font-size:13px;background:#fff;line-height:1">−</button>
+                <span id="se-q-${sid}-${pkId}" style="min-width:26px;text-align:center;font-size:12px;font-weight:700;color:${extra>0?'#e65100':extra<0?'#c00':'#bbb'}">${extra>0?'+':''+(extra||'0')}</span>
+                <button onclick="changeSuppExtra('${escSup}','${pk.replace(/'/g,"\\'")}',1)" style="width:24px;height:24px;border:1px solid #ddd;border-radius:50%;cursor:pointer;font-size:13px;background:#fff;line-height:1">+</button>
+              </div>
             </td>
-            <td style="text-align:center;font-weight:800;color:#1B3A6B" id="se-total-${supId}-${pkId}">${finalQty}</td>
+            <td style="text-align:center;font-weight:800;font-size:15px;color:#1B3A6B" id="se-total-${sid}-${pkId}">${finalQty}</td>
             <td style="font-size:11px;color:var(--muted)">${p.customers.map(c=>`${c.name} (${c.qty})`).join(', ')}</td>
           </tr>`;
         }).join('');
-        return `<div style="margin-bottom:20px">
-          <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 10px;background:#e8f2e0;border-radius:6px;margin-bottom:6px">
-            <span style="font-weight:700;font-size:15px">${sup} <span style="font-size:12px;color:#666;font-weight:400">(סה״כ: ${totalQty} יח')</span></span>
+        const manualRows=manuals.map((m,i)=>`<tr style="background:#fffbf0">
+          <td style="font-weight:700">${m.name}${m.sub?`<div style="font-size:11px;font-weight:400;color:#aaa">${m.sub}</div>`:''} <span style="font-size:10px;background:#e65100;color:#fff;border-radius:3px;padding:1px 4px">ידני</span></td>
+          <td style="text-align:center;color:#aaa">—</td>
+          <td style="text-align:center">
+            <div style="display:flex;align-items:center;justify-content:center;gap:3px">
+              <button onclick="changeManualQty('${escSup}',${i},-1)" style="width:24px;height:24px;border:1px solid #ddd;border-radius:50%;cursor:pointer;font-size:13px;background:#fff">−</button>
+              <span style="min-width:26px;text-align:center;font-weight:700">${m.qty}</span>
+              <button onclick="changeManualQty('${escSup}',${i},1)" style="width:24px;height:24px;border:1px solid #ddd;border-radius:50%;cursor:pointer;font-size:13px;background:#fff">+</button>
+            </div>
+          </td>
+          <td style="text-align:center;font-weight:800;font-size:15px;color:#1B3A6B">${m.qty}</td>
+          <td><button onclick="removeManualSupItem('${escSup}',${i})" style="color:#c00;border:none;background:none;cursor:pointer;font-size:12px">✕ הסר</button></td>
+        </tr>`).join('');
+        return `<div style="margin-bottom:24px;border:1px solid #e0e0e0;border-radius:10px;overflow:hidden">
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:#e8f2e0">
+            <span style="font-weight:700;font-size:15px">${sup} <span id="se-hdr-total-${sid}" style="font-size:12px;color:#555;font-weight:400">(סה״כ: ${totalQty} יח')</span></span>
             <div style="display:flex;gap:6px">
               <button onclick="exportSupplierExcel('${escSup}')" style="background:#1B6B2E;color:#fff;border:none;border-radius:6px;padding:5px 12px;cursor:pointer;font-size:12px;font-family:inherit">📊 Excel</button>
               <button onclick="exportSupplierPDF('${escSup}')" style="background:#1B3A6B;color:#fff;border:none;border-radius:6px;padding:5px 12px;cursor:pointer;font-size:12px;font-family:inherit">📄 PDF</button>
             </div>
           </div>
-          <table class="atable"><thead><tr><th>מוצר</th><th>פירוט</th><th>הזמנות</th><th>תוספת</th><th>סה״כ</th><th>לקוחות</th></tr></thead><tbody>${rows}</tbody></table>
+          <table class="atable"><thead><tr><th>מוצר</th><th style="text-align:center">הזמנות</th><th style="text-align:center">שינוי</th><th style="text-align:center">סה״כ</th><th>לקוחות</th></tr></thead>
+          <tbody>${prodRows}${manualRows}</tbody></table>
+          <div style="padding:8px 12px;background:#fafafa;border-top:1px solid #eee">
+            <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+              <input id="sm-name-${sid}" type="text" placeholder="שם מוצר *" style="border:1px solid #ddd;border-radius:6px;padding:5px 8px;font-size:13px;font-family:inherit;width:160px">
+              <input id="sm-sub-${sid}" type="text" placeholder="פירוט" style="border:1px solid #ddd;border-radius:6px;padding:5px 8px;font-size:13px;font-family:inherit;width:130px">
+              <input id="sm-qty-${sid}" type="number" min="1" value="1" style="border:1px solid #ddd;border-radius:6px;padding:5px 8px;font-size:13px;font-family:inherit;width:60px;text-align:center">
+              <button onclick="addManualSupItem('${escSup}')" style="background:#4A7C59;color:#fff;border:none;border-radius:6px;padding:6px 14px;cursor:pointer;font-size:13px;font-family:inherit">+ הוסף פריט</button>
+            </div>
+          </div>
         </div>`;
       }).join('');
     })()}</div>
