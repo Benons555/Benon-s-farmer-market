@@ -2268,32 +2268,21 @@ function exportSupplierPDF(sup){
   const rows=products.map(p=>{
     const extra=getSuppExtra(sup,p.name.trim().toLowerCase());
     const finalQty=p.qty+extra;
-    return `<tr>
-      <td style="font-weight:700;padding:8px 12px">${p.name}${p.sub?`<div style="font-size:11px;font-weight:400;color:#888">${p.sub}</div>`:''}</td>
-      <td style="text-align:center;padding:8px 12px;font-weight:700;color:#2e7d32">${p.qty}</td>
-      <td style="text-align:center;padding:8px 12px">
-        <div style="display:flex;align-items:center;justify-content:center;gap:4px">
-          <button onclick="changeSuppExtra('${sup.replace(/'/g,"\\'")}','${p.name.trim().toLowerCase().replace(/'/g,"\\'")}',-1)" style="width:26px;height:26px;border:1px solid #ddd;border-radius:50%;cursor:pointer;font-size:14px;background:#fff;line-height:1">−</button>
-          <span style="min-width:28px;text-align:center;font-weight:700;color:${extra>0?'#e65100':extra<0?'#c00':'#aaa'}">${extra>0?'+':''+(extra||'0')}</span>
-          <button onclick="changeSuppExtra('${sup.replace(/'/g,"\\'")}','${p.name.trim().toLowerCase().replace(/'/g,"\\'")}',1)" style="width:26px;height:26px;border:1px solid #ddd;border-radius:50%;cursor:pointer;font-size:14px;background:#fff;line-height:1">+</button>
-        </div>
-      </td>
-      <td style="text-align:center;font-weight:800;font-size:16px;color:#1B3A6B;padding:8px 12px" id="se-total-PDF_${sup.replace(/[^a-zA-Zא-ת0-9]/g,'_')}-${p.name.trim().toLowerCase().replace(/[^a-zA-Zא-ת0-9]/g,'_')}">${finalQty}</td>
-      <td style="font-size:11px;color:#555;padding:8px 12px">${p.customers.map(c=>`${c.name} (${c.qty})`).join(' • ')}</td>
-    </tr>`;
-  }).join('')+manuals.map((m,i)=>`<tr style="background:#fffbf0">
-    <td style="font-weight:700;padding:8px 12px">${m.name}${m.sub?`<div style="font-size:11px;font-weight:400;color:#888">${m.sub}</div>`:''}<span style="font-size:10px;color:#e65100;margin-right:4px">ידני</span></td>
-    <td style="text-align:center;padding:8px 12px;color:#aaa">—</td>
-    <td style="text-align:center;padding:8px 12px">
-      <div style="display:flex;align-items:center;justify-content:center;gap:4px">
-        <button onclick="changeManualQty('${sup.replace(/'/g,"\\'")}',${i},-1)" style="width:26px;height:26px;border:1px solid #ddd;border-radius:50%;cursor:pointer;font-size:14px;background:#fff">−</button>
-        <span style="min-width:28px;text-align:center;font-weight:700">${m.qty}</span>
-        <button onclick="changeManualQty('${sup.replace(/'/g,"\\'")}',${i},1)" style="width:26px;height:26px;border:1px solid #ddd;border-radius:50%;cursor:pointer;font-size:14px;background:#fff">+</button>
-      </div>
-    </td>
-    <td style="text-align:center;font-weight:800;font-size:16px;color:#1B3A6B;padding:8px 12px">${m.qty}</td>
-    <td><button onclick="removeManualSupItem('${sup.replace(/'/g,"\\'")}',${i})" style="color:#c00;border:none;background:none;cursor:pointer;font-size:14px">✕ הסר</button></td>
-  </tr>`).join('');
+    const extraStr=extra>0?'+'+extra:extra<0?String(extra):'—';
+    return '<tr>'
+      +'<td style="font-weight:700;padding:8px 12px">'+p.name+(p.sub?'<div style="font-size:11px;font-weight:400;color:#888">'+p.sub+'</div>':'')+'</td>'
+      +'<td style="text-align:center;padding:8px 12px;font-weight:700;color:#2e7d32">'+p.qty+'</td>'
+      +'<td style="text-align:center;padding:8px 12px;color:'+(extra>0?'#e65100':extra<0?'#c00':'#aaa')+'">'+extraStr+'</td>'
+      +'<td style="text-align:center;font-weight:800;font-size:16px;color:#1B3A6B;padding:8px 12px">'+finalQty+'</td>'
+      +'</tr>';
+  }).join('')+manuals.map(m=>
+    '<tr style="background:#fffbf0">'
+    +'<td style="font-weight:700;padding:8px 12px">'+m.name+(m.sub?'<div style="font-size:11px;font-weight:400;color:#888">'+m.sub+'</div>':'')+'<span style="font-size:10px;color:#e65100;margin-right:4px"> ידני</span></td>'
+    +'<td style="text-align:center;padding:8px 12px;color:#aaa">—</td>'
+    +'<td style="text-align:center;padding:8px 12px;color:#aaa">—</td>'
+    +'<td style="text-align:center;font-weight:800;font-size:16px;color:#1B3A6B;padding:8px 12px">'+m.qty+'</td>'
+    +'</tr>'
+  ).join('');
   const win=window.open('','_blank','width=900,height=700');
   win.document.write(`<!DOCTYPE html><html dir="rtl" lang="he"><head><meta charset="UTF-8">
 <title>הזמנה לספק ${sup}</title>
@@ -2315,7 +2304,7 @@ function exportSupplierPDF(sup){
 <h1>הזמנה לספק: ${sup}</h1>
 <div class="meta">תאריך הפקה: ${date} &nbsp;|&nbsp; סה״כ: ${totalQty} פריטים</div>
 <table>
-  <thead><tr><th>מוצר</th><th>פירוט</th><th style="text-align:center;width:80px">כמות</th><th>רשימת לקוחות</th></tr></thead>
+  <thead><tr><th>מוצר</th><th style="text-align:center;width:80px">הזמנות</th><th style="text-align:center;width:70px">תוספת</th><th style="text-align:center;width:70px">סה״כ</th></tr></thead>
   <tbody>${rows}</tbody>
 </table>
 <div class="total-row"><span>סה״כ פריטים</span><span>${totalQty}</span></div>
