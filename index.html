@@ -2195,25 +2195,27 @@ function changeManualQty(sup,idx,delta){
 
 function renderManualItems(sup){
   const sid=supId(sup);
-  const el=document.getElementById(`sm-list-${sid}`);
+  const el=document.getElementById('sm-list-'+sid);
   if(!el)return;
+  const escSup=sup.replace(/'/g,"\\'");
   const items=_suppManual[sup]||[];
   if(!items.length){el.innerHTML='';return;}
-  el.innerHTML=items.map((m,i)=>`
-    <tr style="background:#fffbf0">
-      <td style="font-weight:700">${m.name} <span style="font-size:10px;color:#e65100;font-weight:400">ידני</span></td>
-      <td style="color:var(--muted);font-size:12px">${m.sub||''}</td>
-      <td style="text-align:center">—</td>
-      <td style="text-align:center">
-        <div style="display:flex;align-items:center;justify-content:center;gap:4px">
-          <button onclick="changeManualQty('${sup.replace(/'/g,"\\'")}',${i},-1)" style="width:26px;height:26px;border:1px solid #ddd;border-radius:50%;cursor:pointer;font-size:14px;background:#fff">−</button>
-          <span style="min-width:24px;text-align:center;font-weight:700">${m.qty}</span>
-          <button onclick="changeManualQty('${sup.replace(/'/g,"\\'")}',${i},1)" style="width:26px;height:26px;border:1px solid #ddd;border-radius:50%;cursor:pointer;font-size:14px;background:#fff">+</button>
-        </div>
-      </td>
-      <td style="text-align:center;font-weight:800;color:#1B3A6B">${m.qty}</td>
-      <td><button onclick="removeManualSupItem('${sup.replace(/'/g,"\\'")}',${i})" style="color:#c00;border:none;background:none;cursor:pointer;font-size:16px">✕</button></td>
-    </tr>`).join('');
+  el.innerHTML=items.map((m,i)=>{
+    const namePart=m.name+(m.sub?'<div style="font-size:11px;font-weight:400;color:#aaa">'+m.sub+'</div>':'');
+    const badge='<span style="font-size:10px;background:#e65100;color:#fff;border-radius:3px;padding:1px 4px">ידני</span>';
+    const btns='<div style="display:flex;align-items:center;justify-content:center;gap:3px">'
+      +'<button onclick="changeManualQty(\''+escSup+'\','+i+',-1)" style="width:24px;height:24px;border:1px solid #ddd;border-radius:50%;cursor:pointer;font-size:13px;background:#fff">−</button>'
+      +'<span style="min-width:26px;text-align:center;font-weight:700">'+m.qty+'</span>'
+      +'<button onclick="changeManualQty(\''+escSup+'\','+i+',1)" style="width:24px;height:24px;border:1px solid #ddd;border-radius:50%;cursor:pointer;font-size:13px;background:#fff">+</button>'
+      +'</div>';
+    return '<tr style="background:#fffbf0">'
+      +'<td style="font-weight:700">'+namePart+' '+badge+'</td>'
+      +'<td style="text-align:center;color:#aaa">—</td>'
+      +'<td style="text-align:center">'+btns+'</td>'
+      +'<td style="text-align:center;font-weight:800;font-size:15px;color:#1B3A6B">'+m.qty+'</td>'
+      +'<td><button onclick="removeManualSupItem(\''+escSup+'\','+i+')" style="color:#c00;border:none;background:none;cursor:pointer;font-size:12px">✕ הסר</button></td>'
+      +'</tr>';
+  }).join('');
 }
 
 function exportSupplierExcel(sup){
@@ -3126,7 +3128,7 @@ function renderAdminWithOrders(orders){
             </div>
           </div>
           <table class="atable"><thead><tr><th>מוצר</th><th style="text-align:center">הזמנות</th><th style="text-align:center">שינוי</th><th style="text-align:center">סה״כ</th><th>לקוחות</th></tr></thead>
-          <tbody>${prodRows}${manualRows}</tbody></table>
+          <tbody>${prodRows}</tbody><tbody id="sm-list-${sid}">${manualRows}</tbody></table>
           <div style="padding:8px 12px;background:#fafafa;border-top:1px solid #eee">
             <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
               ${(()=>{
