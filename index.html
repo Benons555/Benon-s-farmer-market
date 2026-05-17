@@ -3282,7 +3282,7 @@ async function createHexagonInvoice(){
     }));
     const total=hexOrders.reduce((s,o)=>s+(o.discount||0),0);
     const payload={
-      description:'תמיכת קופון Hexagon — BENON'S Farmer's Market',
+      description:"תמיכת קופון Hexagon — BENON'S Farmer's Market",
       type:400,date:today,dueDate:today,lang:'he',currency:'ILS',vatType:0,
       client:{name:'Hexagon'},
       income,
@@ -3295,8 +3295,7 @@ async function createHexagonInvoice(){
     } else { throw new Error(JSON.stringify(doc)); }
   }catch(e){
     if(btn){btn.textContent='✗ שגיאה';btn.style.cssText='background:var(--red);color:white;border-color:var(--red)';btn.disabled=false;}
-    alert('שגיאה ביצירת חשבונית:
-'+e.message);
+    alert('שגיאה ביצירת חשבונית:\n'+e.message);
   }
 }
 
