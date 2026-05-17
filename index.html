@@ -3088,7 +3088,7 @@ function renderAdminWithOrders(orders){
     const k=i.supplier+'|'+i.name+'|'+i.sub;
     if(!inv[k])inv[k]={supplier:i.supplier,name:i.name,sub:i.sub,price:i.price,qty:0,total:0,profit:0,orders:[]};
     inv[k].qty+=i.qty;
-    inv[k].total+=i.price*i.qty;
+    inv[k].total+=(i.price/VAT)*i.qty;  // הכנסה לפני מע"מ
     inv[k].profit+=getItemProfit(i);
     inv[k].orders.push({name:o.name,phone:o.phone,qty:i.qty,orderId:o.id});
   }));
@@ -3103,28 +3103,28 @@ function renderAdminWithOrders(orders){
     _suppMap[sk][pk].qty+=i.qty;
     _suppMap[sk][pk].customers.push({name:o.name,qty:i.qty});
   }));
+  // הכנסות לפני מע"מ — עסק מורשה מזדכא במלואו
   const grandTotal=orders.reduce((s,o)=>{
     const couponEntry=o.coupon?Object.values(COUPONS).find(c=>c.name===o.coupon):null;
-    return s+(couponEntry&&couponEntry.sponsored?o.subtotal:o.total);
+    return s+(couponEntry&&couponEntry.sponsored?o.subtotal:o.total)/VAT;
   },0);
-  // Sponsored income: discounts covered by sponsor (Hexagon etc.)
+  // הכנסה מתמיכת Hexagon — לפני מע"מ
   const sponsoredIncome=orders.reduce((s,o)=>{
     const couponEntry=o.coupon?Object.values(COUPONS).find(c=>c.name===o.coupon):null;
-    return s+(couponEntry&&couponEntry.sponsored?(o.discount||0):0);
+    return s+(couponEntry&&couponEntry.sponsored?(o.discount||0)/VAT:0);
   },0);
   const sponsoredOrders=orders.filter(o=>{const ce=o.coupon?Object.values(COUPONS).find(c=>c.name===o.coupon):null;return ce&&ce.sponsored;});
   const grandProfit=rows.reduce((s,r)=>s+r.profit,0);
   const extrasManualCost=calcExtrasAndManualCost();
   const netProfit=grandProfit-TOTAL_OVERHEAD-extrasManualCost;
   const avgOrderVal=orders.length?grandTotal/orders.length:0;
-  const grandRevEx=grandTotal/VAT;  // הכנסות לפני מע"מ לצורך חישוב שוליים
-  const avgMargin=grandRevEx>0?(grandProfit/grandRevEx*100):0;
-  const netMargin=grandRevEx>0?(netProfit/grandRevEx*100):0;
+  const avgMargin=grandTotal>0?(grandProfit/grandTotal*100):0;
+  const netMargin=grandTotal>0?(netProfit/grandTotal*100):0;
   document.getElementById('adminView').innerHTML=`
   <div class="admin-hdr"><h1>📋 ממשק ניהול — BENON'S</h1><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="ebtn" onclick="renderAdmin()">🔄 רענן</button><button class="ebtn" onclick="exportCSV()">⬇ CSV</button><button class="ebtn" style="background:#1B3A6B;color:#F5D87A;font-weight:700" onclick="addAmbrellaOrder()">🏢 אמברלה</button><button class="ebtn" style="background:#2E5E3E;color:#A8D5B5;font-weight:700" onclick="addWimiOrder()">🏢 וימי</button><button class="ebtn" style="background:#4A7C59;color:#fff;font-weight:700" onclick="openManualOrderModal()">➕ הזמנה ידנית</button><button class="ebtn" style="background:#eee;color:#555" onclick="adminLogout()">🔒 יציאה</button></div></div>
   <div class="stats-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:12px">
     <div class="stat-card"><div class="stat-num">${orders.length}</div><div class="stat-lbl">הזמנות</div></div>
-    <div class="stat-card"><div class="stat-num">₪${grandTotal.toFixed(0)}</div><div class="stat-lbl">סה״כ הכנסות${sponsoredIncome>0?' — כולל ₪'+sponsoredIncome.toFixed(0)+' מ-Hexagon':''}</div></div>
+    <div class="stat-card"><div class="stat-num">₪${grandTotal.toFixed(0)}</div><div class="stat-lbl">סה״כ הכנסות (לפני מע״מ)${sponsoredIncome>0?' — כולל ₪'+sponsoredIncome.toFixed(0)+' מ-Hexagon':''}</div></div>
     <div class="stat-card"><div class="stat-num">₪${avgOrderVal.toFixed(0)}</div><div class="stat-lbl">ממוצע הזמנה</div></div>
     <div class="stat-card" style="${sponsoredIncome>0?'border-top:3px solid #1B3A6B':''}"><div class="stat-num" style="color:#1B3A6B">₪${sponsoredIncome.toFixed(0)}</div><div class="stat-lbl">תמיכת Hexagon<div style="font-size:11px;font-weight:400;color:#888">${sponsoredOrders.length} שימושים</div></div></div>
   </div>
