@@ -1730,7 +1730,7 @@ function pcard(p){
   const img=p.img?`<img class="p-img" src="${p.img}" alt="${p.name}" loading="lazy" onerror="this.parentNode.innerHTML='<div class=p-ph>'+ic+'</div>'">`:
     `<div class="p-ph">${ic}</div>`;
   const badge = p.cat === 'פרחים' ? `<div class="flower-badge">אין צורך במים</div>` : '';
-  const kosherBadge = p.cat === 'יקב MIKA' ? `<img src="${KOSHER_STAMP}" alt="כשרות צהר" class="kosher-stamp-badge">` : '';
+  const kosherBadge = p.cat === 'יין' ? `<img src="${KOSHER_STAMP}" alt="כשרות צהר" class="kosher-stamp-badge">` : '';
   return `<div class="p-card${q>0?' in-cart':''}" id="pc${p.id}">
     <div class="p-img-wrap">${img}${badge}${kosherBadge}</div>
     <div class="p-body">
@@ -2024,13 +2024,13 @@ async function addAmbrellaOrder(){
   if(existing){alert('הזמנת אמברלה כבר קיימת (#'+existing.id+')');return;}
   if(!confirm('להוסיף הזמנה ארגונית:\nחברת אמברלה — 22 מארזים\nסה"כ ₪6,487.14 כולל מע"מ?'))return;
   const items=[
-    {name:'סנט מור',sub:'160 גרם ליחידה',qty:22,price:29.70,supplier:'מחלבת ברקנית'},
-    {name:'תבור',sub:'130 גרם ליחידה',qty:22,price:31.00,supplier:'מחלבת ברקנית'},
-    {name:'כחולה נסתרת',sub:'130 גרם ליחידה',qty:22,price:32.40,supplier:'מחלבת ברקנית'},
-    {name:'מנצ׳גו',sub:'₪18.77 ל-100 גרם | יחידה 150-200 גרם',qty:22,price:18.77,supplier:'מחלבת ברקנית'},
-    {name:'פרחים- נץ החלב לבן',sub:'זר 10 גבעולים',qty:22,price:54.00,supplier:'פרחים'},
-    {name:'רוזה 2025',sub:'יין יבש | 750 מ\'\'ל',qty:22,price:101.00,supplier:'יקב MIKA'},
-    {name:'דובדבן',sub:'½ קילו, טרי, מתוק',qty:22,price:28.00,supplier:'מקומי'}
+    {name:'סנט מור',sub:'160 גרם ליחידה',qty:22,price:29.70,supplier:'ברקנית'},
+    {name:'תבור',sub:'130 גרם ליחידה',qty:22,price:31.00,supplier:'ברקנית'},
+    {name:'כחולה נסתרת',sub:'130 גרם ליחידה',qty:22,price:32.40,supplier:'ברקנית'},
+    {name:'מנצ׳גו',sub:'₪18.77 ל-100 גרם | יחידה 150-200 גרם',qty:22,price:18.77,supplier:'ברקנית'},
+    {name:'פרחים- נץ החלב לבן',sub:'זר 10 גבעולים',qty:22,price:54.00,supplier:'פרחי יובל'},
+    {name:'רוזה 2025',sub:'יין יבש | 750 מ\'\'ל',qty:22,price:101.00,supplier:'מיקה'},
+    {name:'דובדבן',sub:'½ קילו, טרי, מתוק',qty:22,price:28.00,supplier:'עידו'}
   ];
   const total=items.reduce((s,i)=>s+i.price*i.qty,0);
   const order={
@@ -2060,14 +2060,14 @@ async function addWimiOrder(){
   if(existing){alert('הזמנת וימי כבר קיימת (#'+existing.id+')');return;}
   if(!confirm('להוסיף הזמנה ארגונית:\nחברת וימי — 25 מארזים\nסה"כ ₪8,988.75 כולל מע"מ?'))return;
   const items=[
-    {name:'סנט מור',sub:'160 גרם ליחידה',qty:25,price:29.70,supplier:'מחלבת ברקנית'},
-    {name:'מנצ׳גו',sub:'₪18.77 ל-100 גרם | יחידה 150-200 גרם',qty:25,price:32.85,supplier:'מחלבת ברקנית'},
-    {name:'שמן זית 0.75L',sub:'זן: קרוניקי | עד 0.5% חמיצות',qty:25,price:50.00,supplier:'קיבוץ מגידו'},
+    {name:'סנט מור',sub:'160 גרם ליחידה',qty:25,price:29.70,supplier:'ברקנית'},
+    {name:'מנצ׳גו',sub:'₪18.77 ל-100 גרם | יחידה 150-200 גרם',qty:25,price:32.85,supplier:'ברקנית'},
+    {name:'שמן זית 0.75L',sub:'זן: קרוניקי | עד 0.5% חמיצות',qty:25,price:50.00,supplier:'מגידו'},
     {name:'דבש הדרים',sub:'צנצנת 250 גרם',qty:25,price:23.00,supplier:'משק אופיר'},
-    {name:'סבניון בלאן רוסאן 2025',sub:'יין לבן יבש | 750 מ\'ל',qty:25,price:101.00,supplier:'יקב MIKA'},
-    {name:'פטל',sub:'150 גרם, טרי',qty:25,price:41.00,supplier:'מקומי'},
-    {name:'דובדבן',sub:'½ קילו, טרי, מתוק',qty:25,price:28.00,supplier:'מקומי'},
-    {name:'פרחים- נץ החלב לבן',sub:'זר 10 גבעולים',qty:25,price:54.00,supplier:'פרחים'}
+    {name:'סבניון בלאן רוסאן 2025',sub:'יין לבן יבש | 750 מ\'ל',qty:25,price:101.00,supplier:'מיקה'},
+    {name:'פטל',sub:'150 גרם, טרי',qty:25,price:41.00,supplier:'עידו'},
+    {name:'דובדבן',sub:'½ קילו, טרי, מתוק',qty:25,price:28.00,supplier:'עידו'},
+    {name:'פרחים- נץ החלב לבן',sub:'זר 10 גבעולים',qty:25,price:54.00,supplier:'פרחי יובל'}
   ];
   const total=items.reduce((s,i)=>s+i.price*i.qty,0);
   const order={
