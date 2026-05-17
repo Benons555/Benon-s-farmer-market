@@ -2125,18 +2125,30 @@ function toggleOrderDetail(id){
 let _adminOrders=[];
 let _orderEdits={};
 let _suppMap={};  // global supplier map for exports
+let _suppExtras={};  // extra quantities: {sup: {productKey: extraQty}}
+
+function getSuppExtra(sup,pk){return (_suppExtras[sup]&&_suppExtras[sup][pk])||0;}
+function setSuppExtra(sup,pk,val){
+  if(!_suppExtras[sup])_suppExtras[sup]={};
+  const n=Math.max(0,parseInt(val)||0);
+  _suppExtras[sup][pk]=n;
+  // update display
+  const totalEl=document.getElementById('se-total-'+sup.replace(/[^a-zA-Zא-ת0-9]/g,'_')+'-'+pk.replace(/[^a-zA-Zא-ת0-9]/g,'_'));
+  const baseQty=(_suppMap[sup]&&_suppMap[sup][pk])?_suppMap[sup][pk].qty:0;
+  if(totalEl)totalEl.textContent=baseQty+n;
+}
 
 function exportSupplierExcel(sup){
   const products=Object.values(_suppMap[sup]||{});
   if(!products.length)return;
   const date=new Date().toLocaleDateString('he-IL');
-  const totalQty=products.reduce((s,p)=>s+p.qty,0);
+  const totalQty=products.reduce((s,p)=>s+p.qty+getSuppExtra(sup,p.name.trim().toLowerCase()),0);
   const wsData=[
     [`הזמנה לספק: ${sup}`,'','',''],
     [`תאריך: ${date} | BENON'S Farmer's Market`,'','',''],
     [],
-    ['מוצר','פירוט','כמות כוללת','לקוחות'],
-    ...products.map(p=>[p.name, p.sub||'', p.qty, p.customers.map(c=>`${c.name} (${c.qty} יח')`).join(' | ')]),
+    ['מוצר','פירוט','כמות הזמנות','תוספת','סה"כ להזמנה','לקוחות'],
+    ...products.map(p=>{const extra=getSuppExtra(sup,p.name.trim().toLowerCase());return [p.name, p.sub||'', p.qty, extra||'', p.qty+extra, p.customers.map(c=>`${c.name} (${c.qty} יח')`).join(' | ')]}),
     [],
     [`סה"כ פריטים: ${totalQty}`,'','','']
   ];
@@ -2156,14 +2168,17 @@ function exportSupplierPDF(sup){
   const products=Object.values(_suppMap[sup]||{});
   if(!products.length)return;
   const date=new Date().toLocaleDateString('he-IL');
-  const totalQty=products.reduce((s,p)=>s+p.qty,0);
-  const rows=products.map(p=>`
-    <tr>
+  const totalQty=products.reduce((s,p)=>s+p.qty+getSuppExtra(sup,p.name.trim().toLowerCase()),0);
+  const rows=products.map(p=>{
+    const extra=getSuppExtra(sup,p.name.trim().toLowerCase());
+    const finalQty=p.qty+extra;
+    return `<tr>
       <td style="font-weight:700;padding:8px 12px">${p.name}</td>
       <td style="color:#555;padding:8px 12px">${p.sub||''}</td>
-      <td style="text-align:center;font-weight:800;font-size:16px;color:#1B3A6B;padding:8px 12px">${p.qty}</td>
+      <td style="text-align:center;font-weight:800;font-size:16px;color:#1B3A6B;padding:8px 12px">${finalQty}${extra>0?`<div style="font-size:10px;color:#888">(${p.qty}+${extra})</div>`:''}</td>
       <td style="font-size:11px;color:#555;padding:8px 12px">${p.customers.map(c=>`${c.name} (${c.qty})`).join(' • ')}</td>
-    </tr>`).join('');
+    </tr>`;
+  }).join('');
   const win=window.open('','_blank','width=900,height=700');
   win.document.write(`<!DOCTYPE html><html dir="rtl" lang="he"><head><meta charset="UTF-8">
 <title>הזמנה לספק ${sup}</title>
@@ -2958,18 +2973,36 @@ function renderAdminWithOrders(orders){
       }));
       return Object.keys(_suppMap).sort((a,b)=>a.localeCompare(b,'he')).map(sup=>{
         const products=Object.values(_suppMap[sup]);
-        const totalQty=products.reduce((s,p)=>s+p.qty,0);
-        const rows=products.map(p=>`<tr><td style="font-weight:700">${p.name}</td><td style="color:var(--muted)">${p.sub}</td><td style="text-align:center;font-weight:700;color:var(--green)">${p.qty}</td><td style="font-size:12px">${p.customers.map(c=>`${c.name} (${c.qty} יח')`).join(', ')}</td></tr>`).join('');
+        const totalQty=products.reduce((s,p)=>s+p.qty+getSuppExtra(sup,p.name.trim().toLowerCase()),0);
         const escSup=sup.replace(/'/g,"\\'");
+        const supId=sup.replace(/[^a-zA-Zא-ת0-9]/g,'_');
+        const rows=products.map(p=>{
+          const pk=p.name.trim().toLowerCase();
+          const pkId=pk.replace(/[^a-zA-Zא-ת0-9]/g,'_');
+          const extra=getSuppExtra(sup,pk);
+          const finalQty=p.qty+extra;
+          return `<tr>
+            <td style="font-weight:700">${p.name}</td>
+            <td style="color:var(--muted);font-size:12px">${p.sub}</td>
+            <td style="text-align:center;font-weight:700;color:var(--green)">${p.qty}</td>
+            <td style="text-align:center">
+              <input type="number" min="0" value="${extra||''}" placeholder="0"
+                onchange="setSuppExtra('${escSup}','${pk.replace(/'/g,"\\'")}',this.value)"
+                style="width:58px;text-align:center;border:1px solid #ddd;border-radius:4px;padding:3px;font-size:13px;font-family:inherit">
+            </td>
+            <td style="text-align:center;font-weight:800;color:#1B3A6B" id="se-total-${supId}-${pkId}">${finalQty}</td>
+            <td style="font-size:11px;color:var(--muted)">${p.customers.map(c=>`${c.name} (${c.qty})`).join(', ')}</td>
+          </tr>`;
+        }).join('');
         return `<div style="margin-bottom:20px">
           <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 10px;background:#e8f2e0;border-radius:6px;margin-bottom:6px">
-            <span style="font-weight:700;font-size:15px">${sup} <span style="font-size:12px;color:#666;font-weight:400">(${totalQty} פריטים)</span></span>
+            <span style="font-weight:700;font-size:15px">${sup} <span style="font-size:12px;color:#666;font-weight:400">(סה״כ: ${totalQty} יח')</span></span>
             <div style="display:flex;gap:6px">
               <button onclick="exportSupplierExcel('${escSup}')" style="background:#1B6B2E;color:#fff;border:none;border-radius:6px;padding:5px 12px;cursor:pointer;font-size:12px;font-family:inherit">📊 Excel</button>
               <button onclick="exportSupplierPDF('${escSup}')" style="background:#1B3A6B;color:#fff;border:none;border-radius:6px;padding:5px 12px;cursor:pointer;font-size:12px;font-family:inherit">📄 PDF</button>
             </div>
           </div>
-          <table class="atable"><thead><tr><th>מוצר</th><th>פירוט</th><th>כמות כוללת</th><th>לקוחות</th></tr></thead><tbody>${rows}</tbody></table>
+          <table class="atable"><thead><tr><th>מוצר</th><th>פירוט</th><th>הזמנות</th><th>תוספת</th><th>סה״כ</th><th>לקוחות</th></tr></thead><tbody>${rows}</tbody></table>
         </div>`;
       }).join('');
     })()}</div>
