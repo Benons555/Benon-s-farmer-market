@@ -3017,6 +3017,37 @@ function getItemProfit(i){
   if(FRUIT_NAMES.has(i.name)) return (i.price/VAT)*i.qty*0.20;
   return (i.price/VAT)*i.qty*0.35;
 }
+function getItemCostByName(name,sub,fallbackPrice){
+  if(['דבש אבוקדו','דבש הדרים','דבש שיזף','דבש פרחי בר טבעי'].includes(name)){
+    const c=HONEY_COSTS[sub]; if(c!==undefined)return c;
+  }
+  const c=PRODUCT_COSTS[name]; if(c!==undefined)return c;
+  if(FRUIT_NAMES.has(name))return (fallbackPrice/VAT)*0.80;
+  return (fallbackPrice/VAT)*0.65;
+}
+
+function calcExtrasAndManualCost(){
+  let cost=0;
+  // extra units added to existing ordered products
+  Object.entries(_suppExtras).forEach(([sup,pks])=>{
+    Object.entries(pks).forEach(([pk,extra])=>{
+      if(extra<=0)return;
+      const pData=_suppMap[sup]&&_suppMap[sup][pk];
+      if(!pData)return;
+      const prod=PRODUCTS.find(p=>p.name.trim().toLowerCase()===pk);
+      cost+=getItemCostByName(pData.name,pData.sub||'',prod?prod.price:0)*extra;
+    });
+  });
+  // manually added catalog items (not in any order)
+  Object.entries(_suppManual).forEach(([sup,items])=>{
+    items.forEach(m=>{
+      const prod=PRODUCTS.find(p=>p.name.trim().toLowerCase()===m.name.trim().toLowerCase());
+      cost+=getItemCostByName(m.name,m.sub||'',prod?prod.price:0)*m.qty;
+    });
+  });
+  return cost;
+}
+
 function renderAdminWithOrders(orders){
   _adminOrders=orders;
   const inv={};
@@ -3029,6 +3060,16 @@ function renderAdminWithOrders(orders){
     inv[k].orders.push({name:o.name,phone:o.phone,qty:i.qty,orderId:o.id});
   }));
   const rows=Object.values(inv).sort((a,b)=>a.supplier.localeCompare(b.supplier));
+  // Build _suppMap fresh so calcExtrasAndManualCost() has up-to-date data
+  _suppMap={};
+  orders.forEach(o=>o.items.forEach(i=>{
+    const sk=(i.supplier||'ללא ספק').trim();
+    if(!_suppMap[sk])_suppMap[sk]={};
+    const pk=i.name.trim().toLowerCase();
+    if(!_suppMap[sk][pk])_suppMap[sk][pk]={name:i.name.trim(),sub:i.sub||'',qty:0,customers:[]};
+    _suppMap[sk][pk].qty+=i.qty;
+    _suppMap[sk][pk].customers.push({name:o.name,qty:i.qty});
+  }));
   const grandTotal=orders.reduce((s,o)=>{
     const couponEntry=o.coupon?Object.values(COUPONS).find(c=>c.name===o.coupon):null;
     return s+(couponEntry&&couponEntry.sponsored?o.subtotal:o.total);
@@ -3040,7 +3081,8 @@ function renderAdminWithOrders(orders){
   },0);
   const sponsoredOrders=orders.filter(o=>{const ce=o.coupon?Object.values(COUPONS).find(c=>c.name===o.coupon):null;return ce&&ce.sponsored;});
   const grandProfit=rows.reduce((s,r)=>s+r.profit,0);
-  const netProfit=grandProfit-TOTAL_OVERHEAD;
+  const extrasManualCost=calcExtrasAndManualCost();
+  const netProfit=grandProfit-TOTAL_OVERHEAD-extrasManualCost;
   const avgOrderVal=orders.length?grandTotal/orders.length:0;
   const avgMargin=grandTotal>0?(grandProfit/grandTotal*100):0;
   const netMargin=grandTotal>0?(netProfit/grandTotal*100):0;
@@ -3055,8 +3097,8 @@ function renderAdminWithOrders(orders){
   <div class="stats-grid" style="grid-template-columns:repeat(4,1fr)">
     <div class="stat-card" style="border-top:3px solid #2e7d32"><div class="stat-num" style="color:#2e7d32">₪${grandProfit.toFixed(0)}</div><div class="stat-lbl">רווח גולמי ממוצרים</div></div>
     <div class="stat-card" style="border-top:3px solid #1B3A6B"><div class="stat-num" style="color:#1B3A6B">${avgMargin.toFixed(1)}%</div><div class="stat-lbl">שולי רווח גולמי</div></div>
-    <div class="stat-card" style="border-top:3px solid ${netProfit>=0?'#F5A623':'#c62828'}"><div class="stat-num" style="color:${netProfit>=0?'#e65100':'#c62828'}">₪${netProfit.toFixed(0)}</div><div class="stat-lbl">רווח נטו (אחרי הוצאות)</div></div>
-    <div class="stat-card" style="border-top:3px solid ${netProfit>=0?'#F5A623':'#c62828'}"><div class="stat-num" style="color:${netProfit>=0?'#e65100':'#c62828'}">${netMargin.toFixed(1)}%</div><div class="stat-lbl">שולי רווח נטו</div></div>
+    <div class="stat-card" style="border-top:3px solid ${extrasManualCost>0?'#c62828':'#ccc'}"><div class="stat-num" style="color:${extrasManualCost>0?'#c62828':'#aaa'}">-₪${extrasManualCost.toFixed(0)}</div><div class="stat-lbl">עלות תוספות ידניות<div style="font-size:11px;font-weight:400;color:#888">מעל ההזמנות</div></div></div>
+    <div class="stat-card" style="border-top:3px solid ${netProfit>=0?'#F5A623':'#c62828'}"><div class="stat-num" style="color:${netProfit>=0?'#e65100':'#c62828'}">₪${netProfit.toFixed(0)}</div><div class="stat-lbl">רווח נטו (כולל תוספות)</div></div>
   </div>
   ${buildProfitAnalysis(orders)}
   <div class="asec">
@@ -3072,15 +3114,7 @@ function renderAdminWithOrders(orders){
     <div class="asec-h">🏪 רשימות לפי ספק</div>
     <div class="asec-b">${(()=>{
       if(!orders.length) return '<div class="no-data">אין הזמנות</div>';
-      _suppMap={};
-      orders.forEach(o=>o.items.forEach(i=>{
-        const sk=(i.supplier||'ללא ספק').trim();
-        if(!_suppMap[sk]) _suppMap[sk]={};
-        const pk=i.name.trim().toLowerCase();
-        if(!_suppMap[sk][pk]) _suppMap[sk][pk]={name:i.name.trim(),sub:i.sub||'',qty:0,customers:[]};
-        _suppMap[sk][pk].qty+=i.qty;
-        _suppMap[sk][pk].customers.push({name:o.name,qty:i.qty});
-      }));
+      // _suppMap already built above before stats render
       return Object.keys(_suppMap).sort((a,b)=>a.localeCompare(b,'he')).map(sup=>{
         const products=Object.values(_suppMap[sup]);
         const manuals=_suppManual[sup]||[];
