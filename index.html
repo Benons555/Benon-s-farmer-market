@@ -2916,6 +2916,11 @@ function openManualOrderModal(){
         <button onclick="moApplyCoupon()" style="background:#4A7C59;color:#fff;border:none;border-radius:8px;padding:7px 16px;cursor:pointer;font-size:13px;white-space:nowrap;font-family:inherit">בדוק</button>
       </div>
       <div id="moCouponMsg" style="font-size:13px;margin-bottom:8px;min-height:18px"></div>
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px">
+        <label style="font-size:13px;color:#555;white-space:nowrap">הנחה ידנית (₪):</label>
+        <input type="number" id="moManualDiscount" min="0" step="0.01" placeholder="0" oninput="moRenderCart()" style="width:100px;border:1px solid #ddd;border-radius:8px;padding:7px 10px;font-size:14px;font-family:inherit">
+        <input type="text" id="moManualDiscountNote" placeholder="סיבה (אופציונלי)" oninput="moRenderCart()" style="flex:1;border:1px solid #ddd;border-radius:8px;padding:7px 10px;font-size:14px;font-family:inherit">
+      </div>
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
         <div style="font-size:14px">
           <div style="color:#888">סכום לפני הנחה: ₪<span id="moSubtotal">0.00</span></div>
@@ -3031,10 +3036,12 @@ function moRenderCart(){
     if(cp.type==='percent') discount=subtotal*(cp.discount/100);
     else discount=Math.min(cp.discount, subtotal);
   }
-  const total=subtotal-discount;
+  const manualDisc=Math.max(0,parseFloat(document.getElementById('moManualDiscount')?.value)||0);
+  const totalDiscount=Math.min(discount+manualDisc, subtotal);
+  const total=subtotal-totalDiscount;
   if(subEl) subEl.textContent=subtotal.toFixed(2);
-  if(discEl) discEl.textContent=discount.toFixed(2);
-  if(discRow) discRow.style.display=discount>0?'block':'none';
+  if(discEl) discEl.textContent=totalDiscount.toFixed(2);
+  if(discRow) discRow.style.display=totalDiscount>0?'block':'none';
   if(totEl) totEl.textContent=total.toFixed(2);
 }
 
@@ -3098,14 +3105,18 @@ function saveManualOrder(){
   });
   const subtotal=items.reduce((s,i)=>s+i.price*i.qty,0);
   const cp=window._moCoupon;
-  let discount=0;
+  let couponDiscount=0;
   if(cp){
-    if(cp.type==='percent') discount=parseFloat((subtotal*(cp.discount/100)).toFixed(2));
-    else discount=parseFloat(Math.min(cp.discount,subtotal).toFixed(2));
+    if(cp.type==='percent') couponDiscount=parseFloat((subtotal*(cp.discount/100)).toFixed(2));
+    else couponDiscount=parseFloat(Math.min(cp.discount,subtotal).toFixed(2));
   }
+  const manualDisc=Math.max(0,parseFloat(document.getElementById('moManualDiscount')?.value)||0);
+  const manualDiscNote=(document.getElementById('moManualDiscountNote')?.value||'').trim();
+  const discount=parseFloat(Math.min(couponDiscount+manualDisc,subtotal).toFixed(2));
   const total=parseFloat((subtotal-discount).toFixed(2));
   const orderId='MAN-'+Date.now();
-  const order={id:orderId,name,phone,floor,notes,ref:'ידני',coupon:cp?cp.name:null,discount,items,subtotal:parseFloat(subtotal.toFixed(2)),total,date:new Date().toLocaleString('he-IL'),paid:false};
+  const couponName=cp?cp.name:(manualDisc>0?('הנחה ידנית'+(manualDiscNote?' — '+manualDiscNote:'')):null);
+  const order={id:orderId,name,phone,floor,notes,ref:'ידני',coupon:couponName,discount,items,subtotal:parseFloat(subtotal.toFixed(2)),total,date:new Date().toLocaleString('he-IL'),paid:false};
   try{const arr=JSON.parse(localStorage.getItem('benon_orders')||'[]');arr.push(order);localStorage.setItem('benon_orders',JSON.stringify(arr));}catch(e){}
   saveOrderToFirebase(order);
   closeModal('manualOrderModal');
