@@ -3502,15 +3502,15 @@ async function createHexagonInvoice(){
       quantity:1,
       price:parseFloat((o.discount||0).toFixed(2)),
       currency:'ILS',
-      vatType:0
+      vatType:2
     }));
     const total=hexOrders.reduce((s,o)=>s+(o.discount||0),0);
     const payload={
       description:"תמיכת קופון Hexagon — BENON'S Farmer's Market",
-      type:400,date:today,dueDate:today,lang:'he',currency:'ILS',vatType:0,
+      type:400,date:today,dueDate:today,lang:'he',currency:'ILS',vatType:2,
       client:{name:'Hexagon'},
       income,
-      payment:[{type:1,price:parseFloat(total.toFixed(2)),currency:'ILS',date:today}]
+      payment:[{type:4,price:parseFloat(total.toFixed(2)),currency:'ILS',date:today}]
     };
     const res=await fetch(GI_BASE+'/documents',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify(payload)});
     const doc=await res.json();
@@ -3535,11 +3535,33 @@ async function giToken(){
   return d.token;
 }
 
+function selectPaymentMethod(){
+  return new Promise(resolve=>{
+    const existing=document.getElementById('payMethodModal');
+    if(existing)existing.remove();
+    const m=document.createElement('div');
+    m.id='payMethodModal';
+    m.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:10000;display:flex;align-items:center;justify-content:center;';
+    m.innerHTML=`<div style="background:#fff;border-radius:12px;padding:28px 32px;text-align:center;min-width:260px;font-family:inherit;direction:rtl;">
+      <div style="font-size:16px;font-weight:700;margin-bottom:18px;color:#1B3A6B;">בחר אמצעי תשלום</div>
+      <div style="display:flex;gap:12px;justify-content:center;">
+        <button onclick="document.getElementById('payMethodModal').remove();window._pmResolve(10);" style="background:#1B3A6B;color:#fff;border:none;border-radius:8px;padding:10px 22px;font-size:15px;cursor:pointer;font-family:inherit;">💳 ביט</button>
+        <button onclick="document.getElementById('payMethodModal').remove();window._pmResolve(11);" style="background:#2e7d32;color:#fff;border:none;border-radius:8px;padding:10px 22px;font-size:15px;cursor:pointer;font-family:inherit;">💳 פייבוקס</button>
+        <button onclick="document.getElementById('payMethodModal').remove();window._pmResolve(null);" style="background:#eee;color:#333;border:none;border-radius:8px;padding:10px 14px;font-size:15px;cursor:pointer;font-family:inherit;">ביטול</button>
+      </div>
+    </div>`;
+    window._pmResolve=resolve;
+    document.body.appendChild(m);
+  });
+}
+
 async function createInvoice(orderId){
   const o=(_adminOrders.length?_adminOrders:getOrders()).find(x=>x.id===orderId);
   if(!o){alert('לא נמצאה הזמנה: '+orderId);return;}
   const btn=document.getElementById('gi_'+orderId);
   if(!btn){alert('כפתור לא נמצא: gi_'+orderId);return;}
+  const payType=await selectPaymentMethod();
+  if(payType===null)return;
   btn.disabled=true;btn.textContent='...';
   try{
     const token=await giToken();
@@ -3549,17 +3571,17 @@ async function createInvoice(orderId){
       quantity:i.qty,
       price:parseFloat(i.price.toFixed(2)),
       currency:'ILS',
-      vatType:0
+      vatType:2
     }));
     if(o.discount>0){
-      income.push({description:'הנחת קופון '+(o.coupon||''),quantity:1,price:parseFloat((-o.discount).toFixed(2)),currency:'ILS',vatType:0});
+      income.push({description:'הנחת קופון '+(o.coupon||''),quantity:1,price:parseFloat((-o.discount).toFixed(2)),currency:'ILS',vatType:2});
     }
     const payload={
       description:'\u05d4\u05d6\u05de\u05e0\u05d4 BENON\'S \u2014 '+o.ref,
-      type:400,date:today,dueDate:today,lang:'he',currency:'ILS',vatType:0,
+      type:400,date:today,dueDate:today,lang:'he',currency:'ILS',vatType:2,
       client:{name:o.name,phone:o.phone},
       income,
-      payment:[{type:1,price:o.total,currency:'ILS',date:today}]
+      payment:[{type:payType,price:o.total,currency:'ILS',date:today}]
     };
     const res=await fetch(GI_BASE+'/documents',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify(payload)});
     const doc=await res.json();
