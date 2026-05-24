@@ -3585,8 +3585,9 @@ async function createInvoice(orderId){
     };
     const res=await fetch(GI_BASE+'/documents',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify(payload)});
     const doc=await res.json();
+    console.log('GI response:', JSON.stringify(doc));
     if(doc.id){
-      btn.textContent='✓ נוצרה';
+      btn.textContent='✓ נוצרה (type:'+doc.type+')';
       btn.style.cssText='background:var(--green);color:white;border-color:var(--green)';
       btn.disabled=false;
       btn.onclick=()=>window.open('https://app.greeninvoice.co.il/documents/'+doc.id,'_blank');
