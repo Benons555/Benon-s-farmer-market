@@ -2867,8 +2867,17 @@ function openManualOrderModal(){
       </div>
       <div style="font-weight:700;margin-bottom:6px;font-size:14px">🛒 פריטים שנבחרו</div>
       <div id="moCartArea" style="min-height:44px;border:1px solid #ddd;border-radius:8px;padding:8px;margin-bottom:10px"><div style="color:#aaa;font-size:13px">טרם נבחרו פריטים</div></div>
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px">
+        <input type="text" id="moCouponInput" placeholder="קוד קופון (אופציונלי)" style="flex:1;border:1px solid #ddd;border-radius:8px;padding:7px 10px;font-size:14px;font-family:inherit;text-transform:uppercase">
+        <button onclick="moApplyCoupon()" style="background:#4A7C59;color:#fff;border:none;border-radius:8px;padding:7px 16px;cursor:pointer;font-size:13px;white-space:nowrap;font-family:inherit">בדוק</button>
+      </div>
+      <div id="moCouponMsg" style="font-size:13px;margin-bottom:8px;min-height:18px"></div>
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-        <div style="font-weight:700;font-size:16px">סה״כ: ₪<span id="moTotal">0.00</span></div>
+        <div style="font-size:14px">
+          <div style="color:#888">סכום לפני הנחה: ₪<span id="moSubtotal">0.00</span></div>
+          <div id="moDiscountRow" style="color:#2e7d32;display:none">הנחה: −₪<span id="moDiscount">0.00</span></div>
+          <div style="font-weight:700;font-size:16px;margin-top:2px">לתשלום: ₪<span id="moTotal">0.00</span></div>
+        </div>
         <button class="btn-p" onclick="saveManualOrder()" style="padding:10px 28px">💾 שמור הזמנה</button>
       </div>
     </div>
@@ -2876,6 +2885,7 @@ function openManualOrderModal(){
   document.body.appendChild(mo);
   window._moCart={};
   window._moCat='הכל';
+  window._moCoupon=null;
   moFilterProducts();
   requestAnimationFrame(()=>mo.classList.add('open'));
 }
@@ -2941,17 +2951,26 @@ function moAddItem(id){
 
 function moRenderCart(){
   const area=document.getElementById('moCartArea');
+  const subEl=document.getElementById('moSubtotal');
   const totEl=document.getElementById('moTotal');
+  const discEl=document.getElementById('moDiscount');
+  const discRow=document.getElementById('moDiscountRow');
   if(!area) return;
   const c=window._moCart||{};
   const keys=Object.keys(c).filter(k=>c[k]>0);
-  if(!keys.length){area.innerHTML='<div style="color:#aaa;font-size:13px">טרם נבחרו פריטים</div>';if(totEl)totEl.textContent='0.00';return;}
-  let total=0;
+  if(!keys.length){
+    area.innerHTML='<div style="color:#aaa;font-size:13px">טרם נבחרו פריטים</div>';
+    if(subEl)subEl.textContent='0.00';
+    if(totEl)totEl.textContent='0.00';
+    if(discRow)discRow.style.display='none';
+    return;
+  }
+  let subtotal=0;
   area.innerHTML=keys.map(id=>{
     const p=PRODUCTS.find(x=>String(x.id)===String(id));
     if(!p) return '';
     const lineTotal=p.price*c[id];
-    total+=lineTotal;
+    subtotal+=lineTotal;
     return `<div style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:13px;border-bottom:1px solid #f5f5f5">
       <span style="flex:3;font-weight:700">${p.name} <span style="font-weight:400;color:#888">${p.sub||''}</span></span>
       <span style="flex:1;color:var(--green)">₪${p.price.toFixed(2)}</span>
@@ -2962,6 +2981,16 @@ function moRenderCart(){
       <span style="flex:1;text-align:left;font-weight:700">₪${lineTotal.toFixed(2)}</span>
     </div>`;
   }).join('');
+  const cp=window._moCoupon;
+  let discount=0;
+  if(cp){
+    if(cp.type==='percent') discount=subtotal*(cp.discount/100);
+    else discount=Math.min(cp.discount, subtotal);
+  }
+  const total=subtotal-discount;
+  if(subEl) subEl.textContent=subtotal.toFixed(2);
+  if(discEl) discEl.textContent=discount.toFixed(2);
+  if(discRow) discRow.style.display=discount>0?'block':'none';
   if(totEl) totEl.textContent=total.toFixed(2);
 }
 
@@ -2979,6 +3008,36 @@ function moRemItem(id){
   moFilterProducts();
 }
 
+async function moApplyCoupon(){
+  const raw=(document.getElementById('moCouponInput')?.value||'').trim().toUpperCase();
+  const msg=document.getElementById('moCouponMsg');
+  if(!msg) return;
+  if(!raw){window._moCoupon=null;msg.textContent='';moRenderCart();return;}
+  const hashed=await hashStr(raw);
+  const coupon=COUPONS[hashed];
+  if(!coupon){
+    window._moCoupon=null;
+    msg.textContent='✗ קוד קופון שגוי';msg.style.color='#c62828';
+    moRenderCart();return;
+  }
+  const _disabled=JSON.parse(localStorage.getItem('benon_disabled_coupons')||'[]');
+  if(_disabled.includes(hashed)){
+    window._moCoupon=null;
+    msg.textContent='✗ קופון זה אינו פעיל כרגע';msg.style.color='#c62828';
+    moRenderCart();return;
+  }
+  if(coupon.expiry&&new Date().toISOString().slice(0,10)>coupon.expiry){
+    window._moCoupon=null;
+    msg.textContent='✗ קוד הקופון פג תוקף ב-'+coupon.expiry.split('-').reverse().join('/');msg.style.color='#c62828';
+    moRenderCart();return;
+  }
+  window._moCoupon={...coupon,code:hashed,rawCode:raw};
+  const discStr=coupon.type==='percent'?coupon.discount+'%':'₪'+coupon.discount;
+  msg.innerHTML='<strong>✓ קופון '+coupon.name+' הופעל!</strong> הנחה: '+discStr;
+  msg.style.color='#2e7d32';
+  moRenderCart();
+}
+
 function saveManualOrder(){
   const name=(document.getElementById('moName').value||'').trim();
   const phone=(document.getElementById('moPhone').value||'').trim();
@@ -2994,9 +3053,15 @@ function saveManualOrder(){
     return {name:p.name,sub:p.sub||'',qty:c[id],price:p.price,supplier:p.supplier||''};
   });
   const subtotal=items.reduce((s,i)=>s+i.price*i.qty,0);
-  const total=subtotal;
+  const cp=window._moCoupon;
+  let discount=0;
+  if(cp){
+    if(cp.type==='percent') discount=parseFloat((subtotal*(cp.discount/100)).toFixed(2));
+    else discount=parseFloat(Math.min(cp.discount,subtotal).toFixed(2));
+  }
+  const total=parseFloat((subtotal-discount).toFixed(2));
   const orderId='MAN-'+Date.now();
-  const order={id:orderId,name,phone,floor,notes,ref:'ידני',coupon:null,discount:0,items,subtotal,total,date:new Date().toLocaleString('he-IL'),paid:false};
+  const order={id:orderId,name,phone,floor,notes,ref:'ידני',coupon:cp?cp.name:null,discount,items,subtotal:parseFloat(subtotal.toFixed(2)),total,date:new Date().toLocaleString('he-IL'),paid:false};
   try{const arr=JSON.parse(localStorage.getItem('benon_orders')||'[]');arr.push(order);localStorage.setItem('benon_orders',JSON.stringify(arr));}catch(e){}
   saveOrderToFirebase(order);
   closeModal('manualOrderModal');
