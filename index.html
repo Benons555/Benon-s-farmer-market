@@ -2123,6 +2123,50 @@ function deleteOrder(id){
   renderAdmin();
 }
 
+function openEditOrderModal(id){
+  const orders=getOrders();
+  const o=orders.find(q=>q.id===id);
+  if(!o)return;
+  const existing=document.getElementById('editOrderModal');
+  if(existing)existing.remove();
+  const mo=document.createElement('div');
+  mo.className='mo';mo.id='editOrderModal';mo.style.zIndex='9999';
+  mo.innerHTML=`
+  <div class="modal" style="max-width:420px;width:98vw">
+    <div class="mh">
+      <h2 style="margin:0">✏️ עריכת פרטים</h2>
+      <button class="xbtn" onclick="closeModal('editOrderModal')">✕</button>
+    </div>
+    <div class="mb" style="padding:16px;display:flex;flex-direction:column;gap:12px">
+      <div style="font-size:12px;color:#888;margin-bottom:-4px">הזמנה: ${id}</div>
+      <div class="fg"><label>שם לקוח</label><input type="text" id="eo-name" value="${(o.name||'').replace(/"/g,'&quot;')}"></div>
+      <div class="fg"><label>טלפון</label><input type="text" id="eo-phone" value="${(o.phone||'').replace(/"/g,'&quot;')}"></div>
+      <div class="fg"><label>קומה / דירה</label><input type="text" id="eo-floor" value="${(o.floor||'').replace(/"/g,'&quot;')}"></div>
+      <div class="fg"><label>הערות</label><input type="text" id="eo-notes" value="${(o.notes||'').replace(/"/g,'&quot;')}"></div>
+      <button class="btn-p" onclick="saveEditOrder('${id}')" style="margin-top:4px">💾 שמור שינויים</button>
+    </div>
+  </div>`;
+  document.body.appendChild(mo);
+  requestAnimationFrame(()=>mo.classList.add('open'));
+}
+
+function saveEditOrder(id){
+  const orders=getOrders();
+  const o=orders.find(q=>q.id===id);
+  if(!o)return;
+  const name=(document.getElementById('eo-name')?.value||'').trim();
+  const phone=(document.getElementById('eo-phone')?.value||'').trim();
+  const floor=(document.getElementById('eo-floor')?.value||'').trim();
+  const notes=(document.getElementById('eo-notes')?.value||'').trim();
+  if(!name){alert('שם לקוח לא יכול להיות ריק');return;}
+  if(!phone){alert('טלפון לא יכול להיות ריק');return;}
+  o.name=name;o.phone=phone;o.floor=floor;o.notes=notes;
+  try{localStorage.setItem('benon_orders',JSON.stringify(orders));}catch(e){}
+  fbDB.ref('orders/'+id).update({name,phone,floor,notes}).catch(()=>{});
+  closeModal('editOrderModal');
+  renderAdmin();
+}
+
 function toggleOrderDetail(id){
   const el=document.getElementById('od-'+id);
   if(el)el.style.display=el.style.display==='none'?'':'none';
@@ -3335,6 +3379,7 @@ function renderAdminWithOrders(orders){
         </td>
         <td style="white-space:nowrap" onclick="event.stopPropagation()">
           <button class="ebtn" onclick="toggleOrderDetail('${o.id}')">👁 פרטים</button>
+          <button class="ebtn" style="background:#e8f0fe;color:#1B3A6B" onclick="openEditOrderModal('${o.id}')">✏️ ערוך</button>
           <button class="ebtn" style="background:#fdecea;color:#c0392b" onclick="deleteOrder('${o.id}')">🗑 מחק</button>
         </td>
       </tr>
