@@ -3581,7 +3581,7 @@ async function createInvoice(orderId){
       type:400,date:today,dueDate:today,lang:'he',currency:'ILS',vatType:1,
       client:{name:o.name,phone:o.phone},
       income,
-      payment:[{type:payType,price:o.total,currency:'ILS',date:today}]
+      payment:[{type:1,price:parseFloat((o.total/1.18).toFixed(2)),currency:'ILS',date:today}]
     };
     const res=await fetch(GI_BASE+'/documents',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify(payload)});
     const doc=await res.json();
