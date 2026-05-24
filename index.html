@@ -3500,14 +3500,14 @@ async function createHexagonInvoice(){
     const income=hexOrders.map(o=>({
       description:'קופון Hexagon — '+o.name+' (#'+o.id+')',
       quantity:1,
-      price:parseFloat((o.discount||0).toFixed(2)),
+      price:parseFloat(((o.discount||0)/1.18).toFixed(2)),
       currency:'ILS',
-      vatType:2
+      vatType:1
     }));
     const total=hexOrders.reduce((s,o)=>s+(o.discount||0),0);
     const payload={
       description:"תמיכת קופון Hexagon — BENON'S Farmer's Market",
-      type:400,date:today,dueDate:today,lang:'he',currency:'ILS',vatType:2,
+      type:400,date:today,dueDate:today,lang:'he',currency:'ILS',vatType:1,
       client:{name:'Hexagon'},
       income,
       payment:[{type:4,price:parseFloat(total.toFixed(2)),currency:'ILS',date:today}]
@@ -3569,16 +3569,16 @@ async function createInvoice(orderId){
     const income=o.items.map(i=>({
       description:i.name+(i.qty>1?' ×'+i.qty:''),
       quantity:i.qty,
-      price:parseFloat(i.price.toFixed(2)),
+      price:parseFloat((i.price/1.18).toFixed(2)),
       currency:'ILS',
-      vatType:2
+      vatType:1
     }));
     if(o.discount>0){
-      income.push({description:'הנחת קופון '+(o.coupon||''),quantity:1,price:parseFloat((-o.discount).toFixed(2)),currency:'ILS',vatType:2});
+      income.push({description:'הנחת קופון '+(o.coupon||''),quantity:1,price:parseFloat((-o.discount/1.18).toFixed(2)),currency:'ILS',vatType:1});
     }
     const payload={
       description:'\u05d4\u05d6\u05de\u05e0\u05d4 BENON\'S \u2014 '+o.ref,
-      type:400,date:today,dueDate:today,lang:'he',currency:'ILS',vatType:2,
+      type:400,date:today,dueDate:today,lang:'he',currency:'ILS',vatType:1,
       client:{name:o.name,phone:o.phone},
       income,
       payment:[{type:payType,price:o.total,currency:'ILS',date:today}]
