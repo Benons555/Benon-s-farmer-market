@@ -2595,7 +2595,7 @@ async function saveOrderEdits(orderId){
 function getCategoryForItem(i){
   const s=i.supplier||'',n=i.name||'';
   if(s.includes('ברקנית')||s.includes('מחלבת'))return 'גבינות 🧀';
-  if(s.includes('MIKA')||s.includes('יקב'))return 'יינות 🍷';
+  if(s.includes('מיקה')||s.includes('MIKA')||s.includes('יקב'))return 'יינות 🍷';
   if(n.includes('שמן זית')||s.includes('מגידו'))return 'שמן זית 🫒';
   if(['דבש אבוקדו','דבש הדרים','דבש שיזף','דבש פרחי בר טבעי'].includes(n)||n.includes('מארז דבש'))return 'דבשים 🍯';
   if(FRUIT_NAMES.has(n))return 'פירות 🍓';
