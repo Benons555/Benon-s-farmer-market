@@ -3567,7 +3567,7 @@ async function createInvoice(orderId){
     const token=await giToken();
     const today=new Date().toISOString().slice(0,10);
     const income=o.items.map(i=>({
-      description:i.name+(i.qty>1?' ×'+i.qty:''),
+      description:i.name+(i.sub?' — '+i.sub:''),
       quantity:i.qty,
       price:parseFloat((i.price/1.18).toFixed(2)),
       currency:'ILS',
