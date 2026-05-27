@@ -2382,6 +2382,98 @@ function exportSupplierPDF(sup){
   setTimeout(()=>win.print(),600);
 }
 
+function exportCorporateExpensePDF(clientName){
+  const orders=(_adminOrders.length?_adminOrders:getOrders());
+  let order;
+  if(clientName==='hexagon'){
+    // For Hexagon: aggregate all sponsored-coupon orders
+    const hexOrders=orders.filter(o=>{
+      const ce=o.coupon?Object.values(COUPONS).find(c=>c.name===o.coupon):null;
+      return ce&&ce.sponsored;
+    });
+    if(!hexOrders.length){alert('לא נמצאו הזמנות עם קופון Hexagon');return;}
+    // Build a virtual combined order
+    const allItems=[];
+    hexOrders.forEach(o=>{
+      (o.items||[]).forEach(i=>{
+        const k=i.name.trim().toLowerCase()+'|'+(i.sub||'').trim().toLowerCase();
+        const ex=allItems.find(x=>x._key===k);
+        if(ex)ex.qty+=i.qty; else allItems.push({...i,qty:i.qty,_key:k});
+      });
+    });
+    order={name:'Hexagon',items:allItems,total:hexOrders.reduce((s,o)=>s+o.total,0),discount:hexOrders.reduce((s,o)=>s+(o.discount||0),0),notes:hexOrders.length+' הזמנות עם קופון Hexagon'};
+  } else {
+    order=orders.find(o=>o.name===clientName);
+    if(!order){alert('לא נמצאה הזמנה עבור: '+clientName);return;}
+  }
+  const date=new Date().toLocaleDateString('he-IL');
+  let totalCost=0;
+  const rows=(order.items||[]).map(i=>{
+    const prod=PRODUCTS.find(pr=>pr.name.trim().toLowerCase()===i.name.trim().toLowerCase()&&(pr.sub||'')===(i.sub||''));
+    const unitCost=getItemCostByName(i.name,i.sub||'',prod?prod.price:0);
+    const lineCost=unitCost*i.qty;
+    const lineSell=i.price*i.qty;
+    totalCost+=lineCost;
+    return '<tr>'
+      +'<td style="font-weight:700;padding:10px 14px">'+i.name+(i.sub?'<div style="font-size:11px;font-weight:400;color:#888">'+i.sub+'</div>':'')+'</td>'
+      +'<td style="text-align:center;padding:10px 14px;font-weight:800;font-size:15px;color:#1B3A6B">'+i.qty+'</td>'
+      +'<td style="text-align:center;padding:10px 14px;color:#444">₪'+unitCost.toFixed(2)+'</td>'
+      +'<td style="text-align:center;padding:10px 14px;font-weight:700;color:#1B3A6B">₪'+lineCost.toFixed(2)+'</td>'
+      +'<td style="text-align:center;padding:10px 14px;color:#2e7d32">₪'+i.price.toFixed(2)+'</td>'
+      +'<td style="text-align:center;padding:10px 14px;font-weight:700;color:#2e7d32">₪'+lineSell.toFixed(2)+'</td>'
+      +'</tr>';
+  }).join('');
+  const totalSell=order.total||0;
+  const totalDiscount=order.discount||0;
+  const grossProfit=totalSell-totalCost;
+  const margin=totalSell>0?((grossProfit/totalSell)*100):0;
+  const win=window.open('','_blank','width=1000,height=750');
+  win.document.write('<!DOCTYPE html><html dir="rtl" lang="he"><head><meta charset="UTF-8">'
+    +'<title>חשבונית עסקה פנימית — '+order.name+'</title>'
+    +'<style>'
+    +'*{font-family:Arial,sans-serif;box-sizing:border-box}'
+    +'body{padding:30px 40px;direction:rtl;color:#222;background:#fff}'
+    +'.logo{color:#4A7C59;font-size:13px;font-weight:700;letter-spacing:1px;margin-bottom:4px}'
+    +'h1{color:#1B3A6B;font-size:26px;margin:0 0 4px}'
+    +'.meta{color:#888;font-size:13px;margin-bottom:20px;border-bottom:2px solid #1B3A6B;padding-bottom:12px}'
+    +'table{width:100%;border-collapse:collapse;font-size:14px}'
+    +'thead th{background:#1B3A6B;color:#fff;padding:10px 14px;text-align:right;font-size:13px}'
+    +'tbody tr{border-bottom:1px solid #e0e0e0}'
+    +'tbody tr:nth-child(even){background:#f4f8f4}'
+    +'.summary{margin-top:18px;border:1px solid #c8dfc8;border-radius:8px;overflow:hidden;width:380px;margin-right:auto}'
+    +'.summary-row{display:flex;justify-content:space-between;padding:9px 16px;font-size:14px;border-bottom:1px solid #e0ece0}'
+    +'.summary-row.profit{background:#e8f5e9;color:#1b5e20;font-weight:700}'
+    +'.summary-row.loss{background:#ffebee;color:#b71c1c;font-weight:700}'
+    +'.summary-row:last-child{border-bottom:none;background:#1B3A6B;color:#fff;font-weight:700;font-size:15px}'
+    +'.print-btn{background:#1B3A6B;color:#fff;border:none;padding:12px 24px;border-radius:8px;cursor:pointer;font-size:15px;margin-top:20px}'
+    +'@media print{.print-btn{display:none}}'
+    +'</style></head><body>'
+    +'<div class="logo">BENON\'S FARMER\'S MARKET — מסמך פנימי</div>'
+    +'<h1>חשבונית עסקה: '+order.name+'</h1>'
+    +'<div class="meta">תאריך הפקה: '+date+(order.notes?' &nbsp;|&nbsp; '+order.notes:'')+'</div>'
+    +'<table>'
+    +'<thead><tr>'
+    +'<th>מוצר</th>'
+    +'<th style="text-align:center;width:60px">כמות</th>'
+    +'<th style="text-align:center;width:100px">עלות יחידה</th>'
+    +'<th style="text-align:center;width:110px">סה״כ עלות</th>'
+    +'<th style="text-align:center;width:100px">מחיר מכירה</th>'
+    +'<th style="text-align:center;width:110px">סה״כ הכנסה</th>'
+    +'</tr></thead>'
+    +'<tbody>'+rows+'</tbody>'
+    +'</table>'
+    +'<div class="summary">'
+    +'<div class="summary-row"><span>סה״כ עלות (לפני מע״מ)</span><span>₪'+totalCost.toFixed(2)+'</span></div>'
+    +'<div class="summary-row"><span>סה״כ עלות (כולל מע״מ)</span><span>₪'+(totalCost*1.18).toFixed(2)+'</span></div>'
+    +(totalDiscount>0?'<div class="summary-row"><span>הנחה / קופון</span><span>-₪'+totalDiscount.toFixed(2)+'</span></div>':'')
+    +'<div class="summary-row"><span>סה״כ הכנסה</span><span>₪'+totalSell.toFixed(2)+'</span></div>'
+    +'<div class="summary-row '+(grossProfit>=0?'profit':'loss')+'"><span>'+(grossProfit>=0?'רווח גולמי':'הפסד גולמי')+'</span><span>₪'+Math.abs(grossProfit).toFixed(2)+' ('+Math.abs(margin).toFixed(1)+'%)</span></div>'
+    +'</div>'
+    +'<br><button class="print-btn" onclick="window.print()">🖨 הדפס / שמור PDF</button>'
+    +'</body></html>');
+  win.document.close();
+}
+
 function startOrderEdit(orderId){
   const o=_adminOrders.find(x=>x.id===orderId)||getOrders().find(x=>x.id===orderId);
   if(!o)return;
@@ -3242,7 +3334,7 @@ function renderAdminWithOrders(orders){
   const avgMargin=grandTotal>0?(grandProfit/grandTotal*100):0;
   const netMargin=grandTotal>0?(netProfit/grandTotal*100):0;
   document.getElementById('adminView').innerHTML=`
-  <div class="admin-hdr"><h1>📋 ממשק ניהול — BENON'S</h1><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="ebtn" onclick="renderAdmin()">🔄 רענן</button><button class="ebtn" onclick="exportCSV()">⬇ CSV</button><button class="ebtn" style="background:#1B3A6B;color:#F5D87A;font-weight:700" onclick="addAmbrellaOrder()">🏢 אמברלה</button><button class="ebtn" style="background:#2E5E3E;color:#A8D5B5;font-weight:700" onclick="addWimiOrder()">🏢 וימי</button><button class="ebtn" style="background:#4A7C59;color:#fff;font-weight:700" onclick="openManualOrderModal()">➕ הזמנה ידנית</button><button class="ebtn" style="background:#eee;color:#555" onclick="adminLogout()">🔒 יציאה</button></div></div>
+  <div class="admin-hdr"><h1>📋 ממשק ניהול — BENON'S</h1><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="ebtn" onclick="renderAdmin()">🔄 רענן</button><button class="ebtn" onclick="exportCSV()">⬇ CSV</button><button class="ebtn" style="background:#1B3A6B;color:#F5D87A;font-weight:700" onclick="addAmbrellaOrder()">🏢 אמברלה</button><button class="ebtn" style="background:#2E5E3E;color:#A8D5B5;font-weight:700" onclick="addWimiOrder()">🏢 וימי</button><button class="ebtn" style="background:#4A7C59;color:#fff;font-weight:700" onclick="openManualOrderModal()">➕ הזמנה ידנית</button><button class="ebtn" style="background:#f0e6ff;color:#5b21b6;font-weight:600" onclick="exportCorporateExpensePDF('חברת אמברלה')">📊 עסקה אמברלה</button><button class="ebtn" style="background:#e6f0ff;color:#1B3A6B;font-weight:600" onclick="exportCorporateExpensePDF('חברת וימי')">📊 עסקה וימי</button><button class="ebtn" style="background:#fff3e0;color:#e65100;font-weight:600" onclick="exportCorporateExpensePDF('hexagon')">📊 עסקה Hexagon</button><button class="ebtn" style="background:#eee;color:#555" onclick="adminLogout()">🔒 יציאה</button></div></div>
   <div class="stats-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:12px">
     <div class="stat-card"><div class="stat-num">${orders.length}</div><div class="stat-lbl">הזמנות</div></div>
     <div class="stat-card"><div class="stat-num">₪${grandTotal.toFixed(0)}</div><div class="stat-lbl">סה״כ הכנסות (לפני מע״מ)${sponsoredIncome>0?' — כולל ₪'+sponsoredIncome.toFixed(0)+' מ-Hexagon':''}</div></div>
