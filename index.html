@@ -2427,53 +2427,34 @@ function exportCorporateExpensePDF(clientName){
   const totalDiscount=order.discount||0;
   const grossProfit=totalSell-totalCost;
   const margin=totalSell>0?((grossProfit/totalSell)*100):0;
-  const win=window.open('','_blank','width=1000,height=750');
-  win.document.write('<!DOCTYPE html><html dir="rtl" lang="he"><head><meta charset="UTF-8">'
-    +'<title>חשבונית עסקה פנימית — '+order.name+'</title>'
-    +'<style>'
-    +'*{font-family:Arial,sans-serif;box-sizing:border-box}'
-    +'body{padding:30px 40px;direction:rtl;color:#222;background:#fff}'
-    +'.logo{color:#4A7C59;font-size:13px;font-weight:700;letter-spacing:1px;margin-bottom:4px}'
-    +'h1{color:#1B3A6B;font-size:26px;margin:0 0 4px}'
-    +'.meta{color:#888;font-size:13px;margin-bottom:20px;border-bottom:2px solid #1B3A6B;padding-bottom:12px}'
-    +'table{width:100%;border-collapse:collapse;font-size:14px}'
-    +'thead th{background:#1B3A6B;color:#fff;padding:10px 14px;text-align:right;font-size:13px}'
-    +'tbody tr{border-bottom:1px solid #e0e0e0}'
-    +'tbody tr:nth-child(even){background:#f4f8f4}'
-    +'.summary{margin-top:18px;border:1px solid #c8dfc8;border-radius:8px;overflow:hidden;width:380px;margin-right:auto}'
-    +'.summary-row{display:flex;justify-content:space-between;padding:9px 16px;font-size:14px;border-bottom:1px solid #e0ece0}'
-    +'.summary-row.profit{background:#e8f5e9;color:#1b5e20;font-weight:700}'
-    +'.summary-row.loss{background:#ffebee;color:#b71c1c;font-weight:700}'
-    +'.summary-row:last-child{border-bottom:none;background:#1B3A6B;color:#fff;font-weight:700;font-size:15px}'
-    +'.print-btn{background:#1B3A6B;color:#fff;border:none;padding:12px 24px;border-radius:8px;cursor:pointer;font-size:15px;margin-top:20px}'
-    +'@media print{.print-btn{display:none}}'
-    +'</style></head><body>'
-    +'<div class="logo">BENON\'S FARMER\'S MARKET — מסמך פנימי</div>'
+  const htmlContent='<html dir="rtl" lang="he"><head><meta charset="UTF-8"><style>*{font-family:Arial,sans-serif;box-sizing:border-box}body{padding:30px 40px;direction:rtl;color:#222;background:#fff}.logo{color:#4A7C59;font-size:13px;font-weight:700;letter-spacing:1px;margin-bottom:4px}h1{color:#1B3A6B;font-size:22px;margin:0 0 4px}.meta{color:#888;font-size:12px;margin-bottom:16px;border-bottom:2px solid #1B3A6B;padding-bottom:10px}table{width:100%;border-collapse:collapse;font-size:12px}thead th{background:#1B3A6B;color:#fff;padding:7px 10px;text-align:right;font-size:11px}tbody tr{border-bottom:1px solid #e0e0e0}tbody tr:nth-child(even){background:#f4f8f4}td{padding:7px 10px}.summary{margin-top:16px;border:1px solid #c8dfc8;border-radius:6px;overflow:hidden;width:360px;margin-right:auto}.sr{display:flex;justify-content:space-between;padding:7px 14px;font-size:12px;border-bottom:1px solid #e0ece0}.profit{background:#e8f5e9;color:#1b5e20;font-weight:700}.loss{background:#ffebee;color:#b71c1c;font-weight:700}.total{background:#1B3A6B;color:#fff;font-weight:700;font-size:13px}</style></head><body>'
+    +'<div class="logo">BENON'S FARMER'S MARKET — מסמך פנימי</div>'
     +'<h1>חשבונית עסקה: '+order.name+'</h1>'
-    +'<div class="meta">תאריך הפקה: '+date+(order.notes?' &nbsp;|&nbsp; '+order.notes:'')+'</div>'
-    +'<table>'
-    +'<thead><tr>'
-    +'<th>מוצר</th>'
-    +'<th style="text-align:center;width:60px">כמות</th>'
-    +'<th style="text-align:center;width:100px">עלות יחידה</th>'
-    +'<th style="text-align:center;width:110px">סה״כ עלות</th>'
-    +'<th style="text-align:center;width:100px">מחיר מכירה</th>'
-    +'<th style="text-align:center;width:110px">סה״כ הכנסה</th>'
-    +'</tr></thead>'
-    +'<tbody>'+rows+'</tbody>'
-    +'</table>'
+    +'<div class="meta">תאריך הפקה: '+date+(order.notes?' | '+order.notes:'')+'</div>'
+    +'<table><thead><tr><th>מוצר</th><th style="text-align:center;width:50px">כמות</th><th style="text-align:center;width:85px">עלות יחידה</th><th style="text-align:center;width:95px">סה״כ עלות</th><th style="text-align:center;width:85px">מחיר מכירה</th><th style="text-align:center;width:95px">סה״כ הכנסה</th></tr></thead>'
+    +'<tbody>'+rows+'</tbody></table>'
     +'<div class="summary">'
-    +'<div class="summary-row"><span>סה״כ עלות (לפני מע״מ)</span><span>₪'+totalCost.toFixed(2)+'</span></div>'
-    +'<div class="summary-row"><span>סה״כ עלות (כולל מע״מ)</span><span>₪'+(totalCost*1.18).toFixed(2)+'</span></div>'
-    +(totalDiscount>0?'<div class="summary-row"><span>הנחה / קופון</span><span>-₪'+totalDiscount.toFixed(2)+'</span></div>':'')
-    +'<div class="summary-row"><span>סה״כ הכנסה</span><span>₪'+totalSell.toFixed(2)+'</span></div>'
-    +'<div class="summary-row '+(grossProfit>=0?'profit':'loss')+'"><span>'+(grossProfit>=0?'רווח גולמי':'הפסד גולמי')+'</span><span>₪'+Math.abs(grossProfit).toFixed(2)+' ('+Math.abs(margin).toFixed(1)+'%)</span></div>'
-    +'</div>'
-    +'<br><button class="print-btn" onclick="window.print()">🖨 הדפס / שמור PDF</button>'
-    +'</body></html>');
-  win.document.close();
+    +'<div class="sr"><span>סה״כ עלות (לפני מע״מ)</span><span>₪'+totalCost.toFixed(2)+'</span></div>'
+    +'<div class="sr"><span>סה״כ עלות (כולל מע״מ)</span><span>₪'+(totalCost*1.18).toFixed(2)+'</span></div>'
+    +(totalDiscount>0?'<div class="sr"><span>הנחה / קופון</span><span>-₪'+totalDiscount.toFixed(2)+'</span></div>':'')
+    +'<div class="sr"><span>סה״כ הכנסה</span><span>₪'+totalSell.toFixed(2)+'</span></div>'
+    +'<div class="sr '+(grossProfit>=0?'profit':'loss')+'"><span>'+(grossProfit>=0?'רווח גולמי':'הפסד גולמי')+'</span><span>₪'+Math.abs(grossProfit).toFixed(2)+' ('+Math.abs(margin).toFixed(1)+'%)</span></div>'
+    +'</div></body></html>';
+  const filename='benons_'+order.name.replace(/\s+/g,'_')+'_'+date.replace(/\//g,'-')+'.pdf';
+  const tmp=document.createElement('div');
+  tmp.style.cssText='position:fixed;left:-9999px;top:0;width:800px;background:#fff;';
+  tmp.innerHTML=htmlContent;
+  document.body.appendChild(tmp);
+  function doExport(){
+    html2pdf().set({margin:10,filename,image:{type:'jpeg',quality:0.98},html2canvas:{scale:2,useCORS:true,logging:false},jsPDF:{unit:'mm',format:'a4',orientation:'portrait'}}).from(tmp).save().then(()=>document.body.removeChild(tmp));
+  }
+  if(typeof html2pdf==='undefined'){
+    const s=document.createElement('script');
+    s.src='https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
+    s.onload=doExport;
+    document.head.appendChild(s);
+  } else { doExport(); }
 }
-
 function startOrderEdit(orderId){
   const o=_adminOrders.find(x=>x.id===orderId)||getOrders().find(x=>x.id===orderId);
   if(!o)return;
