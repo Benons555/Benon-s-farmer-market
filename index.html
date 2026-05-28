@@ -2441,10 +2441,28 @@ function exportCorporateExpensePDF(clientName){
     +'<div class="sr '+(grossProfit>=0?'profit':'loss')+'"><span>'+(grossProfit>=0?'רווח גולמי':'הפסד גולמי')+'</span><span>₪'+Math.abs(grossProfit).toFixed(2)+' ('+Math.abs(margin).toFixed(1)+'%)</span></div>'
     +'</div></body></html>';
   const filename='benons_'+order.name.replace(/\s+/g,'_')+'_'+date.replace(/\//g,'-')+'.pdf';
-  const win=window.open('','_blank','width=900,height=700');
-  win.document.write(htmlContent);
-  win.document.close();
-  setTimeout(()=>win.print(),800);
+  // Inject into current page for reliable printing
+  const overlay=document.createElement('div');
+  overlay.id='corp-print-overlay';
+  overlay.style.cssText='position:fixed;inset:0;background:#fff;z-index:99999;overflow:auto;padding:40px;direction:rtl;';
+  overlay.innerHTML=htmlContent.replace(/<html[^>]*>/,'').replace(/<\/html>/,'').replace(/<head>.*?<\/head>/s,'')
+    .replace(/<body>/,'').replace(/<\/body>/,'');
+  const closeBtn=document.createElement('button');
+  closeBtn.textContent='✕ סגור';
+  closeBtn.style.cssText='position:fixed;top:16px;left:16px;background:#c0392b;color:#fff;border:none;padding:8px 16px;border-radius:6px;font-size:14px;cursor:pointer;z-index:100000;font-family:inherit;';
+  closeBtn.onclick=()=>{document.body.removeChild(overlay);document.body.removeChild(closeBtn);document.head.removeChild(printStyle);};
+  const printStyle=document.createElement('style');
+  printStyle.id='corp-print-style';
+  printStyle.textContent='@media print{body>*:not(#corp-print-overlay){display:none!important}#corp-print-overlay{position:static!important;padding:0!important}button{display:none!important}}';
+  document.head.appendChild(printStyle);
+  document.body.appendChild(overlay);
+  document.body.appendChild(closeBtn);
+  // Add print button inside overlay
+  const printBtn=document.createElement('button');
+  printBtn.textContent='🖨 הדפס / שמור PDF';
+  printBtn.style.cssText='background:#1B3A6B;color:#fff;border:none;padding:12px 24px;border-radius:8px;font-size:15px;cursor:pointer;font-family:inherit;margin-top:20px;display:block;';
+  printBtn.onclick=()=>window.print();
+  overlay.appendChild(printBtn);
 }
 function startOrderEdit(orderId){
   const o=_adminOrders.find(x=>x.id===orderId)||getOrders().find(x=>x.id===orderId);
