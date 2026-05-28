@@ -2382,87 +2382,181 @@ function exportSupplierPDF(sup){
   setTimeout(()=>win.print(),600);
 }
 
+function getCorporateItemCategory(name,supplier){
+  const n=name.toLowerCase(),s=(supplier||'').toLowerCase();
+  if(s.includes('ברקנית')||n.includes('גבינ')||n.includes('מנצ')||n.includes('בולגרי'))return'גבינה';
+  if(s.includes('פרחי')||n.includes('פרחים')||n.includes('נץ'))return'פרחים';
+  if(s.includes('מיקה')||n.includes('יין')||n.includes('רוזה')||n.includes('סבניון')||n.includes('שרדונה'))return'יין';
+  if(n.includes('דובדבן')||n.includes('תות')||n.includes('פטל')||n.includes('ענב'))return'פרי';
+  if(n.includes('שמן'))return'שמן';
+  if(n.includes('דבש'))return'דבש';
+  if(s.includes('מגידו'))return'שמן';
+  return'';
+}
+
 function exportCorporateExpensePDF(clientName){
   const orders=(_adminOrders.length?_adminOrders:getOrders());
-  let order;
+  let order,numPackages=1;
   if(clientName==='hexagon'){
-    // For Hexagon: aggregate all sponsored-coupon orders
-    const hexOrders=orders.filter(o=>{
-      const ce=o.coupon?Object.values(COUPONS).find(c=>c.name===o.coupon):null;
-      return ce&&ce.sponsored;
-    });
+    const hexOrders=orders.filter(o=>{const ce=o.coupon?Object.values(COUPONS).find(c=>c.name===o.coupon):null;return ce&&ce.sponsored;});
     if(!hexOrders.length){alert('לא נמצאו הזמנות עם קופון Hexagon');return;}
-    // Build a virtual combined order
     const allItems=[];
-    hexOrders.forEach(o=>{
-      (o.items||[]).forEach(i=>{
-        const k=i.name.trim().toLowerCase()+'|'+(i.sub||'').trim().toLowerCase();
-        const ex=allItems.find(x=>x._key===k);
-        if(ex)ex.qty+=i.qty; else allItems.push({...i,qty:i.qty,_key:k});
-      });
-    });
-    order={name:'Hexagon',items:allItems,total:hexOrders.reduce((s,o)=>s+o.total,0),discount:hexOrders.reduce((s,o)=>s+(o.discount||0),0),notes:hexOrders.length+' הזמנות עם קופון Hexagon'};
+    hexOrders.forEach(o=>{(o.items||[]).forEach(i=>{const k=i.name+'|'+(i.sub||'');const ex=allItems.find(x=>x._key===k);if(ex)ex.qty+=i.qty;else allItems.push({...i,_key:k});});});
+    numPackages=hexOrders.length;
+    order={name:'Hexagon',items:allItems,total:hexOrders.reduce((s,o)=>s+o.total,0),notes:hexOrders.length+' הזמנות',floor:'',date:new Date().toLocaleString('he-IL')};
   } else {
     order=orders.find(o=>o.name===clientName);
     if(!order){alert('לא נמצאה הזמנה עבור: '+clientName);return;}
+    numPackages=order.items&&order.items.length?order.items[0].qty:1;
   }
   const date=new Date().toLocaleDateString('he-IL');
-  let totalCost=0;
-  const rows=(order.items||[]).map(i=>{
-    const prod=PRODUCTS.find(pr=>pr.name.trim().toLowerCase()===i.name.trim().toLowerCase()&&(pr.sub||'')===(i.sub||''));
-    const unitCost=getItemCostByName(i.name,i.sub||'',prod?prod.price:0);
-    const lineCost=unitCost*i.qty;
-    const lineSell=i.price*i.qty;
-    totalCost+=lineCost;
-    return '<tr>'
-      +'<td style="font-weight:700;padding:10px 14px">'+i.name+(i.sub?'<div style="font-size:11px;font-weight:400;color:#888">'+i.sub+'</div>':'')+'</td>'
-      +'<td style="text-align:center;padding:10px 14px;font-weight:800;font-size:15px;color:#1B3A6B">'+i.qty+'</td>'
-      +'<td style="text-align:center;padding:10px 14px;color:#444">₪'+unitCost.toFixed(2)+'</td>'
-      +'<td style="text-align:center;padding:10px 14px;font-weight:700;color:#1B3A6B">₪'+lineCost.toFixed(2)+'</td>'
-      +'<td style="text-align:center;padding:10px 14px;color:#2e7d32">₪'+i.price.toFixed(2)+'</td>'
-      +'<td style="text-align:center;padding:10px 14px;font-weight:700;color:#2e7d32">₪'+lineSell.toFixed(2)+'</td>'
+  const deliveryDate=order.notes?(order.notes.match(/\d+\.\d+\.\d+/)||[''])[0]:'';
+  const items=order.items||[];
+  const perPkg=items.map(i=>({...i,unitQty:1,unitPrice:i.price,unitPriceEx:parseFloat((i.price/1.18).toFixed(2))}));
+  const totalPerPkgInc=perPkg.reduce((s,i)=>s+i.unitPrice,0);
+  const totalPerPkgEx=parseFloat((totalPerPkgInc/1.18).toFixed(2));
+  const totalOrderInc=parseFloat((totalPerPkgInc*numPackages).toFixed(2));
+  const totalOrderEx=parseFloat((totalOrderInc/1.18).toFixed(2));
+
+  const itemRows=perPkg.map(i=>{
+    const cat=getCorporateItemCategory(i.name,i.supplier);
+    const isOptional=i.name.includes('דובדבן')||i.name.includes('פטל');
+    const badge=isOptional?'<span style="background:#fff3cd;color:#856404;border:1px solid #ffc107;border-radius:4px;padding:1px 6px;font-size:10px;margin-right:4px">אם יש</span>':'';
+    return '<tr style="border-bottom:1px solid #e8f0e8">'
+      +'<td style="padding:10px 14px;font-weight:700">'+(cat?'<span style="color:#4A7C59;font-weight:600;margin-left:6px">'+cat+'</span>':'')+'<span>'+i.name+'</span>'+badge+'</td>'
+      +'<td style="padding:10px 14px;color:#555;font-size:13px">'+i.sub+(i.supplier?(' · '+i.supplier):'')+'</td>'
+      +'<td style="padding:10px 14px;text-align:center;font-weight:700">1</td>'
+      +'<td style="padding:10px 14px;text-align:center;font-weight:700;color:#1B3A6B">₪'+i.unitPrice.toFixed(2)+'</td>'
+      +'<td style="padding:10px 14px;text-align:center;color:#555">₪'+i.unitPriceEx.toFixed(2)+'</td>'
       +'</tr>';
   }).join('');
-  const totalSell=order.total||0;
-  const totalDiscount=order.discount||0;
-  const grossProfit=totalSell-totalCost;
-  const margin=totalSell>0?((grossProfit/totalSell)*100):0;
-  const htmlContent='<html dir="rtl" lang="he"><head><meta charset="UTF-8"><style>*{font-family:Arial,sans-serif;box-sizing:border-box}body{padding:30px 40px;direction:rtl;color:#222;background:#fff}.logo{color:#4A7C59;font-size:13px;font-weight:700;letter-spacing:1px;margin-bottom:4px}h1{color:#1B3A6B;font-size:22px;margin:0 0 4px}.meta{color:#888;font-size:12px;margin-bottom:16px;border-bottom:2px solid #1B3A6B;padding-bottom:10px}table{width:100%;border-collapse:collapse;font-size:12px}thead th{background:#1B3A6B;color:#fff;padding:7px 10px;text-align:right;font-size:11px}tbody tr{border-bottom:1px solid #e0e0e0}tbody tr:nth-child(even){background:#f4f8f4}td{padding:7px 10px}.summary{margin-top:16px;border:1px solid #c8dfc8;border-radius:6px;overflow:hidden;width:360px;margin-right:auto}.sr{display:flex;justify-content:space-between;padding:7px 14px;font-size:12px;border-bottom:1px solid #e0ece0}.profit{background:#e8f5e9;color:#1b5e20;font-weight:700}.loss{background:#ffebee;color:#b71c1c;font-weight:700}.total{background:#1B3A6B;color:#fff;font-weight:700;font-size:13px}</style></head><body>'
-    +'<div class="logo">BENON\'S FARMER\'S MARKET — מסמך פנימי</div>'
-    +'<h1>חשבונית עסקה: '+order.name+'</h1>'
-    +'<div class="meta">תאריך הפקה: '+date+(order.notes?' | '+order.notes:'')+'</div>'
-    +'<table><thead><tr><th>מוצר</th><th style="text-align:center;width:50px">כמות</th><th style="text-align:center;width:85px">עלות יחידה</th><th style="text-align:center;width:95px">סה״כ עלות</th><th style="text-align:center;width:85px">מחיר מכירה</th><th style="text-align:center;width:95px">סה״כ הכנסה</th></tr></thead>'
-    +'<tbody>'+rows+'</tbody></table>'
-    +'<div class="summary">'
-    +'<div class="sr"><span>סה״כ עלות (לפני מע״מ)</span><span>₪'+totalCost.toFixed(2)+'</span></div>'
-    +'<div class="sr"><span>סה״כ עלות (כולל מע״מ)</span><span>₪'+(totalCost*1.18).toFixed(2)+'</span></div>'
-    +(totalDiscount>0?'<div class="sr"><span>הנחה / קופון</span><span>-₪'+totalDiscount.toFixed(2)+'</span></div>':'')
-    +'<div class="sr"><span>סה״כ הכנסה</span><span>₪'+totalSell.toFixed(2)+'</span></div>'
-    +'<div class="sr '+(grossProfit>=0?'profit':'loss')+'"><span>'+(grossProfit>=0?'רווח גולמי':'הפסד גולמי')+'</span><span>₪'+Math.abs(grossProfit).toFixed(2)+' ('+Math.abs(margin).toFixed(1)+'%)</span></div>'
-    +'</div></body></html>';
-  const filename='benons_'+order.name.replace(/\s+/g,'_')+'_'+date.replace(/\//g,'-')+'.pdf';
-  // Inject into current page for reliable printing
+
+  const suppMap={};
+  items.forEach(i=>{const k=i.supplier||'אחר';if(!suppMap[k])suppMap[k]=[];suppMap[k].push(i);});
+  const suppRows=items.map(i=>{
+    const totalLineInc=parseFloat((i.price*numPackages).toFixed(2));
+    const totalLineEx=parseFloat((totalLineInc/1.18).toFixed(2));
+    return '<tr style="border-bottom:1px solid #e0ece0">'
+      +'<td style="padding:9px 14px;font-weight:700">'+getCorporateItemCategory(i.name,i.supplier)+' <span style="font-weight:400">'+i.name+'</span></td>'
+      +'<td style="padding:9px 14px;text-align:center;color:#555">'+i.supplier+'</td>'
+      +'<td style="padding:9px 14px;text-align:center;font-weight:800;color:#1B3A6B">'+numPackages+'</td>'
+      +'<td style="padding:9px 14px;text-align:center;color:#555">₪'+parseFloat((i.price/1.18).toFixed(2))+'</td>'
+      +'<td style="padding:9px 14px;text-align:center;font-weight:700">₪'+totalLineEx.toFixed(2)+'</td>'
+      +'<td style="padding:9px 14px;text-align:center;font-weight:700;color:#1B3A6B">₪'+totalLineInc.toFixed(2)+'</td>'
+      +'</tr>';
+  }).join('');
+
+  const html=`<!DOCTYPE html><html dir="rtl" lang="he"><head><meta charset="UTF-8">
+<title>רשימת הזמנה | ${order.name} — BENON\'S</title>
+<style>
+*{font-family:Arial,Helvetica,sans-serif;box-sizing:border-box;margin:0;padding:0}
+body{background:#fff;color:#222;padding:32px 40px;direction:rtl}
+.hdr{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px;border-bottom:3px solid #4A7C59;padding-bottom:16px}
+.hdr-left h2{color:#4A7C59;font-size:13px;font-weight:700;letter-spacing:2px;margin-bottom:4px}
+.hdr-left h1{color:#1B3A6B;font-size:22px;font-weight:800;margin-bottom:4px}
+.hdr-left .sub{color:#666;font-size:13px}
+.hdr-right{text-align:left}
+.logo-text{color:#1B3A6B;font-size:22px;font-weight:900;letter-spacing:1px}
+.logo-sub{color:#4A7C59;font-size:11px;font-weight:600;letter-spacing:3px}
+.info-bar{background:#f0f7f0;border:1px solid #c8e6c9;border-radius:8px;padding:10px 16px;display:flex;gap:24px;align-items:center;margin-bottom:20px;font-size:13px;flex-wrap:wrap}
+.info-item{display:flex;align-items:center;gap:6px}
+.info-item strong{color:#1B3A6B}
+.sec-title{font-size:11px;font-weight:700;letter-spacing:3px;color:#4A7C59;text-align:center;margin:20px 0 12px;text-transform:uppercase}
+table{width:100%;border-collapse:collapse}
+thead th{background:#1B3A6B;color:#fff;padding:9px 14px;text-align:right;font-size:12px;font-weight:600}
+tbody tr:nth-child(even){background:#f8fbf8}
+.summary{background:#f0f7f0;border:1px solid #c8dfc8;border-radius:8px;padding:14px 18px;margin-top:16px;max-width:500px;margin-right:auto}
+.sum-row{display:flex;justify-content:space-between;padding:5px 0;font-size:14px;border-bottom:1px solid #ddeedd}
+.sum-row:last-child{border:none;font-weight:800;font-size:16px;color:#1B3A6B;padding-top:10px}
+.pkg-box{margin-top:18px;border:2px solid #1B3A6B;border-radius:10px;padding:14px 20px;display:flex;align-items:center;gap:18px;max-width:380px}
+.pkg-box .num{font-size:32px;font-weight:900;color:#1B3A6B;border:3px solid #1B3A6B;border-radius:8px;padding:4px 16px}
+.pkg-total{color:#555;font-size:13px}
+.pkg-total strong{color:#1B3A6B;font-size:18px;display:block}
+.page-break{page-break-before:always;margin-top:0;padding-top:24px}
+.footer{margin-top:30px;border-top:1px solid #ddd;padding-top:10px;display:flex;justify-content:space-between;color:#999;font-size:11px}
+@media print{body{padding:15px 20px}button{display:none!important}}
+</style></head><body>
+<div class="hdr">
+  <div class="hdr-left">
+    <h2>🌿 BENON\'S</h2>
+    <h1>רשימת הזמנה</h1>
+    <div class="sub">לקוח: <strong>${order.name}</strong>${deliveryDate?' &nbsp;|&nbsp; תאריך אספקה: <strong>'+deliveryDate+'</strong>':''}</div>
+  </div>
+  <div class="hdr-right">
+    <div class="logo-text">BENON\'S</div>
+    <div class="logo-sub">FARMER\'S MARKET · שבועות 2026</div>
+  </div>
+</div>
+<div class="info-bar">
+  <div class="info-item">🎁 <span><strong>סוג:</strong> מארז חג שבועות — סל BENON\'S</span></div>
+  <div class="info-item">📍 <span><strong>חלוקה:</strong> ${order.floor||'לובי הבניין'}</span></div>
+</div>
+<div class="sec-title">הרכב מארז לעובד · סל B E N O N ' S</div>
+<table>
+<thead><tr>
+  <th>מוצר</th>
+  <th>פירוט</th>
+  <th style="text-align:center;width:60px">כמות</th>
+  <th style="text-align:center;width:120px">מחיר כולל מע"מ</th>
+  <th style="text-align:center;width:120px">מחיר ללא מע"מ</th>
+</tr></thead>
+<tbody>${itemRows}</tbody>
+</table>
+<div class="summary">
+  <div class="sum-row"><span>סה"כ למארז</span><span>₪${totalPerPkgEx.toFixed(2)} ללא מע"מ | ₪${totalPerPkgInc.toFixed(2)} כולל מע"מ</span></div>
+</div>
+<div class="pkg-box">
+  <div>
+    <div style="font-size:13px;color:#555;margin-bottom:4px">מספר מארזים ל${order.name}:</div>
+    <div style="display:flex;align-items:center;gap:12px"><span class="num">${numPackages}</span><span style="font-size:13px;color:#555">מארזים</span></div>
+  </div>
+  <div class="pkg-total">
+    <span>סה"כ הזמנה</span>
+    <strong>₪${totalOrderEx.toFixed(2)}</strong>
+    <span>ללא מע"מ | ₪${totalOrderInc.toFixed(2)} כולל מע"מ</span>
+  </div>
+</div>
+<div class="page-break">
+  <div class="sec-title">סיכום הזמנה — ${numPackages} מארזים · כמויות לספקים</div>
+  <table>
+  <thead><tr>
+    <th>מוצר</th>
+    <th style="text-align:center;width:100px">ספק</th>
+    <th style="text-align:center;width:80px">כמות להזמין</th>
+    <th style="text-align:center;width:110px">עלות ליחידה (ללא מע"מ)</th>
+    <th style="text-align:center;width:110px">סה"כ ללא מע"מ</th>
+    <th style="text-align:center;width:110px">סה"כ כולל מע"מ</th>
+  </tr></thead>
+  <tbody>${suppRows}</tbody>
+  </table>
+  <div style="background:#1B3A6B;color:#fff;border-radius:8px;padding:16px 20px;margin-top:16px;display:flex;justify-content:space-around;text-align:center">
+    <div><div style="font-size:12px;margin-bottom:4px">ללא מע"מ</div><div style="font-size:22px;font-weight:800">₪${totalOrderEx.toFixed(2)}</div></div>
+    <div style="border-left:1px solid rgba(255,255,255,0.3);border-right:1px solid rgba(255,255,255,0.3);padding:0 24px"><div style="font-size:12px;margin-bottom:4px">כולל מע"מ</div><div style="font-size:22px;font-weight:800">₪${totalOrderInc.toFixed(2)}</div></div>
+    <div><div style="font-size:12px;margin-bottom:4px">מע"מ בלבד</div><div style="font-size:22px;font-weight:800">₪${(totalOrderInc-totalOrderEx).toFixed(2)}</div></div>
+  </div>
+</div>
+<div class="footer">
+  <span>benons555.github.io/Benon-s-farmer-market</span>
+  <span>הופק ב-${date}</span>
+  <span>BENON\'S Farmer\'s Market · שבועות 2026</span>
+</div>
+</body></html>`;
+
   const overlay=document.createElement('div');
   overlay.id='corp-print-overlay';
-  overlay.style.cssText='position:fixed;inset:0;background:#fff;z-index:99999;overflow:auto;padding:40px;direction:rtl;';
-  overlay.innerHTML=htmlContent.replace(/<html[^>]*>/,'').replace(/<\/html>/,'').replace(/<head>.*?<\/head>/s,'')
-    .replace(/<body>/,'').replace(/<\/body>/,'');
-  const closeBtn=document.createElement('button');
-  closeBtn.textContent='✕ סגור';
-  closeBtn.style.cssText='position:fixed;top:16px;left:16px;background:#c0392b;color:#fff;border:none;padding:8px 16px;border-radius:6px;font-size:14px;cursor:pointer;z-index:100000;font-family:inherit;';
-  closeBtn.onclick=()=>{document.body.removeChild(overlay);document.body.removeChild(closeBtn);document.head.removeChild(printStyle);};
-  const printStyle=document.createElement('style');
-  printStyle.id='corp-print-style';
-  printStyle.textContent='@media print{body>*:not(#corp-print-overlay){display:none!important}#corp-print-overlay{position:static!important;padding:0!important}button{display:none!important}}';
-  document.head.appendChild(printStyle);
-  document.body.appendChild(overlay);
-  document.body.appendChild(closeBtn);
-  // Add print button inside overlay
-  const printBtn=document.createElement('button');
-  printBtn.textContent='🖨 הדפס / שמור PDF';
-  printBtn.style.cssText='background:#1B3A6B;color:#fff;border:none;padding:12px 24px;border-radius:8px;font-size:15px;cursor:pointer;font-family:inherit;margin-top:20px;display:block;';
-  printBtn.onclick=()=>window.print();
-  overlay.appendChild(printBtn);
+  overlay.style.cssText='position:fixed;inset:0;background:#fff;z-index:99999;overflow:auto;';
+  overlay.innerHTML=html.replace(/<!DOCTYPE[^>]*>/,'').replace(/<html[^>]*>/,'').replace(/<\/html>/,'').replace(/<head>[\s\S]*?<\/head>/,'').replace(/<body[^>]*>/,'').replace(/<\/body>/,'').replace(/<title>[^<]*<\/title>/,'');
+  // inject CSS
+  const styleEl=document.createElement('style');
+  styleEl.textContent=`#corp-print-overlay *{font-family:Arial,Helvetica,sans-serif;box-sizing:border-box}#corp-print-overlay .hdr{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px;border-bottom:3px solid #4A7C59;padding-bottom:16px;direction:rtl}#corp-print-overlay .logo-text{color:#1B3A6B;font-size:22px;font-weight:900;letter-spacing:1px}#corp-print-overlay .logo-sub{color:#4A7C59;font-size:11px;font-weight:600;letter-spacing:3px}`;
+  overlay.prepend(styleEl);
+  // Instead of the above approach, just open a new window with the full HTML
+  overlay.remove();
+
+  const win=window.open('','_blank');
+  if(!win){alert('חסום popup — אנא אפשר popups לאתר זה');return;}
+  win.document.write(html);
+  win.document.close();
 }
 function startOrderEdit(orderId){
   const o=_adminOrders.find(x=>x.id===orderId)||getOrders().find(x=>x.id===orderId);
