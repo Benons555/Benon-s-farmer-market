@@ -2412,8 +2412,12 @@ function exportCorporateExpensePDF(clientName){
   const date=new Date().toLocaleDateString('he-IL');
   const deliveryDate=order.notes?(order.notes.match(/\d+\.\d+\.\d+/)||[''])[0]:'';
   const items=order.items||[];
-  const pkgItems=items.filter(i=>i.qty===numPackages);
-  const eventItems=items.filter(i=>i.qty!==numPackages);
+  // pkg: qty>=numPackages (take numPackages), event: qty<numPackages OR remainder when qty>numPackages
+  const pkgItems=items.filter(i=>i.qty>=numPackages);
+  const eventItems=[
+    ...items.filter(i=>i.qty<numPackages),
+    ...items.filter(i=>i.qty>numPackages).map(i=>({...i,qty:i.qty-numPackages}))
+  ];
   const totalPkgInc=pkgItems.reduce((s,i)=>s+i.price*numPackages,0);
   const totalPkgEx=parseFloat((totalPkgInc/1.18).toFixed(2));
   const totalEventInc=eventItems.reduce((s,i)=>s+i.price*i.qty,0);
