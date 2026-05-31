@@ -2412,24 +2412,33 @@ function exportCorporateExpensePDF(clientName){
   const date=new Date().toLocaleDateString('he-IL');
   const deliveryDate=order.notes?(order.notes.match(/\d+\.\d+\.\d+/)||[''])[0]:'';
   const items=order.items||[];
-  const perPkg=items.map(i=>({...i,unitQty:1,unitPrice:i.price,unitPriceEx:parseFloat((i.price/1.18).toFixed(2))}));
-  const totalPerPkgInc=perPkg.reduce((s,i)=>s+i.unitPrice,0);
-  const totalPerPkgEx=parseFloat((totalPerPkgInc/1.18).toFixed(2));
-  const totalOrderInc=parseFloat((totalPerPkgInc*numPackages).toFixed(2));
+  const pkgItems=items.filter(i=>i.qty===numPackages);
+  const eventItems=items.filter(i=>i.qty!==numPackages);
+  const totalPkgInc=pkgItems.reduce((s,i)=>s+i.price*numPackages,0);
+  const totalPkgEx=parseFloat((totalPkgInc/1.18).toFixed(2));
+  const totalEventInc=eventItems.reduce((s,i)=>s+i.price*i.qty,0);
+  const totalEventEx=parseFloat((totalEventInc/1.18).toFixed(2));
+  const totalOrderInc=parseFloat((totalPkgInc+totalEventInc).toFixed(2));
   const totalOrderEx=parseFloat((totalOrderInc/1.18).toFixed(2));
 
-  const itemRows=perPkg.map(i=>{
-    const cat=getCorporateItemCategory(i.name,i.supplier);
-    const isOptional=i.name.includes('דובדבן')||i.name.includes('פטל');
-    const badge=isOptional?'<span style="background:#fff3cd;color:#856404;border:1px solid #ffc107;border-radius:4px;padding:1px 6px;font-size:10px;margin-right:4px">אם יש</span>':'';
-    return '<tr style="border-bottom:1px solid #e8f0e8">'
-      +'<td style="padding:10px 14px;font-weight:700">'+(cat?'<span style="color:#4A7C59;font-weight:600;margin-left:6px">'+cat+'</span>':'')+'<span>'+i.name+'</span>'+badge+'</td>'
-      +'<td style="padding:10px 14px;color:#555;font-size:13px">'+i.sub+(i.supplier?(' · '+i.supplier):'')+'</td>'
-      +'<td style="padding:10px 14px;text-align:center;font-weight:700">1</td>'
-      +'<td style="padding:10px 14px;text-align:center;font-weight:700;color:#1B3A6B">₪'+i.unitPrice.toFixed(2)+'</td>'
-      +'<td style="padding:10px 14px;text-align:center;color:#555">₪'+i.unitPriceEx.toFixed(2)+'</td>'
-      +'</tr>';
-  }).join('');
+  function buildItemRows(arr,showPkg){
+    return arr.map(i=>{
+      const cat=getCorporateItemCategory(i.name,i.supplier);
+      const qty=showPkg?numPackages:i.qty;
+      const lineInc=parseFloat((i.price*qty).toFixed(2));
+      const lineEx=parseFloat((lineInc/1.18).toFixed(2));
+      return '<tr style="border-bottom:1px solid #e8f0e8">'
+        +'<td style="padding:10px 14px;font-weight:700">'+(cat?'<span style="color:#4A7C59;font-weight:600;margin-left:6px">'+cat+'</span>':'')+'<span>'+i.name+'</span></td>'
+        +'<td style="padding:10px 14px;color:#555;font-size:13px">'+i.sub+(i.supplier?' · '+i.supplier:'')+'</td>'
+        +'<td style="padding:10px 14px;text-align:center;font-weight:800;color:#1B3A6B">'+qty+'</td>'
+        +'<td style="padding:10px 14px;text-align:center;color:#555">₪'+parseFloat((i.price/1.18).toFixed(2))+'</td>'
+        +'<td style="padding:10px 14px;text-align:center;font-weight:700;color:#1B3A6B">₪'+lineEx.toFixed(2)+'</td>'
+        +'<td style="padding:10px 14px;text-align:center;font-weight:700">₪'+lineInc.toFixed(2)+'</td>'
+        +'</tr>';
+    }).join('');
+  }
+  const itemRows=buildItemRows(pkgItems,true);
+  const eventRows=buildItemRows(eventItems,false);
 
   const suppMap={};
   items.forEach(i=>{const k=i.supplier||'אחר';if(!suppMap[k])suppMap[k]=[];suppMap[k].push(i);});
@@ -2447,98 +2456,109 @@ function exportCorporateExpensePDF(clientName){
   }).join('');
 
   const html=`<!DOCTYPE html><html dir="rtl" lang="he"><head><meta charset="UTF-8">
-<title>רשימת הזמנה | ${order.name} — BENON\'S</title>
+<title>הצעת מחיר | ${order.name} — BENON'S</title>
 <style>
 *{font-family:Arial,Helvetica,sans-serif;box-sizing:border-box;margin:0;padding:0}
 body{background:#fff;color:#222;padding:32px 40px;direction:rtl}
 .hdr{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px;border-bottom:3px solid #4A7C59;padding-bottom:16px}
 .hdr-left h2{color:#4A7C59;font-size:13px;font-weight:700;letter-spacing:2px;margin-bottom:4px}
-.hdr-left h1{color:#1B3A6B;font-size:22px;font-weight:800;margin-bottom:4px}
+.hdr-left h1{color:#1B3A6B;font-size:24px;font-weight:800;margin-bottom:4px}
 .hdr-left .sub{color:#666;font-size:13px}
 .hdr-right{text-align:left}
-.logo-text{color:#1B3A6B;font-size:22px;font-weight:900;letter-spacing:1px}
+.logo-text{color:#1B3A6B;font-size:24px;font-weight:900;letter-spacing:1px}
 .logo-sub{color:#4A7C59;font-size:11px;font-weight:600;letter-spacing:3px}
 .info-bar{background:#f0f7f0;border:1px solid #c8e6c9;border-radius:8px;padding:10px 16px;display:flex;gap:24px;align-items:center;margin-bottom:20px;font-size:13px;flex-wrap:wrap}
 .info-item{display:flex;align-items:center;gap:6px}
 .info-item strong{color:#1B3A6B}
-.sec-title{font-size:11px;font-weight:700;letter-spacing:3px;color:#4A7C59;text-align:center;margin:20px 0 12px;text-transform:uppercase}
-table{width:100%;border-collapse:collapse}
-thead th{background:#1B3A6B;color:#fff;padding:9px 14px;text-align:right;font-size:12px;font-weight:600}
+.sec-hdr{background:#1B3A6B;color:#fff;border-radius:8px 8px 0 0;padding:10px 18px;font-size:14px;font-weight:700;margin-top:24px;display:flex;justify-content:space-between;align-items:center}
+.sec-hdr span{opacity:.75;font-size:12px;font-weight:400}
+table{width:100%;border-collapse:collapse;border:1px solid #d0e8d0;border-top:none}
+thead th{background:#2E5E3E;color:#fff;padding:9px 14px;text-align:right;font-size:12px;font-weight:600}
+thead th:not(:first-child){text-align:center}
 tbody tr:nth-child(even){background:#f8fbf8}
-.summary{background:#f0f7f0;border:1px solid #c8dfc8;border-radius:8px;padding:14px 18px;margin-top:16px;max-width:500px;margin-right:auto}
-.sum-row{display:flex;justify-content:space-between;padding:5px 0;font-size:14px;border-bottom:1px solid #ddeedd}
-.sum-row:last-child{border:none;font-weight:800;font-size:16px;color:#1B3A6B;padding-top:10px}
-.pkg-box{margin-top:18px;border:2px solid #1B3A6B;border-radius:10px;padding:14px 20px;display:flex;align-items:center;gap:18px;max-width:380px}
-.pkg-box .num{font-size:32px;font-weight:900;color:#1B3A6B;border:3px solid #1B3A6B;border-radius:8px;padding:4px 16px}
-.pkg-total{color:#555;font-size:13px}
-.pkg-total strong{color:#1B3A6B;font-size:18px;display:block}
-.page-break{page-break-before:always;margin-top:0;padding-top:24px}
-.footer{margin-top:30px;border-top:1px solid #ddd;padding-top:10px;display:flex;justify-content:space-between;color:#999;font-size:11px}
-@media print{body{padding:15px 20px}button{display:none!important}}
+td{vertical-align:middle}
+.sec-total{background:#f0f7f0;border:1px solid #c8e6c9;border-top:none;padding:10px 18px;display:flex;justify-content:flex-end;gap:32px;font-size:13px}
+.sec-total strong{color:#1B3A6B;font-weight:800}
+.grand-total{background:#1B3A6B;color:#fff;border-radius:8px;padding:16px 22px;margin-top:24px;display:flex;justify-content:space-around;text-align:center}
+.gt-item{padding:0 16px}
+.gt-item:not(:last-child){border-left:1px solid rgba(255,255,255,.3)}
+.gt-label{font-size:11px;margin-bottom:4px;opacity:.8}
+.gt-value{font-size:22px;font-weight:900}
+.footer{margin-top:28px;border-top:1px solid #ddd;padding-top:10px;display:flex;justify-content:space-between;color:#999;font-size:11px}
+@media print{body{padding:15px 20px}button{display:none!important}.no-print{display:none!important}}
 </style></head><body>
 <div class="hdr">
   <div class="hdr-left">
-    <h2>🌿 BENON\'S</h2>
-    <h1>רשימת הזמנה</h1>
+    <h2>🌿 BENON'S FARMER'S MARKET</h2>
+    <h1>הצעת מחיר — שבועות 2026</h1>
     <div class="sub">לקוח: <strong>${order.name}</strong>${deliveryDate?' &nbsp;|&nbsp; תאריך אספקה: <strong>'+deliveryDate+'</strong>':''}</div>
   </div>
   <div class="hdr-right">
-    <div class="logo-text">BENON\'S</div>
-    <div class="logo-sub">FARMER\'S MARKET · שבועות 2026</div>
+    <div class="logo-text">BENON'S</div>
+    <div class="logo-sub">FARMER'S MARKET · שבועות 2026</div>
+    <div style="color:#666;font-size:11px;margin-top:4px">תאריך: ${date}</div>
   </div>
 </div>
 <div class="info-bar">
-  <div class="info-item">🎁 <span><strong>סוג:</strong> מארז חג שבועות — סל BENON\'S</span></div>
-  <div class="info-item">📍 <span><strong>חלוקה:</strong> ${order.floor||'לובי הבניין'}</span></div>
+  <div class="info-item">🎁 <span><strong>סוג:</strong> מארז חג שבועות — סל BENON'S</span></div>
+  <div class="info-item">📦 <span><strong>מספר מארזים:</strong> ${numPackages}</span></div>
+  ${deliveryDate?'<div class="info-item">📅 <span><strong>אספקה:</strong> '+deliveryDate+'</span></div>':''}
+  ${order.floor?'<div class="info-item">📍 <span><strong>חלוקה:</strong> '+order.floor+'</span></div>':''}
 </div>
-<div class="sec-title">הרכב מארז לעובד · סל B E N O N ' S</div>
+
+<!-- SECTION 1: Package items -->
+<div class="sec-hdr">
+  <div>🎁 מארז חג — ${numPackages} מארזים</div>
+  <span>הרכב המארז לעובד</span>
+</div>
 <table>
 <thead><tr>
   <th>מוצר</th>
   <th>פירוט</th>
-  <th style="text-align:center;width:60px">כמות</th>
-  <th style="text-align:center;width:120px">מחיר כולל מע"מ</th>
-  <th style="text-align:center;width:120px">מחיר ללא מע"מ</th>
+  <th style="width:70px">כמות</th>
+  <th style="width:130px">מחיר ליחידה ללא מע"מ</th>
+  <th style="width:120px">סה"כ ללא מע"מ</th>
+  <th style="width:120px">סה"כ כולל מע"מ</th>
 </tr></thead>
 <tbody>${itemRows}</tbody>
 </table>
-<div class="summary">
-  <div class="sum-row"><span>סה"כ למארז</span><span>₪${totalPerPkgEx.toFixed(2)} ללא מע"מ | ₪${totalPerPkgInc.toFixed(2)} כולל מע"מ</span></div>
+<div class="sec-total">
+  <span>סה"כ מארז (${numPackages} יחידות): &nbsp;<strong>₪${totalPkgEx.toFixed(2)} ללא מע"מ</strong> &nbsp;|&nbsp; <strong>₪${totalPkgInc.toFixed(2)} כולל מע"מ</strong></span>
 </div>
-<div class="pkg-box">
-  <div>
-    <div style="font-size:13px;color:#555;margin-bottom:4px">מספר מארזים ל${order.name}:</div>
-    <div style="display:flex;align-items:center;gap:12px"><span class="num">${numPackages}</span><span style="font-size:13px;color:#555">מארזים</span></div>
-  </div>
-  <div class="pkg-total">
-    <span>סה"כ הזמנה</span>
-    <strong>₪${totalOrderEx.toFixed(2)}</strong>
-    <span>ללא מע"מ | ₪${totalOrderInc.toFixed(2)} כולל מע"מ</span>
-  </div>
+
+${eventItems.length>0?`
+<!-- SECTION 2: Event extras -->
+<div class="sec-hdr" style="margin-top:28px">
+  <div>✨ תוספות לאירוע חברה</div>
+  <span>פריטים נוספים לאירוע</span>
 </div>
-<div class="page-break">
-  <div class="sec-title">סיכום הזמנה — ${numPackages} מארזים · כמויות לספקים</div>
-  <table>
-  <thead><tr>
-    <th>מוצר</th>
-    <th style="text-align:center;width:100px">ספק</th>
-    <th style="text-align:center;width:80px">כמות להזמין</th>
-    <th style="text-align:center;width:110px">עלות ליחידה (ללא מע"מ)</th>
-    <th style="text-align:center;width:110px">סה"כ ללא מע"מ</th>
-    <th style="text-align:center;width:110px">סה"כ כולל מע"מ</th>
-  </tr></thead>
-  <tbody>${suppRows}</tbody>
-  </table>
-  <div style="background:#1B3A6B;color:#fff;border-radius:8px;padding:16px 20px;margin-top:16px;display:flex;justify-content:space-around;text-align:center">
-    <div><div style="font-size:12px;margin-bottom:4px">ללא מע"מ</div><div style="font-size:22px;font-weight:800">₪${totalOrderEx.toFixed(2)}</div></div>
-    <div style="border-left:1px solid rgba(255,255,255,0.3);border-right:1px solid rgba(255,255,255,0.3);padding:0 24px"><div style="font-size:12px;margin-bottom:4px">כולל מע"מ</div><div style="font-size:22px;font-weight:800">₪${totalOrderInc.toFixed(2)}</div></div>
-    <div><div style="font-size:12px;margin-bottom:4px">מע"מ בלבד</div><div style="font-size:22px;font-weight:800">₪${(totalOrderInc-totalOrderEx).toFixed(2)}</div></div>
-  </div>
+<table>
+<thead><tr>
+  <th>מוצר</th>
+  <th>פירוט</th>
+  <th style="width:70px">כמות</th>
+  <th style="width:130px">מחיר ליחידה ללא מע"מ</th>
+  <th style="width:120px">סה"כ ללא מע"מ</th>
+  <th style="width:120px">סה"כ כולל מע"מ</th>
+</tr></thead>
+<tbody>${eventRows}</tbody>
+</table>
+<div class="sec-total">
+  <span>סה"כ תוספות: &nbsp;<strong>₪${totalEventEx.toFixed(2)} ללא מע"מ</strong> &nbsp;|&nbsp; <strong>₪${totalEventInc.toFixed(2)} כולל מע"מ</strong></span>
 </div>
+`:''}
+
+<!-- Grand total -->
+<div class="grand-total">
+  <div class="gt-item"><div class="gt-label">סה"כ ללא מע"מ</div><div class="gt-value">₪${totalOrderEx.toFixed(2)}</div></div>
+  <div class="gt-item"><div class="gt-label">מע"מ (18%)</div><div class="gt-value">₪${(totalOrderInc-totalOrderEx).toFixed(2)}</div></div>
+  <div class="gt-item"><div class="gt-label">סה"כ לתשלום כולל מע"מ</div><div class="gt-value">₪${totalOrderInc.toFixed(2)}</div></div>
+</div>
+
 <div class="footer">
   <span>benons555.github.io/Benon-s-farmer-market</span>
   <span>הופק ב-${date}</span>
-  <span>BENON\'S Farmer\'s Market · שבועות 2026</span>
+  <span>BENON'S Farmer's Market · שבועות 2026</span>
 </div>
 </body></html>`;
 
