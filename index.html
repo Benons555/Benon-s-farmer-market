@@ -2028,40 +2028,51 @@ async function checkAdmin(){
 
 async function addAmbrellaOrder(){
   if(!_admin.ok())return;
-  const existing=getOrders().find(o=>o.name==='חברת אמברלה');
-  if(existing){alert('הזמנת אמברלה כבר קיימת (#'+existing.id+')');return;}
-  if(!confirm('להוסיף הזמנה ארגונית:\nחברת אמברלה — 22 מארזים\nסה"כ ₪6,796.90 כולל מע"מ?'))return;
-  const items=[
+  const pkgItems=[
     {name:'סנט מור',sub:'160 גרם ליחידה',qty:22,price:29.70,supplier:'ברקנית'},
     {name:'תבור',sub:'130 גרם ליחידה',qty:22,price:31.00,supplier:'ברקנית'},
     {name:'כחולה נסתרת',sub:'130 גרם ליחידה',qty:22,price:32.40,supplier:'ברקנית'},
     {name:'מנצ׳גו',sub:'₪18.77 ל-100 גרם | יחידה 150-200 גרם',qty:22,price:32.85,supplier:'ברקנית'},
     {name:'פרחים- נץ החלב לבן',sub:'זר 10 גבעולים',qty:22,price:54.00,supplier:'פרחי יובל'},
-    {name:'רוזה 2025',sub:'יין יבש | 750 מ"ל | 12% אלכוהול',qty:22,price:101.00,supplier:'מיקה'},
+    {name:'סבניון בלאן רוסאן 2025',sub:'יין לבן יבש | 750 מ"ל | 10.5% אלכוהול',qty:22,price:101.00,supplier:'מיקה'},
     {name:'דובדבן',sub:'½ קילו, טרי, מתוק',qty:22,price:28.00,supplier:'עידו'}
   ];
+  const eventExtras=[
+    {name:'דובדבן',sub:'½ קילו, טרי, מתוק',qty:2,price:28.00,supplier:'עידו'},
+    {name:'סבניון בלאן רוסאן 2025',sub:'יין לבן יבש | 750 מ"ל | 10.5% אלכוהול',qty:2,price:101.00,supplier:'מיקה'},
+    {name:'סנט מור',sub:'160 גרם ליחידה',qty:1,price:29.70,supplier:'ברקנית'},
+    {name:'תלתן',sub:'130 גרם ליחידה',qty:1,price:31.00,supplier:'ברקנית'},
+    {name:'קאפרה',sub:'₪18.77 ל-100 גרם | יחידה 150-200 גרם',qty:1,price:32.85,supplier:'ברקנית'},
+    {name:'תום עיזים ביין',sub:'₪18.77 ל-100 גרם | יחידה 150-200 גרם',qty:1,price:32.85,supplier:'ברקנית'},
+    {name:'שיבולת',sub:'₪18.77 ל-100 גרם | יחידה 150-200 גרם',qty:1,price:32.85,supplier:'ברקנית'},
+    {name:"ז'ון",sub:'₪18.77 ל-100 גרם | יחידה 150-200 גרם',qty:1,price:32.85,supplier:'ברקנית'}
+  ];
+  const items=[...pkgItems,...eventExtras];
   const total=items.reduce((s,i)=>s+i.price*i.qty,0);
+  const existing=getOrders().find(o=>o.name==='חברת אמברלה');
+  if(existing){
+    if(!confirm('הזמנת אמברלה כבר קיימת. לעדכן עם תוספות האירוע?'))return;
+    existing.items=items;existing.numPackages=22;
+    existing.total=parseFloat(total.toFixed(2));existing.subtotal=parseFloat(total.toFixed(2));
+    const orders=getOrders().map(o=>o.id===existing.id?existing:o);
+    try{localStorage.setItem('benon_orders',JSON.stringify(orders));}catch(e){}
+    fbDB.ref('orders/'+existing.id).update({items,numPackages:22,total:parseFloat(total.toFixed(2)),subtotal:parseFloat(total.toFixed(2))});
+    alert('✅ הזמנת אמברלה עודכנה!');renderAdmin();return;
+  }
+  if(!confirm('להוסיף הזמנה ארגונית:\nחברת אמברלה — 22 מארזים + תוספות אירוע\nסה"כ ₪'+total.toFixed(2)+' כולל מע"מ?'))return;
   const order={
-    id:'CORP-AMB-'+Date.now(),
-    name:'חברת אמברלה',
-    phone:'הזמנה ארגונית',
-    floor:'לובי',
-    notes:'22 מארזי חג שבועות · חלוקה 9.6.2026 11:00',
-    ref:'',
-    coupon:null,
-    discount:0,
-    items,
-    subtotal:parseFloat(total.toFixed(2)),
-    total:parseFloat(total.toFixed(2)),
+    id:'CORP-AMB-'+Date.now(),name:'חברת אמברלה',phone:'הזמנה ארגונית',
+    floor:'לובי',notes:'22 מארזי חג שבועות · חלוקה 9.6.2026 11:00',
+    numPackages:22,ref:'',coupon:null,discount:0,items,
+    subtotal:parseFloat(total.toFixed(2)),total:parseFloat(total.toFixed(2)),
     date:new Date().toLocaleString('he-IL')
   };
-  const orders=getOrders();
-  orders.push(order);
+  const orders=getOrders();orders.push(order);
   try{localStorage.setItem('benon_orders',JSON.stringify(orders));}catch(e){}
   saveOrderToFirebase(order);
-  alert('✅ הזמנת אמברלה נוספה בהצלחה!');
-  renderAdmin();
+  alert('✅ הזמנת אמברלה נוספה בהצלחה!');renderAdmin();
 }
+
 async function addWimiOrder(){
   if(!_admin.ok())return;
   const existing=getOrders().find(o=>o.name==='חברת וימי');
@@ -2084,6 +2095,7 @@ async function addWimiOrder(){
     phone:'הזמנה ארגונית',
     floor:'לובי',
     notes:'25 מארזי חג שבועות · חלוקה 9.6.2026 11:00',
+    numPackages:25,
     ref:'',
     coupon:null,
     discount:0,
@@ -2407,7 +2419,7 @@ function exportCorporateExpensePDF(clientName){
   } else {
     order=orders.find(o=>o.name===clientName);
     if(!order){alert('לא נמצאה הזמנה עבור: '+clientName);return;}
-    numPackages=order.items&&order.items.length?order.items[0].qty:1;
+    numPackages=order.numPackages||(order.items&&order.items.length?order.items[0].qty:1);
   }
   const date=new Date().toLocaleDateString('he-IL');
   const deliveryDate=order.notes?(order.notes.match(/\d+\.\d+\.\d+/)||[''])[0]:'';
