@@ -3859,7 +3859,7 @@ function buildCorporateIncome(clientName, orders){
     const hexOrders=orders.filter(o=>{const ce=o.coupon?Object.values(COUPONS).find(c=>c.name===o.coupon):null;return ce&&ce.sponsored;});
     if(!hexOrders.length) return null;
     const hexEventOrder=orders.find(o=>!o.coupon&&(o.name==='הקסגון'||o.name.toLowerCase().includes('hexagon')||(o.notes||'').includes('הקסגון')));
-    const eventItems=(hexEventOrder?hexEventOrder.items||[]).map(i=>({
+    const eventItems=(hexEventOrder?(hexEventOrder.items||[]):[]).map(i=>({
       description:i.name+(i.sub?' — '+i.sub:''),
       quantity:i.qty,
       price:parseFloat((i.price/1.18).toFixed(2)),
