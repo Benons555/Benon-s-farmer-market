@@ -4073,7 +4073,8 @@ function editItemPrice(orderId, idx){
 
 // ── יצירת חשבוניות bulk ללקוחות פרטיים ──
 const _CORP_NAMES=['חברת אמברלה','חברת וימי','הקסגון','וופה'];
-const _ALREADY_INVOICED=['חלי קציר','קריסטל אישפסי','ערן אסאו','גוולי'];
+// לקוחות שקיבלו חשבונית ידנית — migration חד-פעמי יסמן אותם ב-Firebase
+const _MANUAL_INVOICED=['חלי קציר','קריסטל אישפסי','ערן אסאו','גוולי'];
 
 function _isCorporate(o){
   if(_CORP_NAMES.some(n=>o.name.includes(n)))return true;
@@ -4082,34 +4083,46 @@ function _isCorporate(o){
   return !!(ce&&ce.sponsored);
 }
 
-function openBulkInvoiceModal(){
+// סימון ידני בפיירבייס — migration חד-פעמי
+async function _migrateManualInvoiced(orders){
+  for(const o of orders){
+    if(o.giDocId)continue;
+    if(_MANUAL_INVOICED.some(n=>o.name===n||o.name.includes(n))){
+      await fbDB.ref('orders/'+o.id+'/giDocId').set('manual').catch(()=>{});
+      o.giDocId='manual';
+    }
+  }
+}
+
+async function openBulkInvoiceModal(){
   const orders=(_adminOrders.length?_adminOrders:getOrders());
+  await _migrateManualInvoiced(orders);
   const toInvoice=orders.filter(o=>{
     if(_isCorporate(o))return false;
-    if(_ALREADY_INVOICED.some(n=>o.name===n||o.name.includes(n)))return false;
+    if(o.giDocId)return false; // כבר הוצאה חשבונית
     return true;
   });
-  if(!toInvoice.length){alert('אין לקוחות פרטיים ללא חשבונית');return;}
+  if(!toInvoice.length){alert('כל הלקוחות הפרטיים כבר קיבלו חשבונית ✅');return;}
   const rows=toInvoice.map((o,i)=>`
     <tr style="border-bottom:1px solid #eee">
       <td style="padding:6px 10px"><input type="checkbox" id="bulk-chk-${i}" checked style="width:16px;height:16px"></td>
       <td style="padding:6px 10px;font-weight:600">${o.name}</td>
       <td style="padding:6px 10px;color:#555;font-size:12px">${o.phone||''}</td>
       <td style="padding:6px 10px;text-align:left;font-weight:700">₪${o.total.toFixed(2)}</td>
-      <td style="padding:6px 10px;font-size:11px;color:#888">${o.ref||o.id}</td>
+      <td style="padding:6px 10px;font-size:11px;color:#888">${o.paid?'✅ שולם':'⏳ ממתין'}</td>
     </tr>`).join('');
   const html=`
   <div id="bulk-inv-overlay" style="position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10000;display:flex;align-items:center;justify-content:center;direction:rtl">
     <div style="background:#fff;border-radius:12px;padding:28px 32px;max-width:680px;width:95%;max-height:85vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,.3)">
       <h2 style="margin:0 0 4px;color:#1B3A6B;font-size:20px">יצירת חשבוניות — לקוחות פרטיים</h2>
-      <p style="margin:0 0 16px;color:#666;font-size:13px">${toInvoice.length} לקוחות • בחר אילו לכלול</p>
+      <p style="margin:0 0 16px;color:#666;font-size:13px">${toInvoice.length} לקוחות ללא חשבונית • בחר אילו לכלול</p>
       <table style="width:100%;border-collapse:collapse;font-size:14px">
         <thead><tr style="background:#f0f4ff">
           <th style="padding:8px 10px;width:36px"><input type="checkbox" id="bulk-chk-all" checked onchange="document.querySelectorAll('[id^=bulk-chk-]').forEach(c=>{if(c.id!=='bulk-chk-all')c.checked=this.checked})"></th>
           <th style="padding:8px 10px;text-align:right">שם</th>
           <th style="padding:8px 10px;text-align:right">טלפון</th>
           <th style="padding:8px 10px;text-align:left">סה״כ</th>
-          <th style="padding:8px 10px;text-align:right">מזהה</th>
+          <th style="padding:8px 10px;text-align:right">סטטוס</th>
         </tr></thead>
         <tbody>${rows}</tbody>
       </table>
@@ -4117,7 +4130,7 @@ function openBulkInvoiceModal(){
       <div style="display:flex;gap:10px;margin-top:18px;justify-content:flex-end">
         <button onclick="document.getElementById('bulk-inv-overlay').remove()"
           style="padding:9px 20px;border-radius:7px;border:1px solid #ccc;background:#f5f5f5;cursor:pointer;font-size:14px">ביטול</button>
-        <button onclick="runBulkInvoices(${JSON.stringify(toInvoice).replace(/'/g,'&#39;')})"
+        <button onclick="runBulkInvoices(${JSON.stringify(toInvoice).replace(/\\/g,'\\\\').replace(/'/g,'&#39;').replace(/`/g,'&#96;')})"
           style="padding:9px 22px;border-radius:7px;border:none;background:#1B3A6B;color:#fff;font-weight:700;cursor:pointer;font-size:14px">✔ צור חשבוניות לנבחרים</button>
       </div>
     </div>
@@ -4135,7 +4148,7 @@ async function runBulkInvoices(orders){
     const chk=document.getElementById('bulk-chk-'+i);
     if(!chk||!chk.checked)continue;
     const o=orders[i];
-    if(prog)prog.innerHTML='⏳ מעבד '+o.name+' ('+(i+1)+'/'+orders.length+')...';
+    if(prog)prog.innerHTML='⏳ מעבד '+o.name+' ('+(done+failed+1)+'/'+orders.length+')...';
     try{
       const income=(o.items||[]).map(item=>({
         description:item.name+(item.sub?' — '+item.sub:''),
@@ -4154,14 +4167,26 @@ async function runBulkInvoices(orders){
       };
       const res=await fetch(GI_BASE+'/documents',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify(payload)});
       const doc=await res.json();
-      if(doc.id){done++;}
-      else{failed++;console.error('bulk invoice error for '+o.name,doc);}
-    }catch(e){failed++;console.error('bulk invoice exception for '+o.name,e);}
-    await new Promise(r=>setTimeout(r,400)); // עיכוב קצר בין בקשות
+      if(doc.id){
+        done++;
+        // שמור giDocId ב-Firebase כדי למנוע כפילויות בעתיד
+        await fbDB.ref('orders/'+o.id+'/giDocId').set(doc.id).catch(()=>{});
+        const ai=(_adminOrders||[]).findIndex(x=>x.id===o.id);
+        if(ai!==-1)_adminOrders[ai].giDocId=doc.id;
+      } else {
+        failed++;
+        console.error('bulk invoice error for '+o.name,doc);
+        if(prog)prog.innerHTML='⚠️ שגיאה עבור '+o.name+': '+JSON.stringify(doc);
+      }
+    }catch(e){
+      failed++;
+      console.error('bulk invoice exception for '+o.name,e);
+    }
+    await new Promise(r=>setTimeout(r,500));
   }
   if(prog)prog.innerHTML='✅ הושלם: '+done+' חשבוניות נוצרו'+(failed?' | ⚠️ '+failed+' שגיאות':'');
-  const closeBtn=document.querySelector('#bulk-inv-overlay button:first-child');
-  if(closeBtn)closeBtn.textContent='סגור';
+  const closeBtn=document.querySelector('#bulk-inv-overlay button');
+  if(closeBtn){closeBtn.textContent='סגור';closeBtn.onclick=()=>document.getElementById('bulk-inv-overlay').remove();}
 }
 // ===== end Green Invoice =====
 
