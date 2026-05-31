@@ -3488,7 +3488,7 @@ function renderAdminWithOrders(orders){
   const avgMargin=grandTotal>0?(grandProfit/grandTotal*100):0;
   const netMargin=grandTotal>0?(netProfit/grandTotal*100):0;
   document.getElementById('adminView').innerHTML=`
-  <div class="admin-hdr"><h1>📋 ממשק ניהול — BENON'S</h1><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="ebtn" onclick="renderAdmin()">🔄 רענן</button><button class="ebtn" onclick="exportCSV()">⬇ CSV</button><button class="ebtn" style="background:#1B3A6B;color:#F5D87A;font-weight:700" onclick="addAmbrellaOrder()">🏢 אמברלה</button><button class="ebtn" style="background:#2E5E3E;color:#A8D5B5;font-weight:700" onclick="addWimiOrder()">🏢 וימי</button><button class="ebtn" style="background:#4A7C59;color:#fff;font-weight:700" onclick="openManualOrderModal()">➕ הזמנה ידנית</button><button class="ebtn" style="background:#f0e6ff;color:#5b21b6;font-weight:600" onclick="exportCorporateExpensePDF('חברת אמברלה')">📊 הצעה אמברלה</button><button id="corp-inv-amb" class="ebtn" style="background:#dde8ff;color:#5b21b6;font-weight:600" onclick="createCorporateInvoice('חברת אמברלה','corp-inv-amb')">📄 חשבונית אמברלה</button><button class="ebtn" style="background:#e6f0ff;color:#1B3A6B;font-weight:600" onclick="exportCorporateExpensePDF('חברת וימי')">📊 הצעה וימי</button><button id="corp-inv-wimi" class="ebtn" style="background:#d0e4ff;color:#1B3A6B;font-weight:600" onclick="createCorporateInvoice('חברת וימי','corp-inv-wimi')">📄 חשבונית וימי</button><button class="ebtn" style="background:#fff3e0;color:#e65100;font-weight:600" onclick="exportCorporateExpensePDF('hexagon')">📊 הצעה Hexagon</button><button id="corp-inv-hex" class="ebtn" style="background:#ffe8d0;color:#e65100;font-weight:600" onclick="createCorporateInvoice('hexagon','corp-inv-hex')">📄 חשבונית Hexagon</button><button class="ebtn" style="background:#e8f5e9;color:#1b5e20;font-weight:600" onclick="exportCorporateExpensePDF('וופה')">📊 הצעה וופה</button><button id="corp-inv-wufa" class="ebtn" style="background:#d0f0da;color:#1b5e20;font-weight:600" onclick="createCorporateInvoice('וופה','corp-inv-wufa')">📄 חשבונית וופה</button><button class="ebtn" style="background:#1B3A6B;color:#F5D87A;font-weight:700" onclick="openBulkInvoiceModal()">📄 חשבוניות פרטיים</button><button class="ebtn" style="background:#eee;color:#555" onclick="adminLogout()">🔒 יציאה</button></div></div>
+  <div class="admin-hdr"><h1>📋 ממשק ניהול — BENON'S</h1><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="ebtn" onclick="renderAdmin()">🔄 רענן</button><button class="ebtn" onclick="exportCSV()">⬇ CSV</button><button class="ebtn" style="background:#1B3A6B;color:#F5D87A;font-weight:700" onclick="addAmbrellaOrder()">🏢 אמברלה</button><button class="ebtn" style="background:#2E5E3E;color:#A8D5B5;font-weight:700" onclick="addWimiOrder()">🏢 וימי</button><button class="ebtn" style="background:#4A7C59;color:#fff;font-weight:700" onclick="openManualOrderModal()">➕ הזמנה ידנית</button><button class="ebtn" style="background:#f0e6ff;color:#5b21b6;font-weight:600" onclick="exportCorporateExpensePDF('חברת אמברלה')">📊 הצעה אמברלה</button><button id="corp-inv-amb" class="ebtn" style="background:#dde8ff;color:#5b21b6;font-weight:600" onclick="createCorporateInvoice('חברת אמברלה','corp-inv-amb')">📄 חשבונית אמברלה</button><button class="ebtn" style="background:#e6f0ff;color:#1B3A6B;font-weight:600" onclick="exportCorporateExpensePDF('חברת וימי')">📊 הצעה וימי</button><button id="corp-inv-wimi" class="ebtn" style="background:#d0e4ff;color:#1B3A6B;font-weight:600" onclick="createCorporateInvoice('חברת וימי','corp-inv-wimi')">📄 חשבונית וימי</button><button class="ebtn" style="background:#fff3e0;color:#e65100;font-weight:600" onclick="exportCorporateExpensePDF('hexagon')">📊 הצעה Hexagon</button><button id="corp-inv-hex" class="ebtn" style="background:#ffe8d0;color:#e65100;font-weight:600" onclick="createCorporateInvoice('hexagon','corp-inv-hex')">📄 חשבונית Hexagon</button><button class="ebtn" style="background:#e8f5e9;color:#1b5e20;font-weight:600" onclick="exportCorporateExpensePDF('וופה')">📊 הצעה וופה</button><button id="corp-inv-wufa" class="ebtn" style="background:#d0f0da;color:#1b5e20;font-weight:600" onclick="createCorporateInvoice('וופה','corp-inv-wufa')">📄 חשבונית וופה</button><button class="ebtn" style="background:#1B3A6B;color:#F5D87A;font-weight:700" onclick="openBulkInvoiceModal()">📄 חשבוניות פרטיים</button><button class="ebtn" style="background:#b8860b;color:#fff;font-weight:600" onclick="fixWufaPrices()">🔧 תקן וופה</button><button class="ebtn" style="background:#eee;color:#555" onclick="adminLogout()">🔒 יציאה</button></div></div>
   <div class="stats-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:12px">
     <div class="stat-card"><div class="stat-num">${orders.length}</div><div class="stat-lbl">הזמנות</div></div>
     <div class="stat-card"><div class="stat-num">₪${grandTotal.toFixed(0)}</div><div class="stat-lbl">סה״כ הכנסות (לפני מע״מ)${sponsoredIncome>0?' — כולל ₪'+sponsoredIncome.toFixed(0)+' מ-Hexagon':''}</div></div>
@@ -3977,6 +3977,27 @@ function createCorporateInvoice(clientName,btnId){
   const btn=document.getElementById(btnId);
   if(btn){btn.disabled=true;btn.textContent='...';}
   showInvoiceConfirm(clientName,btnId);
+}
+// ── תיקון מחירי וופה חד-פעמי ──
+async function fixWufaPrices(){
+  const orders=(_adminOrders.length?_adminOrders:getOrders());
+  const wufa=orders.find(o=>o.name&&o.name.includes('וופה'));
+  if(!wufa){alert('לא נמצאה הזמנת וופה');return;}
+  const fixes={'חציר':{priceEx:70,price:parseFloat((70*1.18).toFixed(2))},
+               'שיבולים':{priceEx:15,price:parseFloat((15*1.18).toFixed(2))}};
+  let changed=0;
+  wufa.items=wufa.items.map(i=>{
+    const fix=fixes[i.name];
+    if(fix){changed++;return{...i,...fix};}
+    return i;
+  });
+  if(!changed){alert('לא נמצאו פריטים לתיקון');return;}
+  wufa.total=wufa.items.reduce((s,i)=>s+i.price*i.qty,0)-(wufa.discount||0);
+  await fbDB.ref('orders/'+wufa.id).update({items:wufa.items,total:wufa.total});
+  const ai=_adminOrders.findIndex(x=>x.id===wufa.id);
+  if(ai!==-1)_adminOrders[ai]=wufa;
+  alert('✅ תוקנו '+changed+' פריטים בהזמנת וופה:\nחציר → ₪70 | שיבולים → ₪15');
+  renderAdmin();
 }
 // ── תיקון מחיר פריט בהזמנה ──
 function editItemPrice(orderId, idx){
