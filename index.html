@@ -3953,8 +3953,15 @@ async function submitCorporateInvoice(clientName,btnId){
     const doc=await res.json();
     console.log('GI corporate response:',JSON.stringify(doc));
     if(doc.id){
-      if(btn){btn.textContent='✓ נוצרה — לחץ לפתיחה';btn.style.cssText='background:var(--green);color:white;border-color:var(--green);font-weight:700';btn.disabled=false;btn.onclick=()=>window.open('https://app.greeninvoice.co.il/documents/'+doc.id,'_blank');}
-      window.open('https://app.greeninvoice.co.il/documents/'+doc.id,'_blank');
+      const giUrl='https://app.greeninvoice.co.il/documents/'+doc.id;
+      if(btn){btn.textContent='✓ נוצרה — לחץ לפתיחה';btn.style.cssText='background:#2d7a2d;color:white;border-color:#2d7a2d;font-weight:700';btn.disabled=false;btn.onclick=()=>window.open(giUrl,'_blank');}
+      // הצג הודעת הצלחה עם קישור
+      const msg=document.createElement('div');
+      msg.style.cssText='position:fixed;top:24px;left:50%;transform:translateX(-50%);background:#2d7a2d;color:#fff;padding:16px 28px;border-radius:10px;z-index:99999;font-size:15px;font-weight:700;box-shadow:0 4px 20px rgba(0,0,0,.3);direction:rtl;text-align:center;cursor:pointer';
+      msg.innerHTML='✅ חשבונית מס #'+doc.number+' נוצרה בהצלחה!<br><span style="font-size:13px;font-weight:400">לחץ כאן לפתיחה ב-Green Invoice</span>';
+      msg.onclick=()=>{window.open(giUrl,'_blank');msg.remove();};
+      document.body.appendChild(msg);
+      setTimeout(()=>{if(msg.parentNode)msg.remove();},8000);
     } else {throw new Error(JSON.stringify(doc));}
   }catch(e){
     if(btn){btn.textContent='✗ שגיאה';btn.style.cssText='background:var(--red);color:white;border-color:var(--red)';btn.disabled=false;}
