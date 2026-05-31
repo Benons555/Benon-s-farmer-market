@@ -4131,14 +4131,16 @@ async function openBulkInvoiceModal(){
       </table>
       <div id="bulk-inv-progress" style="margin-top:12px;font-size:13px;color:#555;min-height:20px"></div>
       <div style="display:flex;gap:10px;margin-top:18px;justify-content:flex-end">
-        <button onclick="document.getElementById('bulk-inv-overlay').remove()"
+        <button id="bulk-inv-cancel"
           style="padding:9px 20px;border-radius:7px;border:1px solid #ccc;background:#f5f5f5;cursor:pointer;font-size:14px">ביטול</button>
-        <button onclick="runBulkInvoices(_bulkInvoiceOrders)"
+        <button id="bulk-inv-confirm"
           style="padding:9px 22px;border-radius:7px;border:none;background:#1B3A6B;color:#fff;font-weight:700;cursor:pointer;font-size:14px">✔ צור חשבוניות לנבחרים</button>
       </div>
     </div>
   </div>`;
   document.body.insertAdjacentHTML('beforeend',html);
+  document.getElementById('bulk-inv-cancel').addEventListener('click',()=>document.getElementById('bulk-inv-overlay').remove());
+  document.getElementById('bulk-inv-confirm').addEventListener('click',()=>runBulkInvoices(_bulkInvoiceOrders));
 }
 
 async function runBulkInvoices(orders){
@@ -4229,14 +4231,16 @@ async function resetPaidNoInvoice(){
       </table>
       <div id="rpni-progress" style="margin-top:12px;font-size:13px;color:#555;min-height:20px"></div>
       <div style="display:flex;gap:10px;margin-top:18px;justify-content:flex-end">
-        <button onclick="document.getElementById('rpni-overlay').remove()"
+        <button id="rpni-cancel"
           style="padding:9px 20px;border-radius:7px;border:1px solid #ccc;background:#f5f5f5;cursor:pointer;font-size:14px">ביטול</button>
-        <button onclick="runBulkPaidInvoices(_bulkPaidOrders)"
+        <button id="rpni-confirm"
           style="padding:9px 22px;border-radius:7px;border:none;background:#1B3A6B;color:#fff;font-weight:700;cursor:pointer;font-size:14px">✔ צור חשבוניות מס קבלה</button>
       </div>
     </div>
   </div>`;
   document.body.insertAdjacentHTML('beforeend',html);
+  document.getElementById('rpni-cancel').addEventListener('click',()=>document.getElementById('rpni-overlay').remove());
+  document.getElementById('rpni-confirm').addEventListener('click',()=>runBulkPaidInvoices(_bulkPaidOrders));
 }
 
 async function runBulkPaidInvoices(orders){
