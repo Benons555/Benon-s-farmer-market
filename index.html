@@ -2449,7 +2449,6 @@ function exportCorporateExpensePDF(clientName){
         +'<td style="padding:10px 14px;text-align:center;font-weight:800;color:#1B3A6B">'+qty+'</td>'
         +'<td style="padding:10px 14px;text-align:center;color:#555">₪'+parseFloat((i.price/1.18).toFixed(2))+'</td>'
         +'<td style="padding:10px 14px;text-align:center;font-weight:700;color:#1B3A6B">₪'+lineEx.toFixed(2)+'</td>'
-        +'<td style="padding:10px 14px;text-align:center;font-weight:700">₪'+lineInc.toFixed(2)+'</td>'
         +'</tr>';
     }).join('');
   }
@@ -2533,13 +2532,12 @@ td{vertical-align:middle}
   <th>פירוט</th>
   <th style="width:70px">כמות</th>
   <th style="width:130px">מחיר ליחידה ללא מע"מ</th>
-  <th style="width:120px">סה"כ ללא מע"מ</th>
-  <th style="width:120px">סה"כ כולל מע"מ</th>
+  <th style="width:140px">סה"כ ללא מע"מ</th>
 </tr></thead>
 <tbody>${itemRows}</tbody>
 </table>
 <div class="sec-total">
-  <span>סה"כ מארז (${numPackages} יחידות): &nbsp;<strong>₪${totalPkgEx.toFixed(2)} ללא מע"מ</strong> &nbsp;|&nbsp; <strong>₪${totalPkgInc.toFixed(2)} כולל מע"מ</strong></span>
+  <span>סה"כ מארז (${numPackages} יחידות): &nbsp;<strong>₪${totalPkgEx.toFixed(2)} ללא מע"מ</strong></span>
 </div>
 
 ${eventItems.length>0?`
@@ -2554,13 +2552,12 @@ ${eventItems.length>0?`
   <th>פירוט</th>
   <th style="width:70px">כמות</th>
   <th style="width:130px">מחיר ליחידה ללא מע"מ</th>
-  <th style="width:120px">סה"כ ללא מע"מ</th>
-  <th style="width:120px">סה"כ כולל מע"מ</th>
+  <th style="width:140px">סה"כ ללא מע"מ</th>
 </tr></thead>
 <tbody>${eventRows}</tbody>
 </table>
 <div class="sec-total">
-  <span>סה"כ תוספות: &nbsp;<strong>₪${totalEventEx.toFixed(2)} ללא מע"מ</strong> &nbsp;|&nbsp; <strong>₪${totalEventInc.toFixed(2)} כולל מע"מ</strong></span>
+  <span>סה"כ תוספות: &nbsp;<strong>₪${totalEventEx.toFixed(2)} ללא מע"מ</strong></span>
 </div>
 `:''}
 
