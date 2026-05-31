@@ -2412,10 +2412,9 @@ function exportCorporateExpensePDF(clientName){
   if(clientName==='hexagon'){
     const hexOrders=orders.filter(o=>{const ce=o.coupon?Object.values(COUPONS).find(c=>c.name===o.coupon):null;return ce&&ce.sponsored;});
     if(!hexOrders.length){alert('לא נמצאו הזמנות עם קופון Hexagon');return;}
-    const allItems=[];
-    hexOrders.forEach(o=>{(o.items||[]).forEach(i=>{const k=i.name+'|'+(i.sub||'');const ex=allItems.find(x=>x._key===k);if(ex)ex.qty+=i.qty;else allItems.push({...i,_key:k});});});
     numPackages=hexOrders.length;
-    order={name:'Hexagon',items:allItems,total:hexOrders.reduce((s,o)=>s+o.total,0),notes:hexOrders.length+' הזמנות',floor:'',date:new Date().toLocaleString('he-IL')};
+    const couponPriceInc=parseFloat((50*1.18).toFixed(2)); // ₪50 ex-VAT = ₪59 inc-VAT
+    order={name:'Hexagon',items:[{name:"קופון Hexagon — BENON'S",sub:"שבועות 2026",qty:numPackages,price:couponPriceInc,supplier:'Hexagon'}],total:numPackages*couponPriceInc,notes:numPackages+' קופונים',floor:'',date:new Date().toLocaleString('he-IL'),numPackages};
   } else {
     order=orders.find(o=>o.name===clientName)||orders.find(o=>o.name.includes(clientName));
     if(!order){alert('לא נמצאה הזמנה עבור: '+clientName);return;}
@@ -2423,6 +2422,9 @@ function exportCorporateExpensePDF(clientName){
   }
   const date=new Date().toLocaleDateString('he-IL');
   const deliveryDate=order.notes?(order.notes.match(/\d+\.\d+\.\d+/)||[''])[0]:'';
+  const isHexagon=clientName==='hexagon';
+  const secPkgTitle=isHexagon?'קופוני Hexagon — '+numPackages+' קופונים':'🎁 מארז חג — '+numPackages+' מארזים';
+  const secPkgSub=isHexagon?'סיכום קופונים':'הרכב המארז לעובד';
   const items=order.items||[];
   // pkg: qty>=numPackages (take numPackages), event: qty<numPackages OR remainder when qty>numPackages
   const pkgItems=items.filter(i=>i.qty>=numPackages);
@@ -2523,8 +2525,8 @@ td{vertical-align:middle}
 
 <!-- SECTION 1: Package items -->
 <div class="sec-hdr">
-  <div>🎁 מארז חג — ${numPackages} מארזים</div>
-  <span>הרכב המארז לעובד</span>
+  <div>${secPkgTitle}</div>
+  <span>${secPkgSub}</span>
 </div>
 <table>
 <thead><tr>
