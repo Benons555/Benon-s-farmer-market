@@ -2117,14 +2117,71 @@ function adminLogout(){
   showTab('shop');
 }
 
-function markPaid(id){
+async function markPaid(id){
   const orders=getOrders();
   const o=orders.find(q=>q.id===id);
   if(!o)return;
-  o.paid=!o.paid;
+  // אם מסמנים כלא-שולם — פשוט מחזירים
+  if(o.paid){
+    o.paid=false;
+    try{localStorage.setItem('benon_orders',JSON.stringify(orders));}catch(e){}
+    fbDB.ref('orders/'+id+'/paid').set(false).catch(()=>{});
+    renderAdmin();
+    return;
+  }
+  // מסמנים כשולם — בחר אמצעי תשלום ויצור חשבונית
+  const payType=await selectPaymentMethod();
+  if(payType===null)return; // ביטול
+  o.paid=true;
+  o.paymentType=payType;
   try{localStorage.setItem('benon_orders',JSON.stringify(orders));}catch(e){}
-  fbDB.ref('orders/'+id+'/paid').set(o.paid).catch(()=>{});
+  fbDB.ref('orders/'+id).update({paid:true,paymentType:payType}).catch(()=>{});
   renderAdmin();
+  // יצירת חשבונית מס קבלה אוטומטית (לא לחברות — להן יש כפתורים נפרדים)
+  if(!_isCorporate(o)){
+    _autoCreateInvoice(o,payType);
+  }
+}
+
+async function _autoCreateInvoice(o,payType){
+  try{
+    const token=await giToken();
+    const today=new Date().toISOString().slice(0,10);
+    const income=(o.items||[]).map(i=>({
+      description:i.name+(i.sub?' — '+i.sub:''),
+      quantity:i.qty,
+      price:parseFloat((i.priceEx!==undefined?i.priceEx:i.price/1.18).toFixed(2)),
+      currency:'ILS',vatType:1
+    }));
+    if(o.discount>0){
+      income.push({description:'הנחת קופון '+(o.coupon||''),quantity:1,price:parseFloat((-o.discount/1.18).toFixed(2)),currency:'ILS',vatType:1});
+    }
+    const payload={
+      description:'הזמנה BENON\'S — '+(o.ref||o.id),
+      type:400,date:today,dueDate:today,lang:'he',currency:'ILS',vatType:1,
+      client:{name:o.name,phone:o.phone||''},
+      income,
+      payment:[{type:payType,price:parseFloat(o.total.toFixed(2)),currency:'ILS',date:today}]
+    };
+    const res=await fetch(GI_BASE+'/documents',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify(payload)});
+    const doc=await res.json();
+    if(doc.id){
+      const giUrl='https://app.greeninvoice.co.il/documents/'+doc.id;
+      fbDB.ref('orders/'+o.id+'/giDocId').set(doc.id).catch(()=>{});
+      const msg=document.createElement('div');
+      msg.style.cssText='position:fixed;top:24px;left:50%;transform:translateX(-50%);background:#2d7a2d;color:#fff;padding:16px 28px;border-radius:10px;z-index:99999;font-size:15px;font-weight:700;box-shadow:0 4px 20px rgba(0,0,0,.3);direction:rtl;text-align:center;cursor:pointer';
+      msg.innerHTML='✅ חשבונית מס קבלה #'+doc.number+' — '+o.name+'<br><span style="font-size:13px;font-weight:400">לחץ לפתיחה ב-Green Invoice</span>';
+      msg.onclick=()=>{window.open(giUrl,'_blank');msg.remove();};
+      document.body.appendChild(msg);
+      setTimeout(()=>{if(msg.parentNode)msg.remove();},8000);
+    } else {
+      console.error('GI auto-invoice error',doc);
+      alert('תשלום אושר ✅ אך יצירת החשבונית נכשלה:\n'+JSON.stringify(doc));
+    }
+  }catch(e){
+    console.error('GI auto-invoice exception',e);
+    alert('תשלום אושר ✅ אך יצירת החשבונית נכשלה:\n'+e.message);
+  }
 }
 
 function deleteOrder(id){
