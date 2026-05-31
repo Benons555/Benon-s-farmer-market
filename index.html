@@ -3854,32 +3854,95 @@ async function createInvoice(orderId){
     alert('שגיאה ביצירת חשבונית:\n'+e.message);
   }
 }
-async function createCorporateInvoice(clientName,btnId){
+function buildCorporateIncome(clientName, orders){
+  if(clientName==='hexagon'){
+    const hexOrders=orders.filter(o=>{const ce=o.coupon?Object.values(COUPONS).find(c=>c.name===o.coupon):null;return ce&&ce.sponsored;});
+    if(!hexOrders.length) return null;
+    const hexEventOrder=orders.find(o=>!o.coupon&&(o.name==='הקסגון'||o.name.toLowerCase().includes('hexagon')||(o.notes||'').includes('הקסגון')));
+    const eventItems=(hexEventOrder?hexEventOrder.items||[]).map(i=>({
+      description:i.name+(i.sub?' — '+i.sub:''),
+      quantity:i.qty,
+      price:parseFloat((i.price/1.18).toFixed(2)),
+      currency:'ILS',vatType:1
+    }));
+    return {
+      clientDisplayName:'Hexagon',
+      income:[
+        {description:"קופון Hexagon — BENON'S Farmer's Market שבועות 2026",quantity:hexOrders.length,price:50,currency:'ILS',vatType:1},
+        ...eventItems
+      ]
+    };
+  }
+  const order=orders.find(o=>o.name===clientName)||orders.find(o=>o.name.includes(clientName));
+  if(!order) return null;
+  return {
+    clientDisplayName:order.name,
+    income:(order.items||[]).map(i=>({
+      description:i.name+(i.sub?' — '+i.sub:''),
+      quantity:i.qty,
+      price:parseFloat((i.price/1.18).toFixed(2)),
+      currency:'ILS',vatType:1
+    }))
+  };
+}
+
+function showInvoiceConfirm(clientName, btnId){
+  const orders=(_adminOrders.length?_adminOrders:getOrders());
+  const built=buildCorporateIncome(clientName,orders);
+  if(!built){alert('לא נמצאה הזמנה עבור: '+clientName);return;}
+  const {clientDisplayName,income}=built;
+  const totalEx=income.reduce((s,i)=>s+i.price*i.quantity,0);
+  const vat=totalEx*0.18;
+  const totalInc=totalEx+vat;
+  const rows=income.map(i=>`
+    <tr>
+      <td style="padding:7px 10px;border-bottom:1px solid #eee">${i.description}</td>
+      <td style="padding:7px 10px;border-bottom:1px solid #eee;text-align:center">${i.quantity}</td>
+      <td style="padding:7px 10px;border-bottom:1px solid #eee;text-align:left">₪${i.price.toFixed(2)}</td>
+      <td style="padding:7px 10px;border-bottom:1px solid #eee;text-align:left;font-weight:600">₪${(i.price*i.quantity).toFixed(2)}</td>
+    </tr>`).join('');
+  const html=`
+  <div id="gi-confirm-overlay" style="position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10000;display:flex;align-items:center;justify-content:center;direction:rtl">
+    <div style="background:#fff;border-radius:12px;padding:28px 32px;max-width:680px;width:95%;max-height:85vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,.3)">
+      <h2 style="margin:0 0 4px;color:#1B3A6B;font-size:20px">חשבונית מס — ${clientDisplayName}</h2>
+      <p style="margin:0 0 16px;color:#666;font-size:13px">בדוק את הפריטים לפני שליחה ל-Green Invoice</p>
+      <table style="width:100%;border-collapse:collapse;font-size:14px">
+        <thead>
+          <tr style="background:#f0f4ff">
+            <th style="padding:8px 10px;text-align:right;border-bottom:2px solid #1B3A6B">פריט</th>
+            <th style="padding:8px 10px;text-align:center;border-bottom:2px solid #1B3A6B">כמות</th>
+            <th style="padding:8px 10px;text-align:left;border-bottom:2px solid #1B3A6B">מחיר ליח׳</th>
+            <th style="padding:8px 10px;text-align:left;border-bottom:2px solid #1B3A6B">סה״כ</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+      <div style="margin-top:14px;border-top:2px solid #eee;padding-top:12px;text-align:left;font-size:14px;line-height:1.9">
+        <div>סה״כ לפני מע״מ: <strong>₪${totalEx.toFixed(2)}</strong></div>
+        <div>מע״מ 18%: <strong>₪${vat.toFixed(2)}</strong></div>
+        <div style="font-size:16px;color:#1B3A6B">סה״כ כולל מע״מ: <strong>₪${totalInc.toFixed(2)}</strong></div>
+      </div>
+      <div style="display:flex;gap:10px;margin-top:20px;justify-content:flex-end">
+        <button onclick="document.getElementById('gi-confirm-overlay').remove();document.getElementById('${btnId}').disabled=false;document.getElementById('${btnId}').textContent='📄 חשבונית';"
+          style="padding:9px 20px;border-radius:7px;border:1px solid #ccc;background:#f5f5f5;cursor:pointer;font-size:14px">ביטול</button>
+        <button onclick="document.getElementById('gi-confirm-overlay').remove();submitCorporateInvoice('${clientName}','${btnId}')"
+          style="padding:9px 22px;border-radius:7px;border:none;background:#1B3A6B;color:#fff;font-weight:700;cursor:pointer;font-size:14px">✔ אשר וצור חשבונית</button>
+      </div>
+    </div>
+  </div>`;
+  document.body.insertAdjacentHTML('beforeend',html);
+}
+
+async function submitCorporateInvoice(clientName,btnId){
   const btn=document.getElementById(btnId);
   if(btn){btn.disabled=true;btn.textContent='...';}
   try{
     const orders=(_adminOrders.length?_adminOrders:getOrders());
-    let order;
+    const built=buildCorporateIncome(clientName,orders);
+    if(!built) throw new Error('לא נמצאה הזמנה');
+    const {clientDisplayName,income}=built;
     const token=await giToken();
     const today=new Date().toISOString().slice(0,10);
-    let income,clientDisplayName;
-    if(clientName==='hexagon'){
-      const hexOrders=orders.filter(o=>{const ce=o.coupon?Object.values(COUPONS).find(c=>c.name===o.coupon):null;return ce&&ce.sponsored;});
-      if(!hexOrders.length){alert('אין הזמנות Hexagon');if(btn){btn.disabled=false;btn.textContent='📄 חשבונית';}return;}
-      clientDisplayName='Hexagon';
-      income=[{description:"קופון Hexagon — BENON'S Farmer's Market שבועות 2026",quantity:hexOrders.length,price:50,currency:'ILS',vatType:1}];
-    } else {
-      order=orders.find(o=>o.name===clientName)||orders.find(o=>o.name.includes(clientName));
-      if(!order){alert('לא נמצאה הזמנה עבור: '+clientName);if(btn){btn.disabled=false;btn.textContent='📄 חשבונית';}return;}
-      clientDisplayName=order.name;
-      income=(order.items||[]).map(i=>({
-        description:i.name+(i.sub?' — '+i.sub:''),
-        quantity:i.qty,
-        price:parseFloat((i.price/1.18).toFixed(2)),
-        currency:'ILS',
-        vatType:1
-      }));
-    }
     const payload={
       description:"הזמנה ארגונית BENON'S — "+clientDisplayName,
       type:300,date:today,lang:'he',currency:'ILS',vatType:1,
@@ -3896,6 +3959,12 @@ async function createCorporateInvoice(clientName,btnId){
     if(btn){btn.textContent='✗ שגיאה';btn.style.cssText='background:var(--red);color:white;border-color:var(--red)';btn.disabled=false;}
     alert('שגיאה ביצירת חשבונית:\n'+e.message);
   }
+}
+
+function createCorporateInvoice(clientName,btnId){
+  const btn=document.getElementById(btnId);
+  if(btn){btn.disabled=true;btn.textContent='...';}
+  showInvoiceConfirm(clientName,btnId);
 }
 // ===== end Green Invoice =====
 
