@@ -2424,7 +2424,7 @@ function exportCorporateExpensePDF(clientName){
   } else {
     order=orders.find(o=>o.name===clientName)||orders.find(o=>o.name.includes(clientName));
     if(!order){alert('לא נמצאה הזמנה עבור: '+clientName);return;}
-    numPackages=order.numPackages||(order.items&&order.items.length?order.items[0].qty:1);
+    numPackages=order.numPackages||0; // 0 = event-only order
   }
   const date=new Date().toLocaleDateString('he-IL');
   const deliveryDate=order.notes?(order.notes.match(/\d+\.\d+\.\d+/)||[''])[0]:'';
@@ -2432,12 +2432,26 @@ function exportCorporateExpensePDF(clientName){
   const secPkgTitle=isHexagon?'קופוני Hexagon — '+numPackages+' קופונים':'🎁 מארז חג — '+numPackages+' מארזים';
   const secPkgSub=isHexagon?'סיכום קופונים':'הרכב המארז לעובד';
   const items=order.items||[];
-  // pkg: qty>=numPackages (take numPackages), event: qty<numPackages OR remainder when qty>numPackages
-  const pkgItems=items.filter(i=>i.qty>=numPackages);
-  const eventItems=[
-    ...items.filter(i=>i.qty<numPackages),
-    ...items.filter(i=>i.qty>numPackages).map(i=>({...i,qty:i.qty-numPackages}))
-  ];
+  // If no numPackages set on order → event-only order (e.g. וופה)
+  let pkgItems,eventItems;
+  if(numPackages>0&&order.numPackages){
+    pkgItems=items.filter(i=>i.qty>=numPackages);
+    eventItems=[
+      ...items.filter(i=>i.qty<numPackages),
+      ...items.filter(i=>i.qty>numPackages).map(i=>({...i,qty:i.qty-numPackages}))
+    ];
+  } else if(numPackages>0&&!order.numPackages){
+    // Hexagon or orders without explicit numPackages — use same logic
+    pkgItems=items.filter(i=>i.qty>=numPackages);
+    eventItems=[
+      ...items.filter(i=>i.qty<numPackages),
+      ...items.filter(i=>i.qty>numPackages).map(i=>({...i,qty:i.qty-numPackages}))
+    ];
+  } else {
+    // No packages — all items are event items
+    pkgItems=[];
+    eventItems=items;
+  }
   const totalPkgInc=pkgItems.reduce((s,i)=>s+i.price*numPackages,0);
   const totalPkgEx=parseFloat((totalPkgInc/1.18).toFixed(2));
   const totalEventInc=eventItems.reduce((s,i)=>s+i.price*i.qty,0);
@@ -2523,12 +2537,13 @@ td{vertical-align:middle}
   </div>
 </div>
 <div class="info-bar">
-  <div class="info-item">🎁 <span><strong>סוג:</strong> מארז חג שבועות — סל BENON'S</span></div>
-  <div class="info-item">📦 <span><strong>מספר מארזים:</strong> ${numPackages}</span></div>
+  <div class="info-item">🎁 <span><strong>סוג:</strong> ${numPackages>0?'מארז חג שבועות — סל BENON\'S':'אירוע שבועות BENON\'S'}</span></div>
+  ${numPackages>0?'<div class="info-item">📦 <span><strong>מספר מארזים:</strong> '+numPackages+'</span></div>':''}
   ${deliveryDate?'<div class="info-item">📅 <span><strong>אספקה:</strong> '+deliveryDate+'</span></div>':''}
   ${order.floor?'<div class="info-item">📍 <span><strong>חלוקה:</strong> '+order.floor+'</span></div>':''}
 </div>
 
+${pkgItems.length>0?`
 <!-- SECTION 1: Package items -->
 <div class="sec-hdr">
   <div>${secPkgTitle}</div>
@@ -2547,12 +2562,13 @@ td{vertical-align:middle}
 <div class="sec-total">
   <span>סה"כ מארז (${numPackages} יחידות): &nbsp;<strong>₪${totalPkgEx.toFixed(2)} ללא מע"מ</strong></span>
 </div>
+`:''}
 
 ${eventItems.length>0?`
-<!-- SECTION 2: Event extras -->
-<div class="sec-hdr" style="margin-top:28px">
-  <div>✨ תוספות לאירוע חברה</div>
-  <span>פריטים נוספים לאירוע</span>
+<!-- SECTION 2: Event items -->
+<div class="sec-hdr" style="margin-top:${pkgItems.length>0?28:0}px">
+  <div>✨ ${pkgItems.length>0?'תוספות לאירוע חברה':'פריטים לאירוע חברה'}</div>
+  <span>פריטים לאירוע שבועות</span>
 </div>
 <table>
 <thead><tr>
