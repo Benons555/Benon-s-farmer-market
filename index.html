@@ -2413,8 +2413,14 @@ function exportCorporateExpensePDF(clientName){
     const hexOrders=orders.filter(o=>{const ce=o.coupon?Object.values(COUPONS).find(c=>c.name===o.coupon):null;return ce&&ce.sponsored;});
     if(!hexOrders.length){alert('לא נמצאו הזמנות עם קופון Hexagon');return;}
     numPackages=hexOrders.length;
-    const couponPriceInc=parseFloat((50*1.18).toFixed(2)); // ₪50 ex-VAT = ₪59 inc-VAT
-    order={name:'Hexagon',items:[{name:"קופון Hexagon — BENON'S",sub:"שבועות 2026",qty:numPackages,price:couponPriceInc,supplier:'Hexagon'}],total:numPackages*couponPriceInc,notes:numPackages+' קופונים',floor:'',date:new Date().toLocaleString('he-IL'),numPackages};
+    const couponPriceInc=parseFloat((50*1.18).toFixed(2));
+    const couponItem={name:"קופון Hexagon — BENON'S",sub:"שבועות 2026",qty:numPackages,price:couponPriceInc,supplier:'Hexagon'};
+    // Find corporate event order (manual order for הקסגון)
+    const hexEventOrder=orders.find(o=>!o.coupon&&(o.name==='הקסגון'||o.name.toLowerCase().includes('hexagon')||(o.notes||'').includes('הקסגון')));
+    const hexEventItems=hexEventOrder?(hexEventOrder.items||[]):[];
+    const allItems=[couponItem,...hexEventItems];
+    const total=numPackages*couponPriceInc+hexEventItems.reduce((s,i)=>s+i.price*i.qty,0);
+    order={name:'Hexagon',items:allItems,total,notes:numPackages+' קופונים',floor:'',date:new Date().toLocaleString('he-IL'),numPackages};
   } else {
     order=orders.find(o=>o.name===clientName)||orders.find(o=>o.name.includes(clientName));
     if(!order){alert('לא נמצאה הזמנה עבור: '+clientName);return;}
