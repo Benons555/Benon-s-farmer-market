@@ -2797,7 +2797,7 @@ function confirmAddItem(orderId){
   const price=parseFloat((priceEx*1.18).toFixed(2));
   if(!name||isNaN(price)||price<=0){alert('נדרש שם מוצר ומחיר תקין');return;}
   if(!_orderEdits[orderId])return;
-  _orderEdits[orderId].push({name,sub,supplier,qty,price});
+  _orderEdits[orderId].push({name,sub,supplier,qty,price,priceEx});
   renderOrderEdit(orderId);
 }
 
@@ -3862,7 +3862,7 @@ function buildCorporateIncome(clientName, orders){
     const eventItems=(hexEventOrder?(hexEventOrder.items||[]):[]).map(i=>({
       description:i.name+(i.sub?' — '+i.sub:''),
       quantity:i.qty,
-      price:parseFloat((i.price/1.18).toFixed(2)),
+      price:parseFloat((i.priceEx!==undefined?i.priceEx:i.price/1.18).toFixed(2)),
       currency:'ILS',vatType:1
     }));
     return {
@@ -3880,7 +3880,7 @@ function buildCorporateIncome(clientName, orders){
     income:(order.items||[]).map(i=>({
       description:i.name+(i.sub?' — '+i.sub:''),
       quantity:i.qty,
-      price:parseFloat((i.price/1.18).toFixed(2)),
+      price:parseFloat((i.priceEx!==undefined?i.priceEx:i.price/1.18).toFixed(2)),
       currency:'ILS',vatType:1
     }))
   };
