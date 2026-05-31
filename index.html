@@ -2592,6 +2592,14 @@ ${eventItems.length>0?`
   <div class="gt-item"><div class="gt-label">סה"כ לתשלום כולל מע"מ</div><div class="gt-value">₪${totalOrderInc.toFixed(2)}</div></div>
 </div>
 
+<div class="no-print" style="position:fixed;bottom:24px;left:50%;transform:translateX(-50%);display:flex;gap:12px;z-index:9999">
+  <button onclick="window.print()" style="background:#1B3A6B;color:#fff;border:none;border-radius:8px;padding:12px 28px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;box-shadow:0 4px 16px rgba(0,0,0,.25)">
+    ⬇ הורד PDF
+  </button>
+  <button onclick="window.close()" style="background:#888;color:#fff;border:none;border-radius:8px;padding:12px 20px;font-size:14px;cursor:pointer;font-family:inherit;box-shadow:0 4px 16px rgba(0,0,0,.2)">
+    ✕ סגור
+  </button>
+</div>
 <div class="footer">
   <span>benons555.github.io/Benon-s-farmer-market</span>
   <span>הופק ב-${date}</span>
@@ -3728,22 +3736,25 @@ async function createHexagonInvoice(){
       return ce&&ce.sponsored;
     });
     if(!hexOrders.length){alert('אין הזמנות עם קופון Hexagon');if(btn){btn.disabled=false;btn.textContent='📄 חשבונית ל-Hexagon';}return;}
+    const payType=await selectPaymentMethod();
+    if(payType===null){if(btn){btn.disabled=false;btn.textContent='📄 חשבונית ל-Hexagon';}return;}
     const token=await giToken();
     const today=new Date().toISOString().slice(0,10);
-    const income=hexOrders.map(o=>({
-      description:'קופון Hexagon — '+o.name+' (#'+o.id+')',
-      quantity:1,
-      price:parseFloat(((o.discount||0)/1.18).toFixed(2)),
+    const couponPriceEx=50; // ₪50 ex-VAT per coupon
+    const income=[{
+      description:"קופון Hexagon — BENON'S Farmer's Market שבועות 2026",
+      quantity:hexOrders.length,
+      price:couponPriceEx,
       currency:'ILS',
       vatType:1
-    }));
-    const total=hexOrders.reduce((s,o)=>s+(o.discount||0),0);
+    }];
+    const total=parseFloat((hexOrders.length*couponPriceEx*1.18).toFixed(2));
     const payload={
-      description:"תמיכת קופון Hexagon — BENON'S Farmer's Market",
+      description:"קופוני Hexagon — BENON'S Farmer's Market",
       type:400,date:today,dueDate:today,lang:'he',currency:'ILS',vatType:1,
       client:{name:'Hexagon'},
       income,
-      payment:[{type:4,price:parseFloat(total.toFixed(2)),currency:'ILS',date:today}]
+      payment:[{type:payType,price:total,currency:'ILS',date:today}]
     };
     const res=await fetch(GI_BASE+'/documents',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify(payload)});
     const doc=await res.json();
@@ -3848,33 +3859,36 @@ async function createCorporateInvoice(clientName,btnId){
   try{
     const orders=(_adminOrders.length?_adminOrders:getOrders());
     let order;
-    if(clientName==='hexagon'){
-      const hexOrders=orders.filter(o=>{const ce=o.coupon?Object.values(COUPONS).find(c=>c.name===o.coupon):null;return ce&&ce.sponsored;});
-      if(!hexOrders.length){alert('אין הזמנות Hexagon');if(btn){btn.disabled=false;btn.textContent='📄 חשבונית';}return;}
-      const allItems=[];
-      hexOrders.forEach(o=>{(o.items||[]).forEach(i=>{const k=i.name+'|'+(i.sub||'');const ex=allItems.find(x=>x._key===k);if(ex)ex.qty+=i.qty;else allItems.push({...i,_key:k});});});
-      order={name:'Hexagon',items:allItems,total:hexOrders.reduce((s,o)=>s+o.total,0),numPackages:hexOrders.length};
-    } else {
-      order=orders.find(o=>o.name===clientName)||orders.find(o=>o.name.includes(clientName));
-      if(!order){alert('לא נמצאה הזמנה עבור: '+clientName);if(btn){btn.disabled=false;btn.textContent='📄 חשבונית';}return;}
-    }
     const payType=await selectPaymentMethod();
     if(payType===null){if(btn){btn.disabled=false;btn.textContent='📄 חשבונית';}return;}
     const token=await giToken();
     const today=new Date().toISOString().slice(0,10);
-    const income=(order.items||[]).map(i=>({
-      description:i.name+(i.sub?' — '+i.sub:''),
-      quantity:i.qty,
-      price:parseFloat((i.price/1.18).toFixed(2)),
-      currency:'ILS',
-      vatType:1
-    }));
+    let income,totalPayment,clientDisplayName;
+    if(clientName==='hexagon'){
+      const hexOrders=orders.filter(o=>{const ce=o.coupon?Object.values(COUPONS).find(c=>c.name===o.coupon):null;return ce&&ce.sponsored;});
+      if(!hexOrders.length){alert('אין הזמנות Hexagon');if(btn){btn.disabled=false;btn.textContent='📄 חשבונית';}return;}
+      clientDisplayName='Hexagon';
+      income=[{description:"קופון Hexagon — BENON'S Farmer's Market שבועות 2026",quantity:hexOrders.length,price:50,currency:'ILS',vatType:1}];
+      totalPayment=parseFloat((hexOrders.length*50*1.18).toFixed(2));
+    } else {
+      order=orders.find(o=>o.name===clientName)||orders.find(o=>o.name.includes(clientName));
+      if(!order){alert('לא נמצאה הזמנה עבור: '+clientName);if(btn){btn.disabled=false;btn.textContent='📄 חשבונית';}return;}
+      clientDisplayName=order.name;
+      income=(order.items||[]).map(i=>({
+        description:i.name+(i.sub?' — '+i.sub:''),
+        quantity:i.qty,
+        price:parseFloat((i.price/1.18).toFixed(2)),
+        currency:'ILS',
+        vatType:1
+      }));
+      totalPayment=parseFloat(order.total.toFixed(2));
+    }
     const payload={
-      description:"הזמנה ארגונית BENON'S — "+order.name,
+      description:"הזמנה ארגונית BENON'S — "+clientDisplayName,
       type:400,date:today,dueDate:today,lang:'he',currency:'ILS',vatType:1,
-      client:{name:order.name},
+      client:{name:clientDisplayName},
       income,
-      payment:[{type:payType,price:parseFloat(order.total.toFixed(2)),currency:'ILS',date:today}]
+      payment:[{type:payType,price:totalPayment,currency:'ILS',date:today}]
     };
     const res=await fetch(GI_BASE+'/documents',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify(payload)});
     const doc=await res.json();
