@@ -2687,7 +2687,7 @@ function renderOrderEdit(orderId){
             <input id="ai-sup-${orderId}" placeholder="שם ספק" style="border:1px solid #bdd;padding:5px 8px;border-radius:5px;width:110px;font-size:13px;font-family:inherit"></div>
           <div><label style="font-size:11px;display:block;margin-bottom:2px;font-weight:600">כמות</label>
             <input id="ai-qty-${orderId}" type="number" min="1" value="1" style="border:1px solid #bdd;padding:5px 8px;border-radius:5px;width:60px;font-size:13px;font-family:inherit;text-align:center"></div>
-          <div><label style="font-size:11px;display:block;margin-bottom:2px;font-weight:600">מחיר כולל מע"מ ₪</label>
+          <div><label style="font-size:11px;display:block;margin-bottom:2px;font-weight:600">מחיר ללא מע"מ ₪</label>
             <input id="ai-price-${orderId}" type="number" step="0.01" placeholder="0.00" style="border:1px solid #bdd;padding:5px 8px;border-radius:5px;width:90px;font-size:13px;font-family:inherit"></div>
           <button class="ebtn" style="background:#2E5E3E;color:white;border-color:#2E5E3E;padding:6px 16px;font-size:13px" onclick="confirmAddItem('${orderId}')">+ הוסף</button>
         </div>
@@ -2793,7 +2793,8 @@ function confirmAddItem(orderId){
   const sub=(document.getElementById('ai-sub-'+orderId).value||'').trim();
   const supplier=(document.getElementById('ai-sup-'+orderId).value||'').trim();
   const qty=parseInt(document.getElementById('ai-qty-'+orderId).value)||1;
-  const price=parseFloat(document.getElementById('ai-price-'+orderId).value);
+  const priceEx=parseFloat(document.getElementById('ai-price-'+orderId).value);
+  const price=parseFloat((priceEx*1.18).toFixed(2));
   if(!name||isNaN(price)||price<=0){alert('נדרש שם מוצר ומחיר תקין');return;}
   if(!_orderEdits[orderId])return;
   _orderEdits[orderId].push({name,sub,supplier,qty,price});
