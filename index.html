@@ -2654,7 +2654,11 @@ function renderOrderEdit(orderId){
             <input type="number" min="1" value="${i.qty}" onchange="updateOrderEditQty('${orderId}',${idx},this.value)"
               style="width:58px;text-align:center;border:1px solid #ddd;padding:3px 2px;border-radius:3px;font-size:12px">
           </td>
-          <td style="padding:5px 8px">₪${i.price.toFixed(2)}</td>
+          <td style="padding:5px 8px">
+            <span id="price-lbl-${orderId}-${idx}">₪${i.price.toFixed(2)}</span>
+            <button onclick="editItemPrice('${orderId}',${idx})"
+              style="background:#fff8e1;color:#b8860b;border:1px solid #ffe082;border-radius:3px;padding:1px 5px;cursor:pointer;font-size:10px;margin-right:4px" title="תקן מחיר ללא מע״מ">✏</button>
+          </td>
           <td style="padding:5px 8px;font-weight:600">₪${(i.price*i.qty).toFixed(2)}</td>
           <td style="padding:5px 8px">
             <button onclick="removeOrderEditItem('${orderId}',${idx})"
@@ -3484,7 +3488,7 @@ function renderAdminWithOrders(orders){
   const avgMargin=grandTotal>0?(grandProfit/grandTotal*100):0;
   const netMargin=grandTotal>0?(netProfit/grandTotal*100):0;
   document.getElementById('adminView').innerHTML=`
-  <div class="admin-hdr"><h1>📋 ממשק ניהול — BENON'S</h1><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="ebtn" onclick="renderAdmin()">🔄 רענן</button><button class="ebtn" onclick="exportCSV()">⬇ CSV</button><button class="ebtn" style="background:#1B3A6B;color:#F5D87A;font-weight:700" onclick="addAmbrellaOrder()">🏢 אמברלה</button><button class="ebtn" style="background:#2E5E3E;color:#A8D5B5;font-weight:700" onclick="addWimiOrder()">🏢 וימי</button><button class="ebtn" style="background:#4A7C59;color:#fff;font-weight:700" onclick="openManualOrderModal()">➕ הזמנה ידנית</button><button class="ebtn" style="background:#f0e6ff;color:#5b21b6;font-weight:600" onclick="exportCorporateExpensePDF('חברת אמברלה')">📊 הצעה אמברלה</button><button id="corp-inv-amb" class="ebtn" style="background:#dde8ff;color:#5b21b6;font-weight:600" onclick="createCorporateInvoice('חברת אמברלה','corp-inv-amb')">📄 חשבונית אמברלה</button><button class="ebtn" style="background:#e6f0ff;color:#1B3A6B;font-weight:600" onclick="exportCorporateExpensePDF('חברת וימי')">📊 הצעה וימי</button><button id="corp-inv-wimi" class="ebtn" style="background:#d0e4ff;color:#1B3A6B;font-weight:600" onclick="createCorporateInvoice('חברת וימי','corp-inv-wimi')">📄 חשבונית וימי</button><button class="ebtn" style="background:#fff3e0;color:#e65100;font-weight:600" onclick="exportCorporateExpensePDF('hexagon')">📊 הצעה Hexagon</button><button id="corp-inv-hex" class="ebtn" style="background:#ffe8d0;color:#e65100;font-weight:600" onclick="createCorporateInvoice('hexagon','corp-inv-hex')">📄 חשבונית Hexagon</button><button class="ebtn" style="background:#e8f5e9;color:#1b5e20;font-weight:600" onclick="exportCorporateExpensePDF('וופה')">📊 הצעה וופה</button><button id="corp-inv-wufa" class="ebtn" style="background:#d0f0da;color:#1b5e20;font-weight:600" onclick="createCorporateInvoice('וופה','corp-inv-wufa')">📄 חשבונית וופה</button><button class="ebtn" style="background:#eee;color:#555" onclick="adminLogout()">🔒 יציאה</button></div></div>
+  <div class="admin-hdr"><h1>📋 ממשק ניהול — BENON'S</h1><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="ebtn" onclick="renderAdmin()">🔄 רענן</button><button class="ebtn" onclick="exportCSV()">⬇ CSV</button><button class="ebtn" style="background:#1B3A6B;color:#F5D87A;font-weight:700" onclick="addAmbrellaOrder()">🏢 אמברלה</button><button class="ebtn" style="background:#2E5E3E;color:#A8D5B5;font-weight:700" onclick="addWimiOrder()">🏢 וימי</button><button class="ebtn" style="background:#4A7C59;color:#fff;font-weight:700" onclick="openManualOrderModal()">➕ הזמנה ידנית</button><button class="ebtn" style="background:#f0e6ff;color:#5b21b6;font-weight:600" onclick="exportCorporateExpensePDF('חברת אמברלה')">📊 הצעה אמברלה</button><button id="corp-inv-amb" class="ebtn" style="background:#dde8ff;color:#5b21b6;font-weight:600" onclick="createCorporateInvoice('חברת אמברלה','corp-inv-amb')">📄 חשבונית אמברלה</button><button class="ebtn" style="background:#e6f0ff;color:#1B3A6B;font-weight:600" onclick="exportCorporateExpensePDF('חברת וימי')">📊 הצעה וימי</button><button id="corp-inv-wimi" class="ebtn" style="background:#d0e4ff;color:#1B3A6B;font-weight:600" onclick="createCorporateInvoice('חברת וימי','corp-inv-wimi')">📄 חשבונית וימי</button><button class="ebtn" style="background:#fff3e0;color:#e65100;font-weight:600" onclick="exportCorporateExpensePDF('hexagon')">📊 הצעה Hexagon</button><button id="corp-inv-hex" class="ebtn" style="background:#ffe8d0;color:#e65100;font-weight:600" onclick="createCorporateInvoice('hexagon','corp-inv-hex')">📄 חשבונית Hexagon</button><button class="ebtn" style="background:#e8f5e9;color:#1b5e20;font-weight:600" onclick="exportCorporateExpensePDF('וופה')">📊 הצעה וופה</button><button id="corp-inv-wufa" class="ebtn" style="background:#d0f0da;color:#1b5e20;font-weight:600" onclick="createCorporateInvoice('וופה','corp-inv-wufa')">📄 חשבונית וופה</button><button class="ebtn" style="background:#1B3A6B;color:#F5D87A;font-weight:700" onclick="openBulkInvoiceModal()">📄 חשבוניות פרטיים</button><button class="ebtn" style="background:#eee;color:#555" onclick="adminLogout()">🔒 יציאה</button></div></div>
   <div class="stats-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:12px">
     <div class="stat-card"><div class="stat-num">${orders.length}</div><div class="stat-lbl">הזמנות</div></div>
     <div class="stat-card"><div class="stat-num">₪${grandTotal.toFixed(0)}</div><div class="stat-lbl">סה״כ הכנסות (לפני מע״מ)${sponsoredIncome>0?' — כולל ₪'+sponsoredIncome.toFixed(0)+' מ-Hexagon':''}</div></div>
@@ -3973,6 +3977,113 @@ function createCorporateInvoice(clientName,btnId){
   const btn=document.getElementById(btnId);
   if(btn){btn.disabled=true;btn.textContent='...';}
   showInvoiceConfirm(clientName,btnId);
+}
+// ── תיקון מחיר פריט בהזמנה ──
+function editItemPrice(orderId, idx){
+  const items=_orderEdits[orderId];
+  if(!items||!items[idx])return;
+  const i=items[idx];
+  const currentEx=i.priceEx!==undefined?i.priceEx:parseFloat((i.price/1.18).toFixed(2));
+  const val=prompt('מחיר ללא מע"מ עבור "'+i.name+'" (נוכחי: ₪'+currentEx.toFixed(2)+'):',currentEx.toFixed(2));
+  if(val===null||val==='')return;
+  const newEx=parseFloat(val);
+  if(isNaN(newEx)||newEx<=0){alert('מחיר לא תקין');return;}
+  items[idx].priceEx=parseFloat(newEx.toFixed(2));
+  items[idx].price=parseFloat((newEx*1.18).toFixed(2));
+  renderOrderEdit(orderId);
+}
+
+// ── יצירת חשבוניות bulk ללקוחות פרטיים ──
+const _CORP_NAMES=['חברת אמברלה','חברת וימי','הקסגון','וופה'];
+const _ALREADY_INVOICED=['חלי קציר','קריסטל אישפסי','ערן אסאו','גוולי'];
+
+function _isCorporate(o){
+  if(_CORP_NAMES.some(n=>o.name.includes(n)))return true;
+  if((o.name||'').toLowerCase().includes('hexagon'))return true;
+  const ce=o.coupon?Object.values(COUPONS).find(c=>c.name===o.coupon):null;
+  return !!(ce&&ce.sponsored);
+}
+
+function openBulkInvoiceModal(){
+  const orders=(_adminOrders.length?_adminOrders:getOrders());
+  const toInvoice=orders.filter(o=>{
+    if(_isCorporate(o))return false;
+    if(_ALREADY_INVOICED.some(n=>o.name===n||o.name.includes(n)))return false;
+    return true;
+  });
+  if(!toInvoice.length){alert('אין לקוחות פרטיים ללא חשבונית');return;}
+  const rows=toInvoice.map((o,i)=>`
+    <tr style="border-bottom:1px solid #eee">
+      <td style="padding:6px 10px"><input type="checkbox" id="bulk-chk-${i}" checked style="width:16px;height:16px"></td>
+      <td style="padding:6px 10px;font-weight:600">${o.name}</td>
+      <td style="padding:6px 10px;color:#555;font-size:12px">${o.phone||''}</td>
+      <td style="padding:6px 10px;text-align:left;font-weight:700">₪${o.total.toFixed(2)}</td>
+      <td style="padding:6px 10px;font-size:11px;color:#888">${o.ref||o.id}</td>
+    </tr>`).join('');
+  const html=`
+  <div id="bulk-inv-overlay" style="position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10000;display:flex;align-items:center;justify-content:center;direction:rtl">
+    <div style="background:#fff;border-radius:12px;padding:28px 32px;max-width:680px;width:95%;max-height:85vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,.3)">
+      <h2 style="margin:0 0 4px;color:#1B3A6B;font-size:20px">יצירת חשבוניות — לקוחות פרטיים</h2>
+      <p style="margin:0 0 16px;color:#666;font-size:13px">${toInvoice.length} לקוחות • בחר אילו לכלול</p>
+      <table style="width:100%;border-collapse:collapse;font-size:14px">
+        <thead><tr style="background:#f0f4ff">
+          <th style="padding:8px 10px;width:36px"><input type="checkbox" id="bulk-chk-all" checked onchange="document.querySelectorAll('[id^=bulk-chk-]').forEach(c=>{if(c.id!=='bulk-chk-all')c.checked=this.checked})"></th>
+          <th style="padding:8px 10px;text-align:right">שם</th>
+          <th style="padding:8px 10px;text-align:right">טלפון</th>
+          <th style="padding:8px 10px;text-align:left">סה״כ</th>
+          <th style="padding:8px 10px;text-align:right">מזהה</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+      <div id="bulk-inv-progress" style="margin-top:12px;font-size:13px;color:#555;min-height:20px"></div>
+      <div style="display:flex;gap:10px;margin-top:18px;justify-content:flex-end">
+        <button onclick="document.getElementById('bulk-inv-overlay').remove()"
+          style="padding:9px 20px;border-radius:7px;border:1px solid #ccc;background:#f5f5f5;cursor:pointer;font-size:14px">ביטול</button>
+        <button onclick="runBulkInvoices(${JSON.stringify(toInvoice).replace(/'/g,'&#39;')})"
+          style="padding:9px 22px;border-radius:7px;border:none;background:#1B3A6B;color:#fff;font-weight:700;cursor:pointer;font-size:14px">✔ צור חשבוניות לנבחרים</button>
+      </div>
+    </div>
+  </div>`;
+  document.body.insertAdjacentHTML('beforeend',html);
+}
+
+async function runBulkInvoices(orders){
+  const prog=document.getElementById('bulk-inv-progress');
+  const token=await giToken().catch(e=>{alert('שגיאת אימות: '+e.message);return null;});
+  if(!token)return;
+  const today=new Date().toISOString().slice(0,10);
+  let done=0,failed=0;
+  for(let i=0;i<orders.length;i++){
+    const chk=document.getElementById('bulk-chk-'+i);
+    if(!chk||!chk.checked)continue;
+    const o=orders[i];
+    if(prog)prog.innerHTML='⏳ מעבד '+o.name+' ('+(i+1)+'/'+orders.length+')...';
+    try{
+      const income=(o.items||[]).map(item=>({
+        description:item.name+(item.sub?' — '+item.sub:''),
+        quantity:item.qty,
+        price:parseFloat((item.priceEx!==undefined?item.priceEx:item.price/1.18).toFixed(2)),
+        currency:'ILS',vatType:1
+      }));
+      if(o.discount>0){
+        income.push({description:'הנחת קופון '+(o.coupon||''),quantity:1,price:parseFloat((-o.discount/1.18).toFixed(2)),currency:'ILS',vatType:1});
+      }
+      const payload={
+        description:'הזמנה BENON\'S — '+(o.ref||o.id),
+        type:300,date:today,lang:'he',currency:'ILS',vatType:1,
+        client:{name:o.name,phone:o.phone||''},
+        income
+      };
+      const res=await fetch(GI_BASE+'/documents',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify(payload)});
+      const doc=await res.json();
+      if(doc.id){done++;}
+      else{failed++;console.error('bulk invoice error for '+o.name,doc);}
+    }catch(e){failed++;console.error('bulk invoice exception for '+o.name,e);}
+    await new Promise(r=>setTimeout(r,400)); // עיכוב קצר בין בקשות
+  }
+  if(prog)prog.innerHTML='✅ הושלם: '+done+' חשבוניות נוצרו'+(failed?' | ⚠️ '+failed+' שגיאות':'');
+  const closeBtn=document.querySelector('#bulk-inv-overlay button:first-child');
+  if(closeBtn)closeBtn.textContent='סגור';
 }
 // ===== end Green Invoice =====
 
