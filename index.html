@@ -3932,13 +3932,16 @@ function buildCorporateIncome(clientName, orders){
   }
   const order=orders.find(o=>o.name===clientName)||orders.find(o=>o.name.includes(clientName));
   if(!order) return null;
+  const incomeItems=(order.items||[]).map(i=>({
+    description:i.name+(i.sub?' — '+i.sub:''),
+    quantity:i.qty,
+    price:parseFloat((i.priceEx!==undefined?i.priceEx:i.price/1.18).toFixed(2))
+  }));
+  const subtotalEx=incomeItems.reduce((s,i)=>s+i.price*i.quantity,0);
+  const commission=parseFloat((subtotalEx*0.01).toFixed(2));
   return {
     clientDisplayName:order.name,
-    income:(order.items||[]).map(i=>({
-      description:i.name+(i.sub?' — '+i.sub:''),
-      quantity:i.qty,
-      price:parseFloat((i.priceEx!==undefined?i.priceEx:i.price/1.18).toFixed(2))
-    }))
+    income:[...incomeItems,{description:'עמלת שירות 1%',quantity:1,price:commission}]
   };
 }
 
@@ -4001,7 +4004,7 @@ async function submitCorporateInvoice(clientName,btnId){
     const today=new Date().toISOString().slice(0,10);
     const payload={
       description:"הזמנה ארגונית BENON'S — "+clientDisplayName,
-      type:300,date:today,lang:'he',currency:'ILS',
+      type:305,date:today,lang:'he',currency:'ILS',
       client:{name:clientDisplayName},
       income
     };
