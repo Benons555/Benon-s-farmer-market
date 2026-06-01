@@ -3853,10 +3853,7 @@ function selectPaymentMethod(){
       <select id="pmSelect" style="width:100%;padding:10px 12px;font-size:15px;border:1px solid #ccc;border-radius:8px;font-family:inherit;direction:rtl;margin-bottom:18px;">
         <option value="1">מזומן</option>
         <option value="4">העברה בנקאית</option>
-        <option value="10">ביט</option>
-        <option value="11">פייבוקס</option>
         <option value="3">כרטיס אשראי</option>
-        <option value="2">המחאה</option>
       </select>
       <div style="display:flex;gap:10px;justify-content:center;">
         <button onclick="const v=document.getElementById('pmSelect').value;document.getElementById('payMethodModal').remove();window._pmResolve(parseInt(v));" style="background:#1B3A6B;color:#fff;border:none;border-radius:8px;padding:10px 28px;font-size:15px;cursor:pointer;font-family:inherit;">אשר</button>
@@ -4215,10 +4212,7 @@ async function resetPaidNoInvoice(){
       <select id="rpni-pay" style="width:100%;padding:10px 12px;font-size:15px;border:1px solid #ccc;border-radius:8px;font-family:inherit;direction:rtl;margin-bottom:16px">
         <option value="1">מזומן</option>
         <option value="4">העברה בנקאית</option>
-        <option value="10">ביט</option>
-        <option value="11">פייבוקס</option>
         <option value="3">כרטיס אשראי</option>
-        <option value="2">המחאה</option>
       </select>
       <table style="width:100%;border-collapse:collapse;font-size:14px">
         <thead><tr style="background:#f0f4ff">
