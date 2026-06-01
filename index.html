@@ -1686,7 +1686,16 @@ function openCheckout(){
 }
 
 
-const CATEGORIES = CATEGORY_ORDER.filter(cat => PRODUCTS.some(p => p.cat === cat));
+// ─── מוצרים מוסתרים זמנית ───────────────────────────────────────────────────
+// כדי להסתיר מוצר: הוסף את ה-id שלו לרשימה למטה
+// כדי להחזיר: הסר את ה-id מהרשימה
+// ─────────────────────────────────────────────────────────────────────────────
+const HIDDEN_PRODUCTS = [
+  // לדוגמה: 5, 12, 37
+];
+const VISIBLE_PRODUCTS = PRODUCTS.filter(p => !HIDDEN_PRODUCTS.includes(p.id));
+
+const CATEGORIES = CATEGORY_ORDER.filter(cat => VISIBLE_PRODUCTS.some(p => p.cat === cat));
 
 const ICONS={};
 
@@ -1761,7 +1770,7 @@ function renderShop(){
     return `<div class="cat-section" id="${id}">
       <div class="cat-title">${ICONS[cat]||''} ${cat}</div>
       ${bio}
-      <div class="products-grid">${PRODUCTS.filter(p=>p.cat===cat).map(pcard).join('')}</div>
+      <div class="products-grid">${VISIBLE_PRODUCTS.filter(p=>p.cat===cat).map(pcard).join('')}</div>
     </div>`;
   }).join('');
 }
@@ -1774,7 +1783,7 @@ function chg(id,d){
   try{localStorage.setItem('benon_cart',JSON.stringify(cart));}catch(e){}
 }
 
-function cartItems(){return PRODUCTS.filter(p=>(cart[p.id]||0)>0);}
+function cartItems(){return VISIBLE_PRODUCTS.filter(p=>(cart[p.id]||0)>0);}
 function cartTotal(){return cartItems().reduce((s,p)=>s+p.price*(cart[p.id]||0),0);}
 
 function updateCartUI(){
