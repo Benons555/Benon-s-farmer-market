@@ -3916,11 +3916,17 @@ function buildCorporateIncome(clientName, orders){
       quantity:i.qty,
       price:parseFloat((i.priceEx!==undefined?i.priceEx:i.price/1.18).toFixed(2))
     }));
+    const baseIncome=[
+      {description:"קופון Hexagon — BENON'S Farmer's Market שבועות 2026",quantity:hexOrders.length,price:50},
+      ...eventItems
+    ];
+    const subtotalEx=baseIncome.reduce((s,i)=>s+i.price*i.quantity,0);
+    const commission=parseFloat((subtotalEx*0.01).toFixed(2));
     return {
       clientDisplayName:'Hexagon',
       income:[
-        {description:"קופון Hexagon — BENON'S Farmer's Market שבועות 2026",quantity:hexOrders.length,price:50},
-        ...eventItems
+        ...baseIncome,
+        {description:'עמלת שירות 1%',quantity:1,price:commission}
       ]
     };
   }
