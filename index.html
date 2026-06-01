@@ -2138,7 +2138,7 @@ async function markPaid(id){
   fbDB.ref('orders/'+id).update({paid:true,paymentType:payType}).catch(()=>{});
   renderAdmin();
   // יצירת חשבונית מס קבלה אוטומטית (לא לחברות — להן יש כפתורים נפרדים)
-  if(!_isCorporate(o)){
+  if(!_isCorporate(o) && !o.giDocId){
     _autoCreateInvoice(o,payType);
   }
 }
