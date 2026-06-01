@@ -4115,8 +4115,13 @@ async function openBulkInvoiceModal(){
   const html=`
   <div id="bulk-inv-overlay" style="position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10000;display:flex;align-items:center;justify-content:center;direction:rtl">
     <div style="background:#fff;border-radius:12px;padding:28px 32px;max-width:680px;width:95%;max-height:85vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,.3)">
-      <h2 style="margin:0 0 4px;color:#1B3A6B;font-size:20px">יצירת חשבוניות — לקוחות פרטיים</h2>
-      <p style="margin:0 0 16px;color:#666;font-size:13px">${toInvoice.length} לקוחות ללא חשבונית • בחר אילו לכלול</p>
+      <h2 style="margin:0 0 4px;color:#1B3A6B;font-size:20px">חשבוניות מס קבלה — לקוחות פרטיים</h2>
+      <p style="margin:0 0 10px;color:#666;font-size:13px">${toInvoice.length} לקוחות ללא חשבונית • בחר אמצעי תשלום ואילו לכלול</p>
+      <select id="bulk-inv-pay" style="width:100%;padding:10px 12px;font-size:15px;border:1px solid #ccc;border-radius:8px;font-family:inherit;direction:rtl;margin-bottom:16px">
+        <option value="1">מזומן</option>
+        <option value="4">העברה בנקאית</option>
+        <option value="3">כרטיס אשראי</option>
+      </select>
       <table style="width:100%;border-collapse:collapse;font-size:14px">
         <thead><tr style="background:#f0f4ff">
           <th style="padding:8px 10px;width:36px"><input type="checkbox" id="bulk-chk-all" checked onchange="document.querySelectorAll('[id^=bulk-chk-]').forEach(c=>{if(c.id!=='bulk-chk-all')c.checked=this.checked})"></th>
@@ -4142,6 +4147,7 @@ async function openBulkInvoiceModal(){
 }
 
 async function runBulkInvoices(orders){
+  const payType=parseInt(document.getElementById('bulk-inv-pay').value);
   const prog=document.getElementById('bulk-inv-progress');
   const token=await giToken().catch(e=>{alert('שגיאת אימות: '+e.message);return null;});
   if(!token)return;
@@ -4163,18 +4169,18 @@ async function runBulkInvoices(orders){
       }
       const payload={
         description:'הזמנה BENON\'S — '+(o.ref||o.id),
-        type:300,date:today,lang:'he',currency:'ILS',
+        type:320,date:today,lang:'he',currency:'ILS',
         client:{name:o.name,phone:o.phone||''},
-        income
+        income,
+        payment:[{type:payType,price:parseFloat(o.total.toFixed(2)),currency:'ILS',date:today}]
       };
       const res=await fetch(GI_BASE+'/documents',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify(payload)});
       const doc=await res.json();
       if(doc.id){
         done++;
-        // שמור giDocId ב-Firebase כדי למנוע כפילויות בעתיד
-        await fbDB.ref('orders/'+o.id+'/giDocId').set(doc.id).catch(()=>{});
+        await fbDB.ref('orders/'+o.id).update({giDocId:doc.id,paid:true,paymentType:payType}).catch(()=>{});
         const ai=(_adminOrders||[]).findIndex(x=>x.id===o.id);
-        if(ai!==-1)_adminOrders[ai].giDocId=doc.id;
+        if(ai!==-1){_adminOrders[ai].giDocId=doc.id;_adminOrders[ai].paid=true;}
       } else {
         failed++;
         console.error('bulk invoice error for '+o.name,doc);
@@ -4186,7 +4192,7 @@ async function runBulkInvoices(orders){
     }
     await new Promise(r=>setTimeout(r,500));
   }
-  if(prog)prog.innerHTML='✅ הושלם: '+done+' חשבוניות נוצרו'+(failed?' | ⚠️ '+failed+' שגיאות':'');
+  if(prog)prog.innerHTML='✅ הושלם: '+done+' חשבוניות מס קבלה נוצרו'+(failed?' | ⚠️ '+failed+' שגיאות':'');
   const closeBtn=document.querySelector('#bulk-inv-overlay button');
   if(closeBtn){closeBtn.textContent='סגור';closeBtn.onclick=()=>document.getElementById('bulk-inv-overlay').remove();}
 }
