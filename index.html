@@ -3871,25 +3871,23 @@ function updateWeeklyCartUI(){
   const panel=document.getElementById('weeklyCartPanel');
   if(!panel)return;
   const items=wCartItems();
+  const emptyEl=document.getElementById('weeklyCartEmpty');
   if(!items.length){
-    panel.innerHTML='<div style="color:#aaa;text-align:center;padding:20px">הסל ריק — בחר מוצרים למעלה</div>';
+    panel.innerHTML='';
     document.getElementById('weeklyCheckoutBtn').style.display='none';
+    if(emptyEl)emptyEl.style.display='block';
     return;
   }
+  if(emptyEl)emptyEl.style.display='none';
   panel.innerHTML=items.map(p=>`
-    <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #eee">
-      <div>
-        <div style="font-weight:600;font-size:14px">${p.name}</div>
-        <div style="color:#888;font-size:12px">${p.sub}</div>
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #f0ebe4">
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:600;font-size:13px;color:#1a1a1a">${p.name}</div>
+        <div style="color:#aaa;font-size:11px">${p.sub}</div>
       </div>
-      <div style="display:flex;align-items:center;gap:8px">
-        <div style="display:flex;align-items:center;gap:4px">
-          <button onclick="wChg(${p.id},-1)" style="width:24px;height:24px;border:1px solid #ddd;border-radius:50%;background:#fff;cursor:pointer;font-size:16px;line-height:1;display:flex;align-items:center;justify-content:center">−</button>
-          <span style="min-width:20px;text-align:center;font-weight:700">${weeklyCart[p.id]}</span>
-          <button onclick="wChg(${p.id},1)" style="width:24px;height:24px;border:1px solid #ddd;border-radius:50%;background:#fff;cursor:pointer;font-size:16px;line-height:1;display:flex;align-items:center;justify-content:center">+</button>
-        </div>
-        <div style="min-width:60px;text-align:left;font-weight:700;color:#2e7d32">₪${(p.price*(weeklyCart[p.id]||0)).toFixed(2)}</div>
-        <button onclick="wChg(${p.id},-(weeklyCart[${p.id}]||0))" style="background:none;border:none;color:#e53935;cursor:pointer;font-size:18px;padding:0">🗑</button>
+      <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+        <span style="min-width:52px;text-align:left;font-weight:700;color:#40916c;font-size:13px">₪${(p.price*(weeklyCart[p.id]||0)).toFixed(2)}</span>
+        <button onclick="wChg(${p.id},-(weeklyCart[${p.id}]||0))" style="background:none;border:none;color:#c62828;cursor:pointer;font-size:14px;padding:2px">✕</button>
       </div>
     </div>`).join('');
   document.getElementById('weeklyCheckoutBtn').style.display='block';
@@ -3907,71 +3905,84 @@ function renderWeeklyShop(){
   const view=document.getElementById('weeklyShopView');
   if(!view)return;
 
-  // group products by category, only show those in stock
   const inStockIds=new Set(Object.keys(_weeklyStock).filter(k=>_weeklyStock[k]>0).map(Number));
   const inStockProducts=PRODUCTS.filter(p=>inStockIds.has(p.id));
 
   if(!inStockProducts.length){
-    view.innerHTML=`<div style="text-align:center;padding:60px 20px;color:#888">
-      <div style="font-size:3rem;margin-bottom:12px">🛒</div>
-      <div style="font-size:1.1rem;font-weight:600;margin-bottom:8px">אין מלאי זמין כרגע</div>
-      <div style="font-size:0.9rem">בדקו שנית בקרוב</div>
+    view.innerHTML=`<div style="background:#f6f1eb;min-height:60vh;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#6b5744;padding:40px 20px;text-align:center">
+      <div style="font-size:3rem;margin-bottom:14px">🌿</div>
+      <div style="font-size:1.1rem;font-weight:700;margin-bottom:6px">אין מוצרים זמינים כרגע</div>
+      <div style="font-size:0.88rem;opacity:.75">בדקו שנית בקרוב</div>
     </div>`;
     return;
   }
 
-  // build category list preserving CATEGORIES order
   const activeCats=CATEGORIES.filter(c=>inStockProducts.some(p=>p.cat===c));
+  const G='#40916c', GL='#d8f3dc', GD='#1b4332', CREAM='#f6f1eb', BROWN='#6b5744';
 
-  const pcard=(p)=>{
+  const prow=(p)=>{
     const stock=_weeklyStock[p.id]||0;
     const q=weeklyCart[p.id]||0;
-    const ic=ICONS[p.cat]||'🧀';
-    const img=p.img?`<img src="${p.img}" alt="${p.name}" style="width:100%;height:140px;object-fit:cover;border-radius:8px 8px 0 0" onerror="this.outerHTML='<div style=\\'height:140px;display:flex;align-items:center;justify-content:center;font-size:2.5rem;background:#f5f5f5;border-radius:8px 8px 0 0\\'>'+ic+'</div>'">`:
-      `<div style="height:140px;display:flex;align-items:center;justify-content:center;font-size:2.5rem;background:#f5f5f5;border-radius:8px 8px 0 0">${ic}</div>`;
-    const stockBadge=stock<=3?`<span style="position:absolute;top:8px;right:8px;background:#e53935;color:#fff;border-radius:20px;padding:2px 8px;font-size:11px;font-weight:700">נשארו ${stock}</span>`:
-      `<span style="position:absolute;top:8px;right:8px;background:#2e7d32;color:#fff;border-radius:20px;padding:2px 8px;font-size:11px;font-weight:700">במלאי ✓</span>`;
-    return `<div class="pcard ${q>0?'in-cart':''}" id="wpc${p.id}" style="position:relative;border-radius:10px;box-shadow:0 2px 8px rgba(0,0,0,.1);overflow:hidden;background:#fff">
-      <div style="position:relative">${img}${stockBadge}</div>
-      <div style="padding:10px">
-        <div style="font-weight:700;font-size:0.95rem;margin-bottom:2px">${p.name}</div>
-        <div style="color:#888;font-size:0.82rem;margin-bottom:6px">${p.sub}</div>
-        <div style="font-weight:700;color:#2e7d32;font-size:1rem;margin-bottom:8px">₪${p.price.toFixed(2)}</div>
-        <div style="display:flex;align-items:center;gap:6px">
-          <button onclick="wChg(${p.id},-1)" style="width:28px;height:28px;border:1px solid #ddd;border-radius:50%;background:#fff;cursor:pointer;font-size:18px;line-height:1;display:flex;align-items:center;justify-content:center">−</button>
-          <div id="wqn${p.id}" style="min-width:24px;text-align:center;font-weight:700;font-size:1rem">${q}</div>
-          <button onclick="wChg(${p.id},1)" style="width:28px;height:28px;border:1px solid #ddd;border-radius:50%;background:#fff;cursor:pointer;font-size:18px;line-height:1;display:flex;align-items:center;justify-content:center">+</button>
+    const ic=ICONS[p.cat]||'🌿';
+    const img=p.img?`<img src="${p.img}" alt="${p.name}" style="width:56px;height:56px;object-fit:cover;border-radius:10px;flex-shrink:0" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div style="display:none;width:56px;height:56px;align-items:center;justify-content:center;font-size:1.8rem;background:#e8f5e9;border-radius:10px;flex-shrink:0">${ic}</div>`:
+      `<div style="width:56px;height:56px;display:flex;align-items:center;justify-content:center;font-size:1.8rem;background:#e8f5e9;border-radius:10px;flex-shrink:0">${ic}</div>`;
+    const lowStock=stock<=3;
+    return `<div id="wpc${p.id}" style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:#fff;border-radius:12px;margin-bottom:8px;border:2px solid ${q>0?G:'transparent'};transition:border-color .2s;box-shadow:0 1px 4px rgba(0,0,0,.06)">
+      ${img}
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:700;font-size:0.95rem;color:#1a1a1a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${p.name}</div>
+        <div style="font-size:0.78rem;color:#888;margin-bottom:3px">${p.sub}</div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-weight:800;color:${G};font-size:1rem">₪${p.price.toFixed(2)}</span>
+          <span style="font-size:10px;padding:1px 7px;border-radius:20px;font-weight:700;background:${lowStock?'#fdecea':'#e8f5e9'};color:${lowStock?'#c0392b':G}">${lowStock?'נשארו '+stock:'במלאי'}</span>
         </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+        <button onclick="wChg(${p.id},-1)" style="width:30px;height:30px;border:2px solid #ddd;border-radius:50%;background:#fff;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;color:#555">−</button>
+        <span id="wqn${p.id}" style="min-width:22px;text-align:center;font-weight:800;font-size:1rem;color:${GD}">${q}</span>
+        <button onclick="wChg(${p.id},1)" style="width:30px;height:30px;border:2px solid ${G};border-radius:50%;background:${G};cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;color:#fff">+</button>
       </div>
     </div>`;
   };
 
   view.innerHTML=`
-    <div style="background:linear-gradient(135deg,#1B3A6B,#2e7d32);color:#fff;padding:20px 16px;text-align:center;margin-bottom:16px">
-      <h2 style="margin:0 0 6px;font-size:1.3rem">🗓️ הזמנות מראש שבועיות</h2>
-      <p style="margin:0;font-size:0.88rem;opacity:0.85">הזמן/י מראש — תשלום ואיסוף בנקודת החלוקה</p>
+  <div style="background:${CREAM};min-height:100vh;padding-bottom:20px">
+    <!-- HEADER -->
+    <div style="background:${GD};color:#fff;padding:18px 16px 14px;text-align:center;position:relative">
+      <div style="font-size:0.75rem;letter-spacing:2px;opacity:.7;text-transform:uppercase;margin-bottom:4px">BENON'S MARKET</div>
+      <h2 style="margin:0;font-size:1.25rem;font-weight:800">🌿 הזמנות מראש שבועיות</h2>
+      <p style="margin:6px 0 0;font-size:0.82rem;opacity:.8">בחר/י מוצרים • שלח/י הזמנה • שלם/י באיסוף</p>
     </div>
-    <div style="padding:0 12px">
+
+    <!-- PRODUCTS BY CATEGORY -->
+    <div style="padding:14px 12px 0">
       ${activeCats.map(cat=>`
-        <div style="margin-bottom:24px">
-          <div style="font-size:1.05rem;font-weight:700;color:#1B3A6B;padding:8px 0;border-bottom:2px solid #1B3A6B;margin-bottom:12px">${ICONS[cat]||''} ${cat}</div>
-          <div class="products-grid">${inStockProducts.filter(p=>p.cat===cat).map(pcard).join('')}</div>
+        <div style="margin-bottom:20px">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+            <div style="flex:1;height:1px;background:#d4c4b0"></div>
+            <span style="font-size:0.8rem;font-weight:800;color:${BROWN};letter-spacing:1px;text-transform:uppercase;white-space:nowrap">${ICONS[cat]||'🌿'} ${cat}</span>
+            <div style="flex:1;height:1px;background:#d4c4b0"></div>
+          </div>
+          ${inStockProducts.filter(p=>p.cat===cat).map(prow).join('')}
         </div>`).join('')}
     </div>
-    <!-- Cart summary panel -->
-    <div style="background:#fff;border-top:2px solid #1B3A6B;padding:16px;margin-top:16px">
-      <div style="font-size:1rem;font-weight:700;color:#1B3A6B;margin-bottom:10px">🛒 הסל שלי</div>
-      <div id="weeklyCartPanel" style="max-height:220px;overflow-y:auto"></div>
-      <div id="weeklyCheckoutBtn" style="display:none;margin-top:12px">
+
+    <!-- STICKY CART BAR -->
+    <div style="position:sticky;bottom:0;background:#fff;border-top:2px solid ${G};padding:12px 16px;margin-top:8px">
+      <div style="font-size:0.85rem;font-weight:700;color:${GD};margin-bottom:8px">🛒 הסל שלי</div>
+      <div id="weeklyCartPanel" style="max-height:180px;overflow-y:auto;margin-bottom:8px"></div>
+      <div id="weeklyCheckoutBtn" style="display:none">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-          <span style="font-weight:700;color:#555">סה״כ לתשלום:</span>
-          <span id="weeklyCartTotal" style="font-weight:700;font-size:1.1rem;color:#2e7d32">₪0</span>
+          <span style="color:#555;font-weight:600">סה״כ לתשלום:</span>
+          <span id="weeklyCartTotal" style="font-weight:800;font-size:1.15rem;color:${G}">₪0</span>
         </div>
-        <button onclick="openWeeklyCheckout()" style="width:100%;background:#1B3A6B;color:#fff;border:none;border-radius:10px;padding:14px;font-size:1rem;font-weight:700;cursor:pointer">
-          המשך להזמנה ←
+        <button onclick="openWeeklyCheckout()" style="width:100%;background:${G};color:#fff;border:none;border-radius:12px;padding:14px;font-size:1rem;font-weight:800;cursor:pointer;letter-spacing:.5px">
+          שליחת הזמנה ←
         </button>
       </div>
-    </div>`;
+      <div id="weeklyCartEmpty" style="color:#aaa;font-size:0.85rem;text-align:center;padding:4px 0">הסל ריק — בחר/י מוצרים למעלה</div>
+    </div>
+  </div>`;
 
   updateWeeklyCartUI();
 }
@@ -4114,8 +4125,10 @@ function renderWeeklyAdmin(){
         <thead><tr>
           <th style="text-align:right">שם לקוח</th>
           <th style="text-align:right">פריטים</th>
-          <th style="text-align:center">תאריך ושעה</th>
-          <th style="text-align:left">סה״כ</th>
+          <th style="text-align:center">תאריך</th>
+          <th style="text-align:left">הכנסה</th>
+          <th style="text-align:left">עלות</th>
+          <th style="text-align:left">רווח</th>
           <th style="text-align:center">תשלום</th>
           <th style="text-align:center">פעולות</th>
         </tr></thead>
@@ -4123,18 +4136,27 @@ function renderWeeklyAdmin(){
           ${orders.map(o=>{
             const itemsStr=o.items.map(i=>i.name+'×'+i.qty).join(', ');
             const tsDate=o.ts?new Date(o.ts):null;
-            const tsStr=tsDate?tsDate.toLocaleString('he-IL',{day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'}):'—';
+            const tsStr=tsDate?tsDate.toLocaleString('he-IL',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'—';
             const isPreorder=o.source==='preorder';
+            const revenueEx=(o.total||0)/VAT;
+            const cogs=o.items.reduce((s,i)=>s+getItemCostByName(i.name,i.sub||'',i.price||0)*i.qty,0);
+            const profit=revenueEx-cogs;
+            const margin=revenueEx>0?(profit/revenueEx*100):0;
+            const profitColor=profit>=0?'#2e7d32':'#c62828';
             return `<tr style="${isPreorder?'background:#f0f7ff':''}">
               <td style="font-weight:700;text-align:right">
                 ${isPreorder?'<span style="background:#1B3A6B;color:#fff;border-radius:10px;font-size:10px;padding:1px 7px;font-weight:700;margin-left:5px">מראש</span>':''}
                 ${o.name}${o.phone?`<div style="font-size:11px;color:#888;font-weight:400">${o.phone}</div>`:''}</td>
-              <td style="font-size:12px;color:#555;text-align:right;max-width:280px">${itemsStr}</td>
-              <td style="font-size:11px;color:#888;text-align:center;direction:ltr;white-space:nowrap">${tsStr}</td>
-              <td style="font-weight:800;color:#1B3A6B;text-align:left">₪${(o.total||0).toFixed(2)}</td>
+              <td style="font-size:12px;color:#555;text-align:right;max-width:220px">${itemsStr}</td>
+              <td style="font-size:11px;color:#888;text-align:center;white-space:nowrap">${tsStr}</td>
+              <td style="font-weight:700;color:#1B3A6B;text-align:left;white-space:nowrap">₪${revenueEx.toFixed(1)}</td>
+              <td style="font-weight:700;color:#e65100;text-align:left;white-space:nowrap">₪${cogs.toFixed(1)}</td>
+              <td style="font-weight:800;color:${profitColor};text-align:left;white-space:nowrap">
+                ₪${profit.toFixed(1)}<div style="font-size:10px;font-weight:600;opacity:.75">${margin.toFixed(0)}%</div>
+              </td>
               <td style="text-align:center">
-                <button onclick="markWeeklyPaid('${o.id}',${!o.paid})" style="background:${o.paid?'#e8f5e9':'#fff3e0'};color:${o.paid?'#2e7d32':'#e65100'};border:1px solid ${o.paid?'#a5d6a7':'#ffcc80'};border-radius:16px;padding:3px 12px;font-size:12px;cursor:pointer;font-family:inherit;font-weight:700">
-                  ${o.paid?'✓ שולם':'⏳ ממתין'}
+                <button onclick="markWeeklyPaid('${o.id}',${!o.paid})" style="background:${o.paid?'#e8f5e9':'#fff3e0'};color:${o.paid?'#2e7d32':'#e65100'};border:1px solid ${o.paid?'#a5d6a7':'#ffcc80'};border-radius:16px;padding:3px 10px;font-size:12px;cursor:pointer;font-family:inherit;font-weight:700">
+                  ${o.paid?'✓':'⏳'}
                 </button>
               </td>
               <td style="text-align:center">
