@@ -1732,6 +1732,17 @@ function migrateTodayOrdersToWeekly(){
   }).catch(e=>alert('שגיאה: '+e.message));
 }
 
+function loadFreshProduceStock(){
+  if(!confirm('לטעון מלאי פירות ופרחים שבועי?\n\nאוכמניות: 48 יחידות\nאננס: 5 יחידות\nפטל: 5 יחידות\n\n(יצטבר על המלאי הקיים)'))return;
+  const newStock={44:48, 66:5, 45:5};
+  Object.entries(newStock).forEach(([id,qty])=>{
+    _weeklyStock[parseInt(id)]=(_weeklyStock[parseInt(id)]||0)+qty;
+  });
+  saveWeeklyStock();
+  renderAdmin();
+  alert('✅ מלאי פירות עודכן!');
+}
+
 function loadShavuotCarryover(){
   if(!confirm('לטעון מלאי עובר משבועות?\n(ידרוס כמויות קיימות)'))return;
   // מלאי שנשאר מחג השבועות — עובר למכירה שבועית
@@ -4468,7 +4479,10 @@ const PRODUCT_COSTS={
   'מארז דבש חגיגי':42,
   // ירקות — כרמלים (לפני מע"מ, כבר נכון)
   'עגבניות שרי לובלו-משק רוזנברג':16.95,'אבוקדו ריד-משק רוזנברג':20.34,
-  'פרחים- נץ החלב לבן':25.42,'פרחים- נץ החלב צהוב':16.95,'פטריות רעמת האריה':29.66,
+  // פירות — עידו (מחיר קניה לפני מע"מ)
+  'אוכמניות כרמל':12,'אננס דלמונטה':34,'פטל':27,'דובדבן':35,
+  // פרחים — פרחי יובל (₪2 כולל מע"מ לגבעול × 10 גבעולים לזר ÷ 1.18)
+  'פרחים- נץ החלב לבן':16.95,'פרחים- נץ החלב צהוב':16.95,'פטריות רעמת האריה':29.66,
   'אספרגוס ירוק':23.9,'מלפפון סופר קראנצ׳':10.5,'תירס צהוב מתוק':19.5,'תירס לבן מתוק':19.5,
   'נבטי פטרוזליה':6.25,'נבטי כוסברה':6.25,'חסה גמביט':9.4,'חסה לאליק':9.4,'חסה סלנובה':9.4
 };
@@ -4580,6 +4594,7 @@ function renderAdminWithOrders(orders){
         <button class="ebtn" style="background:#1b5e20;color:#c8f0c8;font-weight:600;font-size:11px" onclick="loadShavuotCarryover()">📥 עובר משבועות</button>
         <button class="ebtn" style="background:#3d1f6b;color:#d9b8ff;font-weight:600;font-size:11px" onclick="addNewCheeseOrder()">🧀 גבינות חדשות</button>
         <button class="ebtn" style="background:#b45309;color:#fef3c7;font-weight:700;font-size:11px" onclick="migrateTodayOrdersToWeekly()">↗️ העבר היום לשבועי</button>
+        <button class="ebtn" style="background:#166534;color:#bbf7d0;font-weight:700;font-size:11px" onclick="loadFreshProduceStock()">🍇 פירות שבועי</button>
         <div style="width:1px;height:22px;background:#ddd;flex-shrink:0;margin:0 2px"></div>
         <button class="ebtn" style="background:#0a3d6b;color:#fff;font-weight:700" onclick="openWeeklyAdmin()">🛒 מכירות שבועיות</button>
         <button class="ebtn" style="background:#eee;color:#555" onclick="adminLogout()">🔒 יציאה</button>
