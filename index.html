@@ -1421,16 +1421,61 @@ input, textarea {
 
 <div class="main-content" id="mainContent">
   <div class="shop-view" id="shopView"></div>
+  <div class="shop-view" id="weeklyShopView" style="display:none"></div>
   <div class="admin-wrap" id="adminView" style="display:none"></div>
 </div>
 
 <div class="bnav">
   <button class="nb active" id="navShop" onclick="showTab('shop')">
-    <span class="ni">🛍️</span>חנות
+    <span class="ni">🛍️</span>חנות שבועות
+  </button>
+  <button class="nb" id="navWeekly" onclick="showTab('weekly')">
+    <span class="ni">🗓️</span>הזמנות מראש
+    <span class="cart-count" id="weeklyCartCount" style="display:none">0</span>
   </button>
   <button class="nb" id="navAdmin" onclick="showTab('admin')">
     <span class="ni">📋</span>מנהל
   </button>
+</div>
+
+<!-- WEEKLY PREORDER CHECKOUT MODAL -->
+<div class="mo" id="weeklyCheckoutModal">
+  <div class="modal checkout-modal">
+    <div class="mh">
+      <h2>🗓️ הזמנה מראש</h2>
+      <button class="xbtn" onclick="closeModal('weeklyCheckoutModal')">✕</button>
+    </div>
+    <div class="mb">
+      <div id="weeklyOrderSummaryBox" style="background:#f8f9fa;border-radius:10px;padding:12px;margin-bottom:16px;font-size:13px"></div>
+      <div class="form-section">
+        <div class="form-section-title">פרטים אישיים</div>
+        <div class="fg2">
+          <div class="fg">
+            <label>שם פרטי <span class="req">*</span></label>
+            <input type="text" id="wfname" placeholder="ישראל">
+          </div>
+          <div class="fg">
+            <label>שם משפחה <span class="req">*</span></label>
+            <input type="text" id="wlname" placeholder="ישראלי">
+          </div>
+        </div>
+        <div class="fg">
+          <label>טלפון נייד <span class="req">*</span></label>
+          <input type="tel" id="wfphone" placeholder="050-0000000">
+        </div>
+        <div class="fg">
+          <label>הערות (אופציונלי)</label>
+          <textarea id="wfnotes" rows="2" placeholder="בקשות מיוחדות, הנחיות איסוף..."></textarea>
+        </div>
+      </div>
+      <div id="weeklyCheckoutErr" style="color:#c0392b;font-size:13px;min-height:18px;margin-bottom:8px"></div>
+      <button class="checkout-submit" onclick="submitWeeklyPreorder()">
+        ✅ שלח הזמנה מראש
+        <span class="arrow">→</span>
+      </button>
+      <p style="text-align:center;color:#888;font-size:12px;margin-top:10px">התשלום יתבצע באיסוף המוצרים</p>
+    </div>
+  </div>
 </div>
 
 <!-- CART DRAWER -->
@@ -1591,7 +1636,7 @@ let _weeklyOrders=[];
 function loadWeeklyOrders(cb){
   fbDB.ref('weekly_orders').once('value').then(snap=>{
     const d=snap.val();
-    _weeklyOrders=d?Object.values(d).sort((a,b)=>a.id>b.id?1:-1):[];
+    _weeklyOrders=d?Object.values(d).sort((a,b)=>(b.ts||b.id)>(a.ts||a.id)?1:-1):[];
     if(cb)cb();
   }).catch(()=>{_weeklyOrders=[];if(cb)cb();});
 }
@@ -2254,11 +2299,14 @@ function resetOrder(){cart={};appliedCoupon=null;_payProofBase64=null;localStora
 
 function showTab(tab){
   document.getElementById('navShop').classList.toggle('active',tab==='shop');
+  document.getElementById('navWeekly').classList.toggle('active',tab==='weekly');
   document.getElementById('navAdmin').classList.toggle('active',tab==='admin');
   document.getElementById('shopView').style.display=tab==='shop'?'':'none';
+  document.getElementById('weeklyShopView').style.display=tab==='weekly'?'':'none';
   document.getElementById('catTabs').style.display=tab==='shop'?'':'none';
   document.getElementById('adminView').style.display=tab==='admin'?'':'none';
   if(tab==='admin'){if(!_admin.ok())openModal('adminLoginModal');else renderAdmin();}
+  if(tab==='weekly'){loadWeeklyStock(renderWeeklyShop);}
 }
 
 async function checkAdmin(){
@@ -3760,6 +3808,189 @@ function saveManualOrder(){
   renderAdmin();
 }
 
+// ─── חנות הזמנות מראש שבועית (לקוחות) ────────────────────────────────────────
+let weeklyCart={};
+
+function wCartItems(){return PRODUCTS.filter(p=>(weeklyCart[p.id]||0)>0);}
+function wCartTotal(){return wCartItems().reduce((s,p)=>s+p.price*(weeklyCart[p.id]||0),0);}
+
+function updateWeeklyCartUI(){
+  const cnt=wCartItems().reduce((s,p)=>s+(weeklyCart[p.id]||0),0);
+  const el=document.getElementById('weeklyCartCount');
+  if(el){el.textContent=cnt;el.style.display=cnt>0?'':'none';}
+  // update qty displays
+  PRODUCTS.forEach(p=>{
+    const n=document.getElementById('wqn'+p.id);
+    if(n)n.textContent=weeklyCart[p.id]||0;
+    const c=document.getElementById('wpc'+p.id);
+    if(c){(weeklyCart[p.id]||0)>0?c.classList.add('in-cart'):c.classList.remove('in-cart');}
+  });
+  // update cart panel
+  const panel=document.getElementById('weeklyCartPanel');
+  if(!panel)return;
+  const items=wCartItems();
+  if(!items.length){
+    panel.innerHTML='<div style="color:#aaa;text-align:center;padding:20px">הסל ריק — בחר מוצרים למעלה</div>';
+    document.getElementById('weeklyCheckoutBtn').style.display='none';
+    return;
+  }
+  panel.innerHTML=items.map(p=>`
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #eee">
+      <div>
+        <div style="font-weight:600;font-size:14px">${p.name}</div>
+        <div style="color:#888;font-size:12px">${p.sub}</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <div style="display:flex;align-items:center;gap:4px">
+          <button onclick="wChg(${p.id},-1)" style="width:24px;height:24px;border:1px solid #ddd;border-radius:50%;background:#fff;cursor:pointer;font-size:16px;line-height:1;display:flex;align-items:center;justify-content:center">−</button>
+          <span style="min-width:20px;text-align:center;font-weight:700">${weeklyCart[p.id]}</span>
+          <button onclick="wChg(${p.id},1)" style="width:24px;height:24px;border:1px solid #ddd;border-radius:50%;background:#fff;cursor:pointer;font-size:16px;line-height:1;display:flex;align-items:center;justify-content:center">+</button>
+        </div>
+        <div style="min-width:60px;text-align:left;font-weight:700;color:#2e7d32">₪${(p.price*(weeklyCart[p.id]||0)).toFixed(2)}</div>
+        <button onclick="wChg(${p.id},-(weeklyCart[${p.id}]||0))" style="background:none;border:none;color:#e53935;cursor:pointer;font-size:18px;padding:0">🗑</button>
+      </div>
+    </div>`).join('');
+  document.getElementById('weeklyCheckoutBtn').style.display='block';
+  document.getElementById('weeklyCartTotal').textContent='₪'+wCartTotal().toFixed(2);
+}
+
+function wChg(id,d){
+  const stock=_weeklyStock[id]||0;
+  weeklyCart[id]=Math.max(0,Math.min(stock,(weeklyCart[id]||0)+d));
+  if(weeklyCart[id]===0)delete weeklyCart[id];
+  updateWeeklyCartUI();
+}
+
+function renderWeeklyShop(){
+  const view=document.getElementById('weeklyShopView');
+  if(!view)return;
+
+  // group products by category, only show those in stock
+  const inStockIds=new Set(Object.keys(_weeklyStock).filter(k=>_weeklyStock[k]>0).map(Number));
+  const inStockProducts=PRODUCTS.filter(p=>inStockIds.has(p.id));
+
+  if(!inStockProducts.length){
+    view.innerHTML=`<div style="text-align:center;padding:60px 20px;color:#888">
+      <div style="font-size:3rem;margin-bottom:12px">🛒</div>
+      <div style="font-size:1.1rem;font-weight:600;margin-bottom:8px">אין מלאי זמין כרגע</div>
+      <div style="font-size:0.9rem">בדקו שנית בקרוב</div>
+    </div>`;
+    return;
+  }
+
+  // build category list preserving CATEGORIES order
+  const activeCats=CATEGORIES.filter(c=>inStockProducts.some(p=>p.cat===c));
+
+  const pcard=(p)=>{
+    const stock=_weeklyStock[p.id]||0;
+    const q=weeklyCart[p.id]||0;
+    const ic=ICONS[p.cat]||'🧀';
+    const img=p.img?`<img src="${p.img}" alt="${p.name}" style="width:100%;height:140px;object-fit:cover;border-radius:8px 8px 0 0" onerror="this.outerHTML='<div style=\\'height:140px;display:flex;align-items:center;justify-content:center;font-size:2.5rem;background:#f5f5f5;border-radius:8px 8px 0 0\\'>'+ic+'</div>'">`:
+      `<div style="height:140px;display:flex;align-items:center;justify-content:center;font-size:2.5rem;background:#f5f5f5;border-radius:8px 8px 0 0">${ic}</div>`;
+    const stockBadge=stock<=3?`<span style="position:absolute;top:8px;right:8px;background:#e53935;color:#fff;border-radius:20px;padding:2px 8px;font-size:11px;font-weight:700">נשארו ${stock}</span>`:
+      `<span style="position:absolute;top:8px;right:8px;background:#2e7d32;color:#fff;border-radius:20px;padding:2px 8px;font-size:11px;font-weight:700">במלאי ✓</span>`;
+    return `<div class="pcard ${q>0?'in-cart':''}" id="wpc${p.id}" style="position:relative;border-radius:10px;box-shadow:0 2px 8px rgba(0,0,0,.1);overflow:hidden;background:#fff">
+      <div style="position:relative">${img}${stockBadge}</div>
+      <div style="padding:10px">
+        <div style="font-weight:700;font-size:0.95rem;margin-bottom:2px">${p.name}</div>
+        <div style="color:#888;font-size:0.82rem;margin-bottom:6px">${p.sub}</div>
+        <div style="font-weight:700;color:#2e7d32;font-size:1rem;margin-bottom:8px">₪${p.price.toFixed(2)}</div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <button onclick="wChg(${p.id},-1)" style="width:28px;height:28px;border:1px solid #ddd;border-radius:50%;background:#fff;cursor:pointer;font-size:18px;line-height:1;display:flex;align-items:center;justify-content:center">−</button>
+          <div id="wqn${p.id}" style="min-width:24px;text-align:center;font-weight:700;font-size:1rem">${q}</div>
+          <button onclick="wChg(${p.id},1)" style="width:28px;height:28px;border:1px solid #ddd;border-radius:50%;background:#fff;cursor:pointer;font-size:18px;line-height:1;display:flex;align-items:center;justify-content:center">+</button>
+        </div>
+      </div>
+    </div>`;
+  };
+
+  view.innerHTML=`
+    <div style="background:linear-gradient(135deg,#1B3A6B,#2e7d32);color:#fff;padding:20px 16px;text-align:center;margin-bottom:16px">
+      <h2 style="margin:0 0 6px;font-size:1.3rem">🗓️ הזמנות מראש שבועיות</h2>
+      <p style="margin:0;font-size:0.88rem;opacity:0.85">הזמן/י מראש — תשלום ואיסוף בנקודת החלוקה</p>
+    </div>
+    <div style="padding:0 12px">
+      ${activeCats.map(cat=>`
+        <div style="margin-bottom:24px">
+          <div style="font-size:1.05rem;font-weight:700;color:#1B3A6B;padding:8px 0;border-bottom:2px solid #1B3A6B;margin-bottom:12px">${ICONS[cat]||''} ${cat}</div>
+          <div class="products-grid">${inStockProducts.filter(p=>p.cat===cat).map(pcard).join('')}</div>
+        </div>`).join('')}
+    </div>
+    <!-- Cart summary panel -->
+    <div style="background:#fff;border-top:2px solid #1B3A6B;padding:16px;margin-top:16px">
+      <div style="font-size:1rem;font-weight:700;color:#1B3A6B;margin-bottom:10px">🛒 הסל שלי</div>
+      <div id="weeklyCartPanel" style="max-height:220px;overflow-y:auto"></div>
+      <div id="weeklyCheckoutBtn" style="display:none;margin-top:12px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+          <span style="font-weight:700;color:#555">סה״כ לתשלום:</span>
+          <span id="weeklyCartTotal" style="font-weight:700;font-size:1.1rem;color:#2e7d32">₪0</span>
+        </div>
+        <button onclick="openWeeklyCheckout()" style="width:100%;background:#1B3A6B;color:#fff;border:none;border-radius:10px;padding:14px;font-size:1rem;font-weight:700;cursor:pointer">
+          המשך להזמנה ←
+        </button>
+      </div>
+    </div>`;
+
+  updateWeeklyCartUI();
+}
+
+function openWeeklyCheckout(){
+  const items=wCartItems();
+  if(!items.length){alert('הסל ריק!');return;}
+  // build summary
+  let html=items.map(p=>`<div style="display:flex;justify-content:space-between;margin-bottom:4px"><span>${p.name} ×${weeklyCart[p.id]}</span><span style="font-weight:700">₪${(p.price*(weeklyCart[p.id]||0)).toFixed(2)}</span></div>`).join('');
+  html+=`<div style="border-top:1px solid #ddd;margin-top:8px;padding-top:8px;display:flex;justify-content:space-between;font-weight:700"><span>סה״כ</span><span style="color:#2e7d32">₪${wCartTotal().toFixed(2)}</span></div>`;
+  document.getElementById('weeklyOrderSummaryBox').innerHTML=html;
+  document.getElementById('weeklyCheckoutErr').textContent='';
+  openModal('weeklyCheckoutModal');
+}
+
+function submitWeeklyPreorder(){
+  const fn=(document.getElementById('wfname').value||'').trim();
+  const ln=(document.getElementById('wlname').value||'').trim();
+  const ph=(document.getElementById('wfphone').value||'').trim();
+  const notes=(document.getElementById('wfnotes').value||'').trim();
+  if(!fn||!ln){document.getElementById('weeklyCheckoutErr').textContent='נא למלא שם פרטי ושם משפחה';return;}
+  if(!ph){document.getElementById('weeklyCheckoutErr').textContent='נא למלא מספר טלפון';return;}
+  const items=wCartItems().map(p=>({id:p.id,name:p.name,sub:p.sub,cat:p.cat,qty:weeklyCart[p.id]||0,price:p.price,supplier:p.supplier||''}));
+  const total=wCartTotal();
+  const order={
+    id:'wp'+Date.now(),
+    source:'preorder',
+    name:fn+' '+ln,
+    phone:ph,
+    notes,
+    items,
+    total,
+    paid:false,
+    ts:new Date().toISOString()
+  };
+  // Save to Firebase
+  fbDB.ref('weekly_orders/'+order.id).set(order).catch(()=>{});
+  // Reduce stock (reserve)
+  items.forEach(i=>{
+    _weeklyStock[i.id]=Math.max(0,(_weeklyStock[i.id]||0)-i.qty);
+  });
+  saveWeeklyStock();
+  // Reset cart
+  weeklyCart={};
+  closeModal('weeklyCheckoutModal');
+  // Clear form
+  ['wfname','wlname','wfphone','wfnotes'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  updateWeeklyCartUI();
+  // Re-render shop with updated stock
+  renderWeeklyShop();
+  // Thank you message
+  const view=document.getElementById('weeklyShopView');
+  if(view){
+    const thanks=document.createElement('div');
+    thanks.style.cssText='position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#2e7d32;color:#fff;padding:28px 36px;border-radius:16px;text-align:center;z-index:9999;box-shadow:0 8px 32px rgba(0,0,0,.3);max-width:300px';
+    thanks.innerHTML=`<div style="font-size:2.5rem;margin-bottom:10px">✅</div><div style="font-size:1.1rem;font-weight:700;margin-bottom:6px">ההזמנה נקלטה!</div><div style="font-size:0.9rem;opacity:0.9">שלום ${fn},<br>הזמנתך על סך ₪${total.toFixed(2)} נרשמה.<br>נחכה לך בנקודת האיסוף 😊</div>`;
+    document.body.appendChild(thanks);
+    setTimeout(()=>thanks.remove(),4000);
+  }
+}
+
 // ─── ממשק מכירות שבועיות ──────────────────────────────────────────────────────
 function openWeeklyAdmin(){
   if(!_admin.ok()){openModal('adminLoginModal');return;}
@@ -3841,16 +4072,23 @@ function renderWeeklyAdmin(){
         <thead><tr>
           <th style="text-align:right">שם לקוח</th>
           <th style="text-align:right">פריטים</th>
+          <th style="text-align:center">תאריך ושעה</th>
           <th style="text-align:left">סה״כ</th>
           <th style="text-align:center">תשלום</th>
           <th style="text-align:center">פעולות</th>
         </tr></thead>
         <tbody>
-          ${orders.slice().reverse().map(o=>{
-            const itemsStr=o.items.map(i=>i.name+(i.sub?' ('+i.sub+')':'')+'×'+i.qty).join(', ');
-            return `<tr>
-              <td style="font-weight:700;text-align:right">${o.name}${o.phone?`<div style="font-size:11px;color:#888;font-weight:400">${o.phone}</div>`:''}</td>
-              <td style="font-size:12px;color:#555;text-align:right;max-width:320px">${itemsStr}</td>
+          ${orders.map(o=>{
+            const itemsStr=o.items.map(i=>i.name+'×'+i.qty).join(', ');
+            const tsDate=o.ts?new Date(o.ts):null;
+            const tsStr=tsDate?tsDate.toLocaleString('he-IL',{day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'}):'—';
+            const isPreorder=o.source==='preorder';
+            return `<tr style="${isPreorder?'background:#f0f7ff':''}">
+              <td style="font-weight:700;text-align:right">
+                ${isPreorder?'<span style="background:#1B3A6B;color:#fff;border-radius:10px;font-size:10px;padding:1px 7px;font-weight:700;margin-left:5px">מראש</span>':''}
+                ${o.name}${o.phone?`<div style="font-size:11px;color:#888;font-weight:400">${o.phone}</div>`:''}</td>
+              <td style="font-size:12px;color:#555;text-align:right;max-width:280px">${itemsStr}</td>
+              <td style="font-size:11px;color:#888;text-align:center;direction:ltr;white-space:nowrap">${tsStr}</td>
               <td style="font-weight:800;color:#1B3A6B;text-align:left">₪${(o.total||0).toFixed(2)}</td>
               <td style="text-align:center">
                 <button onclick="markWeeklyPaid('${o.id}',${!o.paid})" style="background:${o.paid?'#e8f5e9':'#fff3e0'};color:${o.paid?'#2e7d32':'#e65100'};border:1px solid ${o.paid?'#a5d6a7':'#ffcc80'};border-radius:16px;padding:3px 12px;font-size:12px;cursor:pointer;font-family:inherit;font-weight:700">
