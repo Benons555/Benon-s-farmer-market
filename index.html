@@ -2924,6 +2924,82 @@ async function saveOrderEdits(orderId){
   renderAdmin();
 }
 
+// ── P&L INCOME STATEMENT SUMMARY ──
+function buildPLSummary(grandTotal, sponsoredIncome, grandProfit, extrasManualCost, netProfit, sponsoredOrders){
+  const custRevenue = grandTotal - sponsoredIncome;
+  const totalCOGS = grandTotal - grandProfit;
+  const totalOpex = TOTAL_OVERHEAD + extrasManualCost;
+  const grossPct = grandTotal>0 ? (grandProfit/grandTotal*100).toFixed(1) : '0.0';
+  const netPct   = grandTotal>0 ? (netProfit/grandTotal*100).toFixed(1)   : '0.0';
+  const netColor = netProfit >= 0 ? '#F5E87A' : '#ffa0a0';
+  const netBg    = netProfit >= 0 ? '#1B3A6B' : '#c62828';
+  return `
+  <div class="asec" style="border:2px solid #1B3A6B;margin-bottom:20px">
+    <div class="asec-h" style="background:#1B3A6B;color:white;font-size:15px;letter-spacing:0.5px">📊 דוח רווח והפסד — שבועות 2026</div>
+    <div class="asec-b" style="padding:0">
+      <table style="width:100%;border-collapse:collapse;direction:rtl;font-family:inherit">
+        <!-- REVENUE -->
+        <tr style="background:#eaf1fb">
+          <td colspan="2" style="padding:10px 16px 6px;font-weight:800;font-size:11px;letter-spacing:2px;color:#1B3A6B;text-transform:uppercase;border-bottom:1px solid #c5d5ee">הכנסות</td>
+        </tr>
+        <tr>
+          <td style="padding:7px 16px 4px 32px;color:#444;font-size:13px">מכירות ללקוחות פרטיים</td>
+          <td style="padding:7px 20px 4px 16px;text-align:left;font-size:13px;font-weight:600">₪${custRevenue.toFixed(0)}</td>
+        </tr>
+        ${sponsoredIncome>0?`
+        <tr>
+          <td style="padding:4px 16px 7px 32px;color:#444;font-size:13px">תמיכת Hexagon <span style="font-size:11px;color:#888">(${(sponsoredOrders||[]).length} קופונים × ₪50)</span></td>
+          <td style="padding:4px 20px 7px 16px;text-align:left;font-size:13px;font-weight:600;color:#1B3A6B">₪${sponsoredIncome.toFixed(0)}</td>
+        </tr>`:''}
+        <tr style="border-top:2px solid #c5d5ee;border-bottom:2px solid #dde;background:#f0f5ff">
+          <td style="padding:11px 16px;font-weight:800;font-size:14px">סה״כ הכנסות</td>
+          <td style="padding:11px 20px;text-align:left;font-weight:900;font-size:17px">₪${grandTotal.toFixed(0)}</td>
+        </tr>
+        <!-- COGS -->
+        <tr style="background:#fff4f0">
+          <td colspan="2" style="padding:10px 16px 6px;font-weight:800;font-size:11px;letter-spacing:2px;color:#c62828;text-transform:uppercase;border-bottom:1px solid #f0ccc8">עלות המכר</td>
+        </tr>
+        <tr>
+          <td style="padding:7px 16px 7px 32px;color:#444;font-size:13px">עלות סחורה (לפי עלויות ספקים)</td>
+          <td style="padding:7px 20px;text-align:left;font-size:13px;font-weight:600;color:#c62828">-₪${totalCOGS.toFixed(0)}</td>
+        </tr>
+        <tr style="border-top:2px solid #f0ccc8;border-bottom:2px solid #dde;background:#f9fdf9">
+          <td style="padding:11px 16px;font-weight:800;font-size:14px">רווח גולמי <span style="font-size:12px;font-weight:600;color:#2e7d32">(${grossPct}%)</span></td>
+          <td style="padding:11px 20px;text-align:left;font-weight:900;font-size:17px;color:#2e7d32">₪${grandProfit.toFixed(0)}</td>
+        </tr>
+        <!-- OPEX -->
+        <tr style="background:#fffbf0">
+          <td colspan="2" style="padding:10px 16px 6px;font-weight:800;font-size:11px;letter-spacing:2px;color:#b8860b;text-transform:uppercase;border-bottom:1px solid #f0e0a0">הוצאות תפעוליות</td>
+        </tr>
+        ${OVERHEAD_COSTS.map(c=>`
+        <tr>
+          <td style="padding:5px 16px 5px 32px;color:#555;font-size:13px">${c.label}</td>
+          <td style="padding:5px 20px;text-align:left;font-size:13px;color:#c62828">-₪${c.amount.toFixed(0)}</td>
+        </tr>`).join('')}
+        ${extrasManualCost>0?`
+        <tr>
+          <td style="padding:5px 16px 5px 32px;color:#555;font-size:13px">תוספות ידניות מעל הזמנות</td>
+          <td style="padding:5px 20px;text-align:left;font-size:13px;color:#c62828">-₪${extrasManualCost.toFixed(0)}</td>
+        </tr>`:''}
+        <tr style="border-top:2px solid #e8d090;border-bottom:3px solid ${netBg};background:#fffbf0">
+          <td style="padding:11px 16px;font-weight:800;font-size:14px">סה״כ הוצאות תפעוליות</td>
+          <td style="padding:11px 20px;text-align:left;font-weight:700;color:#c62828;font-size:14px">-₪${totalOpex.toFixed(0)}</td>
+        </tr>
+        <!-- NET PROFIT -->
+        <tr style="background:${netBg}">
+          <td style="padding:16px 16px;font-weight:900;font-size:16px;color:white">
+            רווח נטו לפני מס
+            <span style="font-size:12px;font-weight:500;color:${netColor};margin-right:10px">${netPct}% מהמחזור</span>
+          </td>
+          <td style="padding:16px 20px;text-align:left;font-weight:900;font-size:24px;color:${netColor}">
+            ₪${netProfit.toFixed(0)}
+          </td>
+        </tr>
+      </table>
+    </div>
+  </div>`;
+}
+
 // ── PROFIT ANALYSIS ──
 function getCategoryForItem(i){
   const s=i.supplier||'',n=i.name||'';
@@ -3575,7 +3651,42 @@ function renderAdminWithOrders(orders){
   const avgMargin=grandTotal>0?(grandProfit/grandTotal*100):0;
   const netMargin=grandTotal>0?(netProfit/grandTotal*100):0;
   document.getElementById('adminView').innerHTML=`
-  <div class="admin-hdr"><h1>📋 ממשק ניהול — BENON'S</h1><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="ebtn" onclick="renderAdmin()">🔄 רענן</button><button class="ebtn" onclick="exportCSV()">⬇ CSV</button><button class="ebtn" style="background:#1B3A6B;color:#F5D87A;font-weight:700" onclick="addAmbrellaOrder()">🏢 אמברלה</button><button class="ebtn" style="background:#2E5E3E;color:#A8D5B5;font-weight:700" onclick="addWimiOrder()">🏢 וימי</button><button class="ebtn" style="background:#4A7C59;color:#fff;font-weight:700" onclick="openManualOrderModal()">➕ הזמנה ידנית</button><button class="ebtn" style="background:#f0e6ff;color:#5b21b6;font-weight:600" onclick="exportCorporateExpensePDF('חברת אמברלה')">📊 הצעה אמברלה</button><button id="corp-inv-amb" class="ebtn" style="background:#dde8ff;color:#5b21b6;font-weight:600" onclick="createCorporateInvoice('חברת אמברלה','corp-inv-amb')">📄 חשבונית אמברלה</button><button class="ebtn" style="background:#e6f0ff;color:#1B3A6B;font-weight:600" onclick="exportCorporateExpensePDF('חברת וימי')">📊 הצעה וימי</button><button id="corp-inv-wimi" class="ebtn" style="background:#d0e4ff;color:#1B3A6B;font-weight:600" onclick="createCorporateInvoice('חברת וימי','corp-inv-wimi')">📄 חשבונית וימי</button><button class="ebtn" style="background:#fff3e0;color:#e65100;font-weight:600" onclick="exportCorporateExpensePDF('hexagon')">📊 הצעה Hexagon</button><button id="corp-inv-hex" class="ebtn" style="background:#ffe8d0;color:#e65100;font-weight:600" onclick="createCorporateInvoice('hexagon','corp-inv-hex')">📄 חשבונית Hexagon</button><button class="ebtn" style="background:#e8f5e9;color:#1b5e20;font-weight:600" onclick="exportCorporateExpensePDF('וופה')">📊 הצעה וופה</button><button id="corp-inv-wufa" class="ebtn" style="background:#d0f0da;color:#1b5e20;font-weight:600" onclick="createCorporateInvoice('וופה','corp-inv-wufa')">📄 חשבונית וופה</button><button class="ebtn" style="background:#1B3A6B;color:#F5D87A;font-weight:700" onclick="openBulkInvoiceModal()">📄 חשבוניות פרטיים</button><button class="ebtn" style="background:#e65100;color:#fff;font-weight:600" onclick="resetPaidNoInvoice()">🔄 אפס שולם ללא חשבונית</button><button class="ebtn" style="background:#b8860b;color:#fff;font-weight:600" onclick="fixWufaPrices()">🔧 תקן וופה</button><button class="ebtn" style="background:#eee;color:#555" onclick="adminLogout()">🔒 יציאה</button></div></div>
+  <div class="admin-hdr">
+    <h1>📋 ממשק ניהול — BENON'S</h1>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+        <span style="font-size:10px;color:#aaa;font-weight:700;letter-spacing:1px;min-width:52px;text-align:right">הזמנות</span>
+        <div style="width:1px;height:22px;background:#ddd;flex-shrink:0"></div>
+        <button class="ebtn" style="background:#4A7C59;color:#fff;font-weight:700" onclick="openManualOrderModal()">➕ ידנית</button>
+        <button class="ebtn" style="background:#1B3A6B;color:#F5D87A;font-weight:700" onclick="addAmbrellaOrder()">🏢 אמברלה</button>
+        <button class="ebtn" style="background:#2E5E3E;color:#A8D5B5;font-weight:700" onclick="addWimiOrder()">🏢 וימי</button>
+        <div style="width:1px;height:22px;background:#ddd;flex-shrink:0;margin:0 2px"></div>
+        <button class="ebtn" onclick="renderAdmin()">🔄 רענן</button>
+        <button class="ebtn" onclick="exportCSV()">⬇ CSV</button>
+        <button class="ebtn" style="background:#eee;color:#555" onclick="adminLogout()">🔒 יציאה</button>
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+        <span style="font-size:10px;color:#aaa;font-weight:700;letter-spacing:1px;min-width:52px;text-align:right">חשבוניות</span>
+        <div style="width:1px;height:22px;background:#ddd;flex-shrink:0"></div>
+        <button class="ebtn" style="background:#1B3A6B;color:#F5D87A;font-weight:700" onclick="openBulkInvoiceModal()">📄 פרטיים</button>
+        <button id="corp-inv-amb" class="ebtn" style="background:#dde8ff;color:#5b21b6;font-weight:600" onclick="createCorporateInvoice('חברת אמברלה','corp-inv-amb')">📄 אמברלה</button>
+        <button id="corp-inv-wimi" class="ebtn" style="background:#d0e4ff;color:#1B3A6B;font-weight:600" onclick="createCorporateInvoice('חברת וימי','corp-inv-wimi')">📄 וימי</button>
+        <button id="corp-inv-hex" class="ebtn" style="background:#ffe8d0;color:#e65100;font-weight:600" onclick="createCorporateInvoice('hexagon','corp-inv-hex')">📄 Hexagon</button>
+        <button id="corp-inv-wufa" class="ebtn" style="background:#d0f0da;color:#1b5e20;font-weight:600" onclick="createCorporateInvoice('וופה','corp-inv-wufa')">📄 וופה</button>
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+        <span style="font-size:10px;color:#aaa;font-weight:700;letter-spacing:1px;min-width:52px;text-align:right">הצעות</span>
+        <div style="width:1px;height:22px;background:#ddd;flex-shrink:0"></div>
+        <button class="ebtn" style="background:#f0e6ff;color:#5b21b6;font-weight:600" onclick="exportCorporateExpensePDF('חברת אמברלה')">📊 אמברלה</button>
+        <button class="ebtn" style="background:#e6f0ff;color:#1B3A6B;font-weight:600" onclick="exportCorporateExpensePDF('חברת וימי')">📊 וימי</button>
+        <button class="ebtn" style="background:#fff3e0;color:#e65100;font-weight:600" onclick="exportCorporateExpensePDF('hexagon')">📊 Hexagon</button>
+        <button class="ebtn" style="background:#e8f5e9;color:#1b5e20;font-weight:600" onclick="exportCorporateExpensePDF('וופה')">📊 וופה</button>
+        <div style="width:1px;height:22px;background:#ddd;flex-shrink:0;margin:0 2px"></div>
+        <button class="ebtn" style="background:#e65100;color:#fff;font-weight:600" onclick="resetPaidNoInvoice()">🔄 אפס שולם</button>
+        <button class="ebtn" style="background:#b8860b;color:#fff;font-weight:600" onclick="fixWufaPrices()">🔧 תקן וופה</button>
+      </div>
+    </div>
+  </div>
   <div class="stats-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:12px">
     <div class="stat-card"><div class="stat-num">${orders.length}</div><div class="stat-lbl">הזמנות</div></div>
     <div class="stat-card"><div class="stat-num">₪${grandTotal.toFixed(0)}</div><div class="stat-lbl">סה״כ הכנסות (לפני מע״מ)${sponsoredIncome>0?' — כולל ₪'+sponsoredIncome.toFixed(0)+' מ-Hexagon':''}</div></div>
@@ -3588,6 +3699,7 @@ function renderAdminWithOrders(orders){
     <div class="stat-card" style="border-top:3px solid ${extrasManualCost>0?'#c62828':'#ccc'}"><div class="stat-num" style="color:${extrasManualCost>0?'#c62828':'#aaa'}">-₪${extrasManualCost.toFixed(0)}</div><div class="stat-lbl">עלות תוספות ידניות<div style="font-size:11px;font-weight:400;color:#888">מעל ההזמנות</div></div></div>
     <div class="stat-card" style="border-top:3px solid ${netProfit>=0?'#F5A623':'#c62828'}"><div class="stat-num" style="color:${netProfit>=0?'#e65100':'#c62828'}">₪${netProfit.toFixed(0)}</div><div class="stat-lbl">רווח נטו (כולל תוספות)</div></div>
   </div>
+  ${buildPLSummary(grandTotal,sponsoredIncome,grandProfit,extrasManualCost,netProfit,sponsoredOrders)}
   ${buildProfitAnalysis(orders)}
   <div class="asec">
     <div class="asec-h">📦 מלאי לספקים <span style="font-size:12px;font-weight:400">(לחץ על שורה לפירוט מזמינים)</span><button class="ebtn" onclick="printInv()">🖨 הדפסה</button></div>
