@@ -1636,17 +1636,42 @@ function loadShavuotCarryover(){
   if(!confirm('לטעון מלאי עובר משבועות?\n(ידרוס כמויות קיימות)'))return;
   // מלאי שנשאר מחג השבועות — עובר למכירה שבועית
   _weeklyStock = {
-    11: 10,  // שמן זית 2.0L
-    12:  2,  // שמן זית 5.0L
-    10:  1,  // שמן זית 0.75L
-    42:  2,  // יין רוזה 2025
-    65:  5,  // יין שרדונה 2025
-    39:  4,  // יין סבניון בלאן רוסאן 2025
-    26:  2,  // מארז דבש חגיגי
-    27:  4,  // דבש אבוקדו 500 גרם
-    34:  3,  // דבש פרחי בר 500 גרם
-    33:  3   // דבש שיזף 500 גרם
+    // שמן זית
+    11: 10, 12: 2, 10: 1,
+    // יין
+    42: 2, 65: 5, 39: 4,
+    // דבש
+    26: 2, 27: 4, 34: 3, 33: 3
   };
+  saveWeeklyStock();
+  renderAdmin();
+}
+function addNewCheeseOrder(){
+  if(!confirm('להוסיף הזמנת גבינות חדשה למלאי?\n(יצטבר על הקיים)'))return;
+  // הזמנת גבינות חדשה — הוזמנה לאחר שכל ההזמנה הראשונה נמכרה בשבועות
+  const newCheeses = {
+     1: 4,  // סנט מור
+     2: 3,  // סנט מור נאור
+    58: 5,  // תלתן
+    59: 5,  // אלומה
+     3: 4,  // שחת
+    60: 5,  // אגוז
+     4: 5,  // תבור
+    50: 4,  // ז׳ון
+     7: 3,  // קאפרה
+    53: 4,  // פלפל
+    55: 6,  // תום עיזים ביין
+     5: 3,  // כחולה נסתרת
+    56: 5,  // צ׳ילי
+     6: 3,  // מנצ׳גו
+     9: 5,  // שיבולת
+    54: 4,  // גרגרנית יוונית
+    51: 4,  // בלאנקה
+     8: 3   // תום עזים
+  };
+  Object.entries(newCheeses).forEach(([id,qty])=>{
+    _weeklyStock[parseInt(id)] = (_weeklyStock[parseInt(id)]||0) + qty;
+  });
   saveWeeklyStock();
   renderAdmin();
 }
@@ -3845,6 +3870,7 @@ function renderAdminWithOrders(orders){
         <button class="ebtn" onclick="exportCSV()">⬇ CSV</button>
         <button class="ebtn" style="background:#4A3000;color:#F5D87A;font-weight:700" onclick="openWeeklyStockModal()">📦 מלאי</button>
         <button class="ebtn" style="background:#1b5e20;color:#c8f0c8;font-weight:600;font-size:11px" onclick="loadShavuotCarryover()">📥 עובר משבועות</button>
+        <button class="ebtn" style="background:#3d1f6b;color:#d9b8ff;font-weight:600;font-size:11px" onclick="addNewCheeseOrder()">🧀 גבינות חדשות</button>
         <button class="ebtn" style="background:#eee;color:#555" onclick="adminLogout()">🔒 יציאה</button>
       </div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
