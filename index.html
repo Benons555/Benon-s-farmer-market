@@ -1584,6 +1584,8 @@ const fbDB=firebase.database();
 function saveOrderToFirebase(o){fbDB.ref('orders/'+o.id).set(o).catch(()=>{});}
 function loadOrdersFromFirebase(cb){fbDB.ref('orders').once('value').then(snap=>{const d=snap.val();const orders=d?Object.values(d).sort((a,b)=>a.id>b.id?1:-1):[];try{localStorage.setItem('benon_orders',JSON.stringify(orders));}catch(e){}cb(orders);}).catch(()=>cb(getOrders()));}
 
+let _lastPLData=null;  // cache for P&L Excel export
+
 // ─── מלאי שבועי ───────────────────────────────────────────────────────────────
 let _weeklyStock={};   // {productId: openingQty}
 function loadWeeklyStock(cb){
@@ -3736,6 +3738,126 @@ function saveManualOrder(){
   renderAdmin();
 }
 
+function exportPLExcel(){
+  if(!_lastPLData){alert('יש לפתוח את ממשק הניהול תחילה');return;}
+  const {grandTotal,sponsoredIncome,grandProfit,extrasManualCost,netProfit,unsoldStockCost,sponsoredOrders,orders}=_lastPLData;
+  const custRevenue=grandTotal-sponsoredIncome;
+  const totalCOGS=grandTotal-grandProfit;
+  const totalOpex=TOTAL_OVERHEAD+extrasManualCost;
+  const grossPct=grandTotal>0?(grandProfit/grandTotal*100):0;
+  const netPct=grandTotal>0?(netProfit/grandTotal*100):0;
+  const date=new Date().toLocaleDateString('he-IL');
+  const wb=XLSX.utils.book_new();
+
+  // ── גיליון 1: דוח רווח והפסד ──
+  const plRows=[
+    ["BENON'S Farmer's Market — שבועות 2026","",""],
+    ["דוח רווח והפסד","",""],
+    ["תאריך הפקה: "+date,"",""],
+    ["","",""],
+    ["הכנסות","סכום (₪)","%"],
+    ["  מכירות ללקוחות פרטיים",+custRevenue.toFixed(2),""],
+  ];
+  if(sponsoredIncome>0) plRows.push(["  תמיכת Hexagon ("+((sponsoredOrders||[]).length)+" קופונים × ₪50)",+sponsoredIncome.toFixed(2),""]);
+  plRows.push(
+    ["סה\"כ הכנסות",+grandTotal.toFixed(2),"100.0%"],
+    ["","",""],
+    ["עלות המכר","",""],
+    ["  עלות סחורה (ספקים)",+(-totalCOGS).toFixed(2),""],
+    ["רווח גולמי",+grandProfit.toFixed(2),+(grossPct.toFixed(1))+"%"],
+    ["","",""],
+    ["הוצאות תפעוליות","",""],
+  );
+  OVERHEAD_COSTS.forEach(c=>plRows.push(["  "+c.label,+(-c.amount).toFixed(2),""]));
+  if(extrasManualCost>0) plRows.push(["  תוספות ידניות",+(-extrasManualCost).toFixed(2),""]);
+  plRows.push(
+    ["סה\"כ הוצאות תפעוליות",+(-totalOpex).toFixed(2),""],
+    ["","",""],
+    ["רווח נטו לפני מס",+netProfit.toFixed(2),+(netPct.toFixed(1))+"%"],
+  );
+  if(unsoldStockCost>0) plRows.push(
+    ["מלאי עובר לשבוע הבא (נכס — עולה למכירה הבאה)",+unsoldStockCost.toFixed(2),""],
+    ["מצב נכסי כולל",+(netProfit+unsoldStockCost).toFixed(2),""]
+  );
+  const wsPL=XLSX.utils.aoa_to_sheet(plRows);
+  wsPL['!cols']=[{wch:52},{wch:16},{wch:10}];
+  XLSX.utils.book_append_sheet(wb,wsPL,"דוח רווח והפסד");
+
+  // ── גיליון 2: לפי קטגוריה ──
+  const cats={},prods={};
+  orders.forEach(o=>o.items.forEach(i=>{
+    const cat=getCategoryForItem(i);
+    if(!cats[cat])cats[cat]={rev:0,profit:0,qty:0};
+    cats[cat].rev+=(i.price/VAT)*i.qty; cats[cat].profit+=getItemProfit(i); cats[cat].qty+=i.qty;
+    const pk=i.name+'|'+(i.sub||'');
+    if(!prods[pk])prods[pk]={name:i.name,sub:i.sub||'',cat,rev:0,profit:0,qty:0,price:i.price};
+    prods[pk].rev+=(i.price/VAT)*i.qty; prods[pk].profit+=getItemProfit(i); prods[pk].qty+=i.qty;
+  }));
+  const catList=Object.entries(cats).sort((a,b)=>b[1].profit-a[1].profit);
+  const totRev=catList.reduce((s,[,c])=>s+c.rev,0);
+  const totProfit=catList.reduce((s,[,c])=>s+c.profit,0);
+  const catRows=[
+    ["BENON'S שבועות 2026 — רווחיות לפי קטגוריה","","","",""],["","","","",""],
+    ["קטגוריה","כמות","מכירות (₪)","רווח גולמי (₪)","שולי רווח %"],
+    ...catList.map(([cat,c])=>{const m=c.rev>0?(c.profit/c.rev*100):0;return[cat,c.qty,+c.rev.toFixed(2),+c.profit.toFixed(2),+m.toFixed(1)];}),
+    ["","","","",""],
+    ["סה\"כ",catList.reduce((s,[,c])=>s+c.qty,0),+totRev.toFixed(2),+totProfit.toFixed(2),+(totRev>0?(totProfit/totRev*100):0).toFixed(1)]
+  ];
+  const wsCat=XLSX.utils.aoa_to_sheet(catRows);
+  wsCat['!cols']=[{wch:28},{wch:10},{wch:16},{wch:16},{wch:14}];
+  XLSX.utils.book_append_sheet(wb,wsCat,"לפי קטגוריה");
+
+  // ── גיליון 3: לפי מוצר ──
+  const prodList=Object.values(prods).sort((a,b)=>b.profit-a.profit);
+  const prodRows=[
+    ["BENON'S שבועות 2026 — רווחיות לפי מוצר","","","","","","",""],["","","","","","","",""],
+    ["מוצר","פירוט","קטגוריה","מחיר ₪","כמות","מכירות ₪","עלות ₪","רווח ₪","שולי %"],
+    ...prodList.map(p=>{const m=p.rev>0?(p.profit/p.rev*100):0;return[p.name,p.sub,p.cat,+p.price.toFixed(2),p.qty,+p.rev.toFixed(2),+(p.rev-p.profit).toFixed(2),+p.profit.toFixed(2),+m.toFixed(1)];}),
+    ["","","","","","","","",""],
+    ["סה\"כ","","","",prodList.reduce((s,p)=>s+p.qty,0),+totRev.toFixed(2),"",+totProfit.toFixed(2),+(totRev>0?(totProfit/totRev*100):0).toFixed(1)]
+  ];
+  const wsProd=XLSX.utils.aoa_to_sheet(prodRows);
+  wsProd['!cols']=[{wch:28},{wch:32},{wch:22},{wch:10},{wch:8},{wch:14},{wch:12},{wch:12},{wch:10}];
+  XLSX.utils.book_append_sheet(wb,wsProd,"לפי מוצר");
+
+  // ── גיליון 4: מלאי עובר ──
+  if(Object.keys(_weeklyStock).length){
+    const soldMap={};
+    orders.forEach(o=>o.items.forEach(i=>{const p=PRODUCTS.find(x=>x.name===i.name&&(x.sub||'')===(i.sub||''));if(p)soldMap[p.id]=(soldMap[p.id]||0)+i.qty;}));
+    const invRows=Object.entries(_weeklyStock).map(([id,stock])=>{
+      const pid=parseInt(id);const p=PRODUCTS.find(x=>x.id===pid);if(!p)return null;
+      const sold=soldMap[pid]||0;const rem=Math.max(0,stock-sold);
+      const cu=getItemCostByName(p.name,p.sub||'',p.price);
+      return[p.cat,p.name,p.sub||'',stock,sold,rem,+cu.toFixed(2),+(rem*cu).toFixed(2)];
+    }).filter(Boolean);
+    const totRemCost=invRows.reduce((s,r)=>s+(r[7]||0),0);
+    const invData=[
+      ["BENON'S — מלאי עובר לשבוע הבא","","","","","","",""],["","","","","","","",""],
+      ["קטגוריה","מוצר","פירוט","מלאי פתיחה","נמכר","נשאר","עלות ליח' ₪","ערך נשאר ₪"],
+      ...invRows,
+      ["","","","","","","",""],
+      ["סה\"כ ערך מלאי עובר","","","","","","",+totRemCost.toFixed(2)]
+    ];
+    const wsInv=XLSX.utils.aoa_to_sheet(invData);
+    wsInv['!cols']=[{wch:22},{wch:28},{wch:30},{wch:14},{wch:10},{wch:10},{wch:14},{wch:14}];
+    XLSX.utils.book_append_sheet(wb,wsInv,"מלאי עובר");
+  }
+
+  // ── גיליון 5: פירוט הזמנות ──
+  const orderRows=[
+    ["BENON'S שבועות 2026 — פירוט הזמנות","","","","","","",""],["","","","","","","",""],
+    ["מזהה","שם","טלפון","קומה","פריטים","סה\"כ ₪","קופון","שולם"],
+    ...orders.map(o=>[o.id,o.name,o.phone||'',o.floor||'',
+      o.items.map(i=>i.name+(i.sub?' ('+i.sub+')':'')+'×'+i.qty).join(' | '),
+      +o.total.toFixed(2),o.coupon||'',o.paid?'כן':'לא'])
+  ];
+  const wsOrd=XLSX.utils.aoa_to_sheet(orderRows);
+  wsOrd['!cols']=[{wch:12},{wch:20},{wch:16},{wch:8},{wch:65},{wch:12},{wch:12},{wch:8}];
+  XLSX.utils.book_append_sheet(wb,wsOrd,"הזמנות");
+
+  XLSX.writeFile(wb,"BENONS_שבועות_2026_"+date.replace(/\//g,'-')+".xlsx");
+}
+
 function renderAdmin(){
   if(!_admin.ok()){openModal('adminLoginModal');return;}
   document.getElementById('adminView').innerHTML='<div style="text-align:center;padding:40px;color:#888">⏳ טוען הזמנות...</div>';
@@ -3852,6 +3974,7 @@ function renderAdminWithOrders(orders){
   const extrasManualCost=calcExtrasAndManualCost();
   const unsoldStockCost=calcUnsoldStockCost(orders);  // ← ערך מלאי עובר (נכס)
   const netProfit=grandProfit-TOTAL_OVERHEAD-extrasManualCost;  // ← רווח נטו של השבועות בלבד
+  _lastPLData={grandTotal,sponsoredIncome,grandProfit,extrasManualCost,netProfit,unsoldStockCost,sponsoredOrders,orders};
   const avgOrderVal=orders.length?grandTotal/orders.length:0;
   const avgMargin=grandTotal>0?(grandProfit/grandTotal*100):0;
   const netMargin=grandTotal>0?(netProfit/grandTotal*100):0;
@@ -3868,6 +3991,7 @@ function renderAdminWithOrders(orders){
         <div style="width:1px;height:22px;background:#ddd;flex-shrink:0;margin:0 2px"></div>
         <button class="ebtn" onclick="renderAdmin()">🔄 רענן</button>
         <button class="ebtn" onclick="exportCSV()">⬇ CSV</button>
+        <button class="ebtn" style="background:#1b5e20;color:#fff;font-weight:700" onclick="exportPLExcel()">📊 Excel P&L</button>
         <button class="ebtn" style="background:#4A3000;color:#F5D87A;font-weight:700" onclick="openWeeklyStockModal()">📦 מלאי</button>
         <button class="ebtn" style="background:#1b5e20;color:#c8f0c8;font-weight:600;font-size:11px" onclick="loadShavuotCarryover()">📥 עובר משבועות</button>
         <button class="ebtn" style="background:#3d1f6b;color:#d9b8ff;font-weight:600;font-size:11px" onclick="addNewCheeseOrder()">🧀 גבינות חדשות</button>
