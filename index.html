@@ -4570,16 +4570,20 @@ function exportPLExcel(){
     ["","",""],
     ["רווח נטו לפני מס",+netProfit.toFixed(2),+(netPct.toFixed(1))+"%"],
   );
-  if(totalStockInvestment>0) plRows.push(
-    ["","",""],
-    ["השקעה במלאי","",""],
-    ["  עלות מלאי פתיחה (קניה מספקים)",+(-totalStockInvestment).toFixed(2),""],
-    ["  שווי מלאי שנשאר (נכס)",+unsoldStockCost.toFixed(2),""],
-    ["מצב P&L כולל (מכירות + מלאי עובר − השקעה)",+(grandTotal/VAT+unsoldStockCost-totalStockInvestment).toFixed(2),""]
-  ) else if(unsoldStockCost>0) plRows.push(
-    ["מלאי עובר לשבוע הבא (נכס — עולה למכירה הבאה)",+unsoldStockCost.toFixed(2),""],
-    ["מצב נכסי כולל",+(netProfit+unsoldStockCost).toFixed(2),""]
-  );
+  if(totalStockInvestment>0){
+    plRows.push(
+      ["","",""],
+      ["השקעה במלאי","",""],
+      ["  עלות מלאי פתיחה (קניה מספקים)",+(-totalStockInvestment).toFixed(2),""],
+      ["  שווי מלאי שנשאר (נכס)",+unsoldStockCost.toFixed(2),""],
+      ["מצב P&L כולל (מכירות + מלאי עובר − השקעה)",+(grandTotal/VAT+unsoldStockCost-totalStockInvestment).toFixed(2),""]
+    );
+  } else if(unsoldStockCost>0){
+    plRows.push(
+      ["מלאי עובר לשבוע הבא (נכס — עולה למכירה הבאה)",+unsoldStockCost.toFixed(2),""],
+      ["מצב נכסי כולל",+(netProfit+unsoldStockCost).toFixed(2),""]
+    );
+  }
   const wsPL=XLSX.utils.aoa_to_sheet(plRows);
   wsPL['!cols']=[{wch:52},{wch:16},{wch:10}];
   XLSX.utils.book_append_sheet(wb,wsPL,"דוח רווח והפסד");
