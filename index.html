@@ -2339,7 +2339,11 @@ function markCouponUsed(code, phone){
 
 function resetOrder(){cart={};appliedCoupon=null;_payProofBase64=null;localStorage.removeItem('benon_cart');['fname','lname','fphone','ffloor','fnotes','fcoupon'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});const prev=document.getElementById('payProofPreview');const ph=document.getElementById('payProofPlaceholder');const area=document.getElementById('payProofArea');const fi=document.getElementById('payProofFile');if(prev){prev.src='';prev.style.display='none';}if(ph)ph.style.display='';if(area)area.style.borderColor='#ccc';if(fi)fi.value='';document.getElementById('couponMsg').textContent='';updateCartUI();renderShop();}
 
-function showTab(tab){
+function showTab(tab, pushHistory){
+  if(pushHistory!==false){
+    const cur=new URLSearchParams(location.search).get('tab')||'shop';
+    if(cur!==tab) history.pushState({tab},'',location.pathname+'?tab='+tab);
+  }
   document.getElementById('navShop').classList.toggle('active',tab==='shop');
   document.getElementById('navWeekly').classList.toggle('active',tab==='weekly');
   document.getElementById('navAdmin').classList.toggle('active',tab==='admin');
@@ -2350,6 +2354,17 @@ function showTab(tab){
   if(tab==='admin'){if(!_admin.ok())openModal('adminLoginModal');else renderAdmin();}
   if(tab==='weekly'){loadWeeklyStock(renderWeeklyShop);}
 }
+// חזרה עם כפתור הדפדפן — נשאר בתוך האפליקציה
+window.addEventListener('popstate',e=>{
+  const params=new URLSearchParams(location.search);
+  const tab=(e.state&&e.state.tab)||params.get('tab')||'shop';
+  const view=(e.state&&e.state.view)||params.get('view')||'';
+  if(tab==='admin'&&view==='weekly'&&_admin.ok()){
+    loadWeeklyStock(()=>loadWeeklyOrders(renderWeeklyAdmin));
+  } else {
+    showTab(tab,false);
+  }
+});
 
 // ─── גישה סודית לאזור מנהל ────────────────────────────────────────────────────
 let _secretTaps=0, _secretTimer=null;
@@ -4084,8 +4099,10 @@ function submitWeeklyPreorder(){
 // ─── ממשק מכירות שבועיות ──────────────────────────────────────────────────────
 function openWeeklyAdmin(){
   if(!_admin.ok()){openModal('adminLoginModal');return;}
+  history.pushState({tab:'admin',view:'weekly'},'',location.pathname+'?tab=admin&view=weekly');
   document.getElementById('adminView').innerHTML='<div style="text-align:center;padding:40px;color:#888">⏳ טוען...</div>';
   document.getElementById('shopView').style.display='none';
+  document.getElementById('weeklyShopView').style.display='none';
   document.getElementById('adminView').style.display='block';
   loadWeeklyStock(()=>loadWeeklyOrders(renderWeeklyAdmin));
 }
