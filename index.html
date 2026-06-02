@@ -1402,7 +1402,7 @@ input, textarea {
 <body>
 
 <div class="header">
-  <div class="logo-wrap">
+  <div class="logo-wrap" id="logoWrap" onclick="handleSecretTap()" style="cursor:default;user-select:none">
     <img id="logoImg" src="" alt="BENON'S">
     <div class="logo-text">
       <span class="logo-main">BENON'S</span>
@@ -1433,7 +1433,7 @@ input, textarea {
     <span class="ni">🗓️</span>הזמנות מראש
     <span class="cart-count" id="weeklyCartCount" style="display:none">0</span>
   </button>
-  <button class="nb" id="navAdmin" onclick="showTab('admin')">
+  <button class="nb" id="navAdmin" onclick="showTab('admin')" style="display:none">
     <span class="ni">📋</span>מנהל
   </button>
 </div>
@@ -2351,11 +2351,48 @@ function showTab(tab){
   if(tab==='weekly'){loadWeeklyStock(renderWeeklyShop);}
 }
 
+// ─── גישה סודית לאזור מנהל ────────────────────────────────────────────────────
+let _secretTaps=0, _secretTimer=null;
+function handleSecretTap(){
+  _secretTaps++;
+  clearTimeout(_secretTimer);
+  _secretTimer=setTimeout(()=>{_secretTaps=0;},1800);
+  if(_secretTaps>=7){
+    _secretTaps=0;
+    const btn=document.getElementById('navAdmin');
+    if(btn)btn.style.display='';
+    showTab('admin');
+  }
+}
+
+// ─── אבטחה: נעילה אחרי ניסיונות כושלים ───────────────────────────────────────
+let _failedAttempts=0, _lockUntil=0;
+try{_lockUntil=parseInt(sessionStorage.getItem('_lk')||'0');}catch(e){}
+
 async function checkAdmin(){
+  const now=Date.now();
+  if(now<_lockUntil){
+    const secs=Math.ceil((_lockUntil-now)/1000);
+    const mins=Math.floor(secs/60), rem=secs%60;
+    document.getElementById('loginErr').textContent=`חסום — נסה שנית בעוד ${mins}:${String(rem).padStart(2,'0')}`;
+    return;
+  }
   const h=await hashStr(document.getElementById('adminPwd').value);
   if(h===ADMIN_PWD_HASH){
+    _failedAttempts=0;
+    try{sessionStorage.removeItem('_lk');}catch(e){}
     _admin.login();closeModal('adminLoginModal');document.getElementById('adminPwd').value='';renderAdmin();
-  }else{document.getElementById('loginErr').textContent='סיסמה שגויה';}
+  }else{
+    _failedAttempts++;
+    if(_failedAttempts>=3){
+      _lockUntil=Date.now()+10*60*1000;
+      try{sessionStorage.setItem('_lk',String(_lockUntil));}catch(e){}
+      document.getElementById('loginErr').textContent='יותר מדי ניסיונות — חסום ל-10 דקות';
+      _failedAttempts=0;
+    }else{
+      document.getElementById('loginErr').textContent=`סיסמה שגויה — ${3-_failedAttempts} ניסיונות נותרו`;
+    }
+  }
 }
 
 async function addAmbrellaOrder(){
