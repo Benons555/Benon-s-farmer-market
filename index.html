@@ -4143,8 +4143,17 @@ function renderWeeklyAdmin(){
     const sold=soldMap[pid]||0;const rem=Math.max(0,stock-sold);
     const pct=stock>0?Math.round(sold/stock*100):0;
     const cu=getItemCostByName(p.name,p.sub||'',p.price);
-    return{p,stock,sold,rem,pct,remCost:rem*cu,cat:p.cat};
+    // opening = current _weeklyStock + sold (reverse preorder decrements)
+    const opening=stock+sold;
+    return{p,stock,sold,rem,pct,remCost:rem*cu,openCost:opening*cu,cat:p.cat};
   }).filter(Boolean).sort((a,b)=>a.cat.localeCompare(b.cat,'he'));
+
+  // ─ P&L מלאי ─
+  const totalStockInvestment=stockRows.reduce((s,r)=>s+r.openCost,0); // כמה שולם על כל המלאי
+  const remainingStockValue=stockRows.reduce((s,r)=>s+r.remCost,0);   // שווי מה שנשאר
+  // netPosition = מה שהרווחנו + שווי מלאי שנשאר - מה ששילמנו
+  const netPosition=totalRevenueEx+remainingStockValue-totalStockInvestment;
+  const netColor=netPosition>=0?'#2e7d32':'#c62828';
 
   const byCat={};
   stockRows.forEach(r=>{if(!byCat[r.cat])byCat[r.cat]=[];byCat[r.cat].push(r);});
@@ -4170,18 +4179,49 @@ function renderWeeklyAdmin(){
     </div>
   </div>
 
-  <!-- KPI CARDS -->
-  <div class="stats-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:12px">
+  <!-- KPI CARDS — שורה 1: מכירות -->
+  <div class="stats-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:8px">
     <div class="stat-card"><div class="stat-num">${orders.length}</div><div class="stat-lbl">מכירות</div></div>
     <div class="stat-card" style="border-top:3px solid #2e7d32"><div class="stat-num" style="color:#2e7d32">₪${totalRevenue.toFixed(0)}</div><div class="stat-lbl">הכנסות כולל מע״מ</div></div>
     <div class="stat-card" style="border-top:3px solid #1B3A6B"><div class="stat-num" style="color:#1B3A6B">₪${paidRevenue.toFixed(0)}</div><div class="stat-lbl">שולם ✓</div></div>
     <div class="stat-card" style="border-top:3px solid ${unpaidRevenue>0?'#c62828':'#ccc'}"><div class="stat-num" style="color:${unpaidRevenue>0?'#c62828':'#aaa'}">₪${unpaidRevenue.toFixed(0)}</div><div class="stat-lbl">ממתין לתשלום</div></div>
   </div>
-  <div class="stats-grid" style="grid-template-columns:repeat(4,1fr)">
+  <!-- שורה 2: P&L מכירות -->
+  <div class="stats-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:8px">
     <div class="stat-card"><div class="stat-num">₪${totalRevenueEx.toFixed(0)}</div><div class="stat-lbl">הכנסות לפני מע״מ</div></div>
-    <div class="stat-card"><div class="stat-num">₪${totalCOGS.toFixed(0)}</div><div class="stat-lbl">עלות סחורה</div></div>
-    <div class="stat-card" style="border-top:3px solid #2e7d32"><div class="stat-num" style="color:#2e7d32">₪${grossProfit.toFixed(0)}</div><div class="stat-lbl">רווח גולמי</div></div>
+    <div class="stat-card"><div class="stat-num" style="color:#e65100">₪${totalCOGS.toFixed(0)}</div><div class="stat-lbl">עלות סחורה שנמכרה</div></div>
+    <div class="stat-card" style="border-top:3px solid #2e7d32"><div class="stat-num" style="color:#2e7d32">₪${grossProfit.toFixed(0)}</div><div class="stat-lbl">רווח גולמי ממכירות</div></div>
     <div class="stat-card" style="border-top:3px solid #1B3A6B"><div class="stat-num" style="color:#1B3A6B">${grossPct.toFixed(1)}%</div><div class="stat-lbl">שולי רווח</div></div>
+  </div>
+  <!-- שורה 3: P&L מלאי — ההשקעה האמיתית -->
+  <div style="background:#fffde7;border:1px solid #f9a825;border-radius:12px;padding:10px 14px;margin-bottom:8px">
+    <div style="font-size:11px;font-weight:700;color:#f57f17;letter-spacing:0.5px;margin-bottom:8px">📊 תמונת מצב כוללת (מלאי + מכירות)</div>
+    <div class="stats-grid" style="grid-template-columns:repeat(4,1fr)">
+      <div class="stat-card" style="border-top:3px solid #c62828;background:#fff8f8">
+        <div class="stat-num" style="color:#c62828">-₪${totalStockInvestment.toFixed(0)}</div>
+        <div class="stat-lbl">השקעה במלאי</div>
+        <div style="font-size:10px;color:#aaa;margin-top:2px">עלות קנייה כולל</div>
+      </div>
+      <div class="stat-card" style="border-top:3px solid #1565c0;background:#f8fbff">
+        <div class="stat-num" style="color:#1565c0">₪${remainingStockValue.toFixed(0)}</div>
+        <div class="stat-lbl">שווי מלאי נותר</div>
+        <div style="font-size:10px;color:#aaa;margin-top:2px">נכס שטרם נמכר</div>
+      </div>
+      <div class="stat-card" style="border-top:3px solid #2e7d32;background:#f8fff8">
+        <div class="stat-num" style="color:#2e7d32">₪${totalRevenueEx.toFixed(0)}</div>
+        <div class="stat-lbl">הכנסות ממכירות</div>
+        <div style="font-size:10px;color:#aaa;margin-top:2px">לפני מע״מ</div>
+      </div>
+      <div class="stat-card" style="border-top:3px solid ${netColor};background:${netPosition>=0?'#f8fff8':'#fff8f8'}">
+        <div class="stat-num" style="color:${netColor}">${netPosition>=0?'+':''}₪${netPosition.toFixed(0)}</div>
+        <div class="stat-lbl">מצב נוכחי</div>
+        <div style="font-size:10px;color:#aaa;margin-top:2px">${netPosition>=0?'✅ ברווח':'⏳ בהשקעה'}</div>
+      </div>
+    </div>
+    <div style="font-size:11px;color:#888;margin-top:6px;line-height:1.5">
+      💡 <strong>מצב נוכחי</strong> = הכנסות + שווי מלאי נותר − השקעה.
+      כשהמלאי יימכר המצב ישתפר.
+    </div>
   </div>
 
   <!-- ORDERS LIST -->
@@ -4390,6 +4430,12 @@ function submitWeeklyOrder(){
   const order={id,name,phone:(document.getElementById('woPhone').value||'').trim(),items,total,subtotal:total,payType,paid,ts:new Date().toISOString()};
   _weeklyOrders.push(order);
   saveWeeklyOrder(order);
+  // גרע מהמלאי אחרי כל מכירה מאושרת
+  Object.entries(window._woCart||{}).filter(([,q])=>q>0).forEach(([pid,q])=>{
+    const id=parseInt(pid);
+    _weeklyStock[id]=Math.max(0,(_weeklyStock[id]||0)-q);
+  });
+  saveWeeklyStock();
   closeModal('weeklyOrderModal');
   setTimeout(()=>document.getElementById('weeklyOrderModal')&&document.getElementById('weeklyOrderModal').remove(),300);
   renderWeeklyAdmin();
