@@ -114,14 +114,15 @@ input, textarea {
   height: 44px;
   width: 44px;
   border-radius: 50%;
-  object-fit: cover;
+  object-fit: contain;
+  object-position: center;
   border: 2px solid var(--gray-800);
   transition: border-color 0.3s;
+  flex-shrink: 0;
 }
 
 .logo-wrap img:hover {
-  border-color: var(--olive);
-}
+  border-color: var(--olive);}
 
 .logo-text {
   display: flex;
@@ -783,7 +784,16 @@ input, textarea {
     height: 60px;
     padding: 0 16px;
   }
-  
+
+  .logo-wrap img {
+    height: 36px;
+    width: 36px;
+  }
+
+  .logo-wrap {
+    gap: 9px;
+  }
+
   .logo-wrap span {
     font-size: 11px;
   }
