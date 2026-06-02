@@ -1427,14 +1427,10 @@ input, textarea {
 
 <div class="bnav">
   <button class="nb active" id="navShop" onclick="showTab('shop')">
-    <span class="ni">🛍️</span>חנות שבועות
+    <span class="ni">🛍️</span>חנות
   </button>
-  <button class="nb" id="navWeekly" onclick="showTab('weekly')">
-    <span class="ni">🗓️</span>הזמנות מראש
-    <span class="cart-count" id="weeklyCartCount" style="display:none">0</span>
-  </button>
-  <button class="nb" id="navAdmin" onclick="showTab('admin')" style="display:none">
-    <span class="ni">📋</span>מנהל
+  <button class="nb" id="navAdmin" onclick="showTab('admin')">
+    <span class="ni">📋</span>ניהול
   </button>
 </div>
 
@@ -1632,18 +1628,23 @@ function loadOrdersFromFirebase(cb){fbDB.ref('orders').once('value').then(snap=>
 let _lastPLData=null;  // cache for P&L Excel export
 
 // ─── מכירות שבועיות — Firebase ───────────────────────────────────────────────
+// ─── פרוייקטים — נתיבים דינמיים ─────────────────────────────────────────────
+let _projOrdersPath='weekly_orders';   // נתיב Firebase להזמנות הפרוייקט הנוכחי
+let _projStockPath='weekly_stock';     // נתיב Firebase למלאי הפרוייקט הנוכחי
+let _currentProjectMeta=null;          // מטא-דאטה של הפרוייקט הפתוח
+
 let _weeklyOrders=[];
 function loadWeeklyOrders(cb){
-  fbDB.ref('weekly_orders').once('value').then(snap=>{
+  fbDB.ref(_projOrdersPath).once('value').then(snap=>{
     const d=snap.val();
     _weeklyOrders=d?Object.values(d).sort((a,b)=>(b.ts||b.id)>(a.ts||a.id)?1:-1):[];
     if(cb)cb();
   }).catch(()=>{_weeklyOrders=[];if(cb)cb();});
 }
-function saveWeeklyOrder(o){fbDB.ref('weekly_orders/'+o.id).set(o).catch(()=>{});}
+function saveWeeklyOrder(o){fbDB.ref(_projOrdersPath+'/'+o.id).set(o).catch(()=>{});}
 function deleteWeeklyOrder(id){
   _weeklyOrders=_weeklyOrders.filter(o=>o.id!==id);
-  fbDB.ref('weekly_orders/'+id).remove().catch(()=>{});
+  fbDB.ref(_projOrdersPath+'/'+id).remove().catch(()=>{});
   renderWeeklyAdmin();
 }
 function markWeeklyPaid(id,paid){
@@ -1656,19 +1657,19 @@ function markWeeklyPaid(id,paid){
 // ─── מלאי שבועי ───────────────────────────────────────────────────────────────
 let _weeklyStock={};   // {productId: openingQty}
 function loadWeeklyStock(cb){
-  fbDB.ref('weekly_stock').once('value').then(snap=>{
+  fbDB.ref(_projStockPath).once('value').then(snap=>{
     const d=snap.val();
     _weeklyStock=d?d:{};
-    try{localStorage.setItem('benon_weekly_stock',JSON.stringify(_weeklyStock));}catch(e){}
+    try{localStorage.setItem('benon_weekly_stock_'+_projStockPath,JSON.stringify(_weeklyStock));}catch(e){}
     if(cb)cb();
   }).catch(()=>{
-    try{_weeklyStock=JSON.parse(localStorage.getItem('benon_weekly_stock')||'{}');}catch(e){_weeklyStock={};}
+    try{_weeklyStock=JSON.parse(localStorage.getItem('benon_weekly_stock_'+_projStockPath)||'{}');}catch(e){_weeklyStock={};}
     if(cb)cb();
   });
 }
 function saveWeeklyStock(){
-  fbDB.ref('weekly_stock').set(_weeklyStock).catch(()=>{});
-  try{localStorage.setItem('benon_weekly_stock',JSON.stringify(_weeklyStock));}catch(e){}
+  fbDB.ref(_projStockPath).set(_weeklyStock).catch(()=>{});
+  try{localStorage.setItem('benon_weekly_stock_'+_projStockPath,JSON.stringify(_weeklyStock));}catch(e){}
 }
 function openWeeklyStockModal(){
   const existing=document.getElementById('weeklyStockModal');
@@ -2345,22 +2346,25 @@ function showTab(tab, pushHistory){
     if(cur!==tab) history.pushState({tab},'',location.pathname+'?tab='+tab);
   }
   document.getElementById('navShop').classList.toggle('active',tab==='shop');
-  document.getElementById('navWeekly').classList.toggle('active',tab==='weekly');
   document.getElementById('navAdmin').classList.toggle('active',tab==='admin');
   document.getElementById('shopView').style.display=tab==='shop'?'':'none';
-  document.getElementById('weeklyShopView').style.display=tab==='weekly'?'':'none';
+  document.getElementById('weeklyShopView').style.display='none';
   document.getElementById('catTabs').style.display=tab==='shop'?'':'none';
   document.getElementById('adminView').style.display=tab==='admin'?'':'none';
-  if(tab==='admin'){if(!_admin.ok())openModal('adminLoginModal');else renderAdmin();}
-  if(tab==='weekly'){loadWeeklyStock(renderWeeklyShop);}
+  if(tab==='admin'){if(!_admin.ok())openModal('adminLoginModal');else renderAdminLanding();}
 }
 // חזרה עם כפתור הדפדפן — נשאר בתוך האפליקציה
 window.addEventListener('popstate',e=>{
   const params=new URLSearchParams(location.search);
   const tab=(e.state&&e.state.tab)||params.get('tab')||'shop';
-  const view=(e.state&&e.state.view)||params.get('view')||'';
-  if(tab==='admin'&&view==='weekly'&&_admin.ok()){
-    loadWeeklyStock(()=>loadWeeklyOrders(renderWeeklyAdmin));
+  const project=(e.state&&e.state.project)||params.get('project')||'';
+  if(tab==='admin'&&_admin.ok()){
+    if(project) openProject(project);
+    else renderAdminLanding();
+    document.getElementById('navAdmin').classList.add('active');
+    document.getElementById('navShop').classList.remove('active');
+    document.getElementById('adminView').style.display='';
+    document.getElementById('shopView').style.display='none';
   } else {
     showTab(tab,false);
   }
@@ -2396,7 +2400,7 @@ async function checkAdmin(){
   if(h===ADMIN_PWD_HASH){
     _failedAttempts=0;
     try{sessionStorage.removeItem('_lk');}catch(e){}
-    _admin.login();closeModal('adminLoginModal');document.getElementById('adminPwd').value='';renderAdmin();
+    _admin.login();closeModal('adminLoginModal');document.getElementById('adminPwd').value='';renderAdminLanding();
   }else{
     _failedAttempts++;
     if(_failedAttempts>=3){
@@ -4150,7 +4154,7 @@ function renderWeeklyAdmin(){
         <button class="ebtn" onclick="exportWeeklyExcel()">📊 Excel</button>
         <button class="ebtn" onclick="openWeeklyAdmin()">🔄 רענן</button>
         <div style="width:1px;height:22px;background:#ddd;flex-shrink:0;margin:0 2px"></div>
-        <button class="ebtn" style="background:#1B3A6B;color:#F5D87A;font-weight:600" onclick="renderAdmin()">← חזרה לממשק שבועות</button>
+        <button class="ebtn" style="background:#1B3A6B;color:#F5D87A;font-weight:600" onclick="history.back()">← כל הפרוייקטים</button>
         <button class="ebtn" style="background:#eee;color:#555" onclick="adminLogout()">🔒 יציאה</button>
       </div>
     </div>
@@ -4529,10 +4533,122 @@ function exportPLExcel(){
   XLSX.writeFile(wb,"BENONS_שבועות_2026_"+date.replace(/\//g,'-')+".xlsx");
 }
 
+// ─── מערכת פרוייקטים ──────────────────────────────────────────────────────────
+const SYSTEM_PROJECTS=[
+  {id:'shavuot_2026', name:'שבועות 2026', icon:'🎉', color:'#1B3A6B', type:'shavuot',
+   desc:'אירוע שבועות — הזמנות, חשבוניות, P&L'},
+  {id:'weekly', name:'מכירות שבועיות', icon:'🛒', color:'#40916c', type:'weekly',
+   ordersPath:'weekly_orders', stockPath:'weekly_stock', desc:'מכירות שוטפות שבועיות'}
+];
+let _userProjects=[];
+
+function loadUserProjects(cb){
+  fbDB.ref('projects').once('value').then(snap=>{
+    const d=snap.val();
+    _userProjects=d?Object.values(d):[];
+    cb();
+  }).catch(()=>{_userProjects=[];cb();});
+}
+
+function getAllProjects(){return [...SYSTEM_PROJECTS,..._userProjects];}
+
+function renderAdminLanding(){
+  if(!_admin.ok()){openModal('adminLoginModal');return;}
+  const view=document.getElementById('adminView');
+  view.innerHTML='<div style="text-align:center;padding:40px;color:#888">⏳ טוען...</div>';
+  loadUserProjects(()=>{
+    const projects=getAllProjects();
+    view.innerHTML=`
+    <div style="max-width:640px;margin:0 auto;padding:16px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+        <h1 style="margin:0;font-size:1.3rem;color:#1a1a1a">📋 ממשק ניהול — BENON'S</h1>
+        <button class="ebtn" style="background:#eee;color:#555" onclick="adminLogout()">🔒 יציאה</button>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:12px">
+        ${projects.map(p=>`
+          <div onclick="openProject('${p.id}')" style="background:#fff;border-radius:14px;padding:16px 18px;box-shadow:0 2px 10px rgba(0,0,0,.08);cursor:pointer;border:2px solid transparent;transition:border-color .15s;display:flex;align-items:center;gap:14px" onmouseover="this.style.borderColor='${p.color}'" onmouseout="this.style.borderColor='transparent'">
+            <div style="width:48px;height:48px;border-radius:12px;background:${p.color}22;display:flex;align-items:center;justify-content:center;font-size:1.6rem;flex-shrink:0">${p.icon}</div>
+            <div style="flex:1;min-width:0">
+              <div style="font-weight:800;font-size:1rem;color:#1a1a1a;margin-bottom:2px">${p.name}</div>
+              <div style="font-size:0.8rem;color:#888">${p.desc||''}</div>
+            </div>
+            <div style="color:${p.color};font-size:1.1rem;flex-shrink:0">←</div>
+          </div>`).join('')}
+        <div onclick="openNewProjectModal()" style="background:#f8f9fa;border-radius:14px;padding:14px 18px;cursor:pointer;border:2px dashed #ddd;display:flex;align-items:center;gap:12px;transition:border-color .15s" onmouseover="this.style.borderColor='#999'" onmouseout="this.style.borderColor='#ddd'">
+          <div style="width:48px;height:48px;border-radius:12px;background:#f0f0f0;display:flex;align-items:center;justify-content:center;font-size:1.5rem;flex-shrink:0">➕</div>
+          <div style="color:#666;font-weight:600;font-size:0.95rem">פרוייקט חדש</div>
+        </div>
+      </div>
+    </div>`;
+  });
+}
+
+function openProject(id){
+  const all=getAllProjects();
+  const p=all.find(x=>x.id===id);
+  if(!p)return;
+  _currentProjectMeta=p;
+  history.pushState({tab:'admin',project:id},'',location.pathname+'?tab=admin&project='+id);
+  if(p.type==='shavuot'){
+    // ממשק שבועות המקורי
+    document.getElementById('adminView').innerHTML='<div style="text-align:center;padding:40px;color:#888">⏳ טוען...</div>';
+    loadWeeklyStock(()=>loadOrdersFromFirebase(renderAdminWithOrders));
+  } else {
+    // ממשק מכירות שבועיות / פרוייקטים מותאמים
+    _projOrdersPath=p.ordersPath||(id==='weekly'?'weekly_orders':'projects/'+id+'/orders');
+    _projStockPath=p.stockPath||(id==='weekly'?'weekly_stock':'projects/'+id+'/stock');
+    openWeeklyAdmin();
+  }
+}
+
+function openNewProjectModal(){
+  const existing=document.getElementById('newProjectModal');if(existing)existing.remove();
+  const mo=document.createElement('div');mo.className='mo';mo.id='newProjectModal';mo.style.zIndex='9999';
+  mo.innerHTML=`<div class="modal" style="max-width:420px">
+    <div class="mh"><h2>➕ פרוייקט חדש</h2><button class="xbtn" onclick="closeModal('newProjectModal')">✕</button></div>
+    <div class="mb">
+      <div class="fg"><label>שם הפרוייקט *</label><input type="text" id="npName" placeholder="למשל: ראש השנה 2026, שוק חנוכה..."></div>
+      <div class="fg"><label>סמל (אמוג׳י)</label>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px" id="npIconPicker">
+          ${['🎪','🛒','🌿','🍎','🧀','🌸','🎂','🏪','🍇','🥗'].map(e=>`<button onclick="selectNpIcon('${e}')" class="np-icon-btn" style="width:36px;height:36px;border:2px solid #ddd;border-radius:8px;background:#fff;font-size:1.2rem;cursor:pointer">${e}</button>`).join('')}
+        </div>
+        <input type="text" id="npIcon" value="🛒" placeholder="או הקלד אמוג׳י" style="margin-top:8px;width:80px;font-size:1.3rem;text-align:center">
+      </div>
+      <div class="fg"><label>צבע</label>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">
+          ${['#1B3A6B','#40916c','#b45309','#7c3aed','#c0392b','#0891b2'].map(c=>`<button onclick="document.getElementById('npColor').value='${c}';document.querySelectorAll('.np-color-btn').forEach(b=>b.style.outline='none');this.style.outline='3px solid #333'" class="np-color-btn" style="width:32px;height:32px;border-radius:50%;background:${c};border:none;cursor:pointer"></button>`).join('')}
+          <input type="color" id="npColor" value="#40916c" style="width:32px;height:32px;border:none;border-radius:50%;cursor:pointer;padding:0">
+        </div>
+      </div>
+      <div id="npErr" style="color:#c0392b;font-size:13px;min-height:18px"></div>
+      <button class="checkout-submit" onclick="createNewProject()">צור פרוייקט ←</button>
+    </div>
+  </div>`;
+  document.body.appendChild(mo);openModal('newProjectModal');
+}
+function selectNpIcon(e){
+  document.getElementById('npIcon').value=e;
+  document.querySelectorAll('.np-icon-btn').forEach(b=>{b.style.background='#fff';b.style.borderColor='#ddd';});
+  event.target.style.background='#e8f5e9';event.target.style.borderColor='#40916c';
+}
+function createNewProject(){
+  const name=(document.getElementById('npName').value||'').trim();
+  const icon=(document.getElementById('npIcon').value||'🛒').trim();
+  const color=document.getElementById('npColor').value||'#40916c';
+  if(!name){document.getElementById('npErr').textContent='נא למלא שם';return;}
+  const id='proj_'+Date.now();
+  const proj={id,name,icon,color,type:'custom',desc:'פרוייקט מותאם אישית',
+    ordersPath:'projects/'+id+'/orders', stockPath:'projects/'+id+'/stock', createdAt:new Date().toISOString()};
+  fbDB.ref('projects/'+id).set(proj).then(()=>{
+    closeModal('newProjectModal');
+    _userProjects.push(proj);
+    openProject(id);
+  }).catch(e=>{document.getElementById('npErr').textContent='שגיאה: '+e.message;});
+}
+
 function renderAdmin(){
   if(!_admin.ok()){openModal('adminLoginModal');return;}
-  document.getElementById('adminView').innerHTML='<div style="text-align:center;padding:40px;color:#888">⏳ טוען הזמנות...</div>';
-  loadWeeklyStock(()=>loadOrdersFromFirebase(renderAdminWithOrders));
+  renderAdminLanding();
 }
 function showInvDetail(key){
   const el=document.getElementById('inv-detail-'+key);
@@ -4663,7 +4779,7 @@ function renderAdminWithOrders(orders){
         <button class="ebtn" style="background:#1B3A6B;color:#F5D87A;font-weight:700" onclick="addAmbrellaOrder()">🏢 אמברלה</button>
         <button class="ebtn" style="background:#2E5E3E;color:#A8D5B5;font-weight:700" onclick="addWimiOrder()">🏢 וימי</button>
         <div style="width:1px;height:22px;background:#ddd;flex-shrink:0;margin:0 2px"></div>
-        <button class="ebtn" onclick="renderAdmin()">🔄 רענן</button>
+        <button class="ebtn" onclick="loadOrdersFromFirebase(renderAdminWithOrders)">🔄 רענן</button>
         <button class="ebtn" onclick="exportCSV()">⬇ CSV</button>
         <button class="ebtn" style="background:#1b5e20;color:#fff;font-weight:700" onclick="exportPLExcel()">📊 Excel P&L</button>
         <button class="ebtn" style="background:#4A3000;color:#F5D87A;font-weight:700" onclick="openWeeklyStockModal()">📦 מלאי</button>
@@ -4672,7 +4788,7 @@ function renderAdminWithOrders(orders){
         <button class="ebtn" style="background:#b45309;color:#fef3c7;font-weight:700;font-size:11px" onclick="migrateTodayOrdersToWeekly()">↗️ העבר היום לשבועי</button>
         <button class="ebtn" style="background:#166534;color:#bbf7d0;font-weight:700;font-size:11px" onclick="loadFreshProduceStock()">🍇 פירות שבועי</button>
         <div style="width:1px;height:22px;background:#ddd;flex-shrink:0;margin:0 2px"></div>
-        <button class="ebtn" style="background:#0a3d6b;color:#fff;font-weight:700" onclick="openWeeklyAdmin()">🛒 מכירות שבועיות</button>
+        <button class="ebtn" style="background:#555;color:#fff;font-weight:700" onclick="history.back()">← כל הפרוייקטים</button>
         <button class="ebtn" style="background:#eee;color:#555" onclick="adminLogout()">🔒 יציאה</button>
       </div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
