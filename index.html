@@ -4157,6 +4157,77 @@ function openWeeklyAdmin(){
   loadWeeklyStock(()=>loadWeeklyOrders(renderWeeklyAdmin));
 }
 
+function buildWeeklySupplierSummary(orders){
+  // מה שנמכר + מה שנשאר במלאי = כמה חייבים לכל ספק
+  const suppSold={};
+  orders.forEach(o=>o.items.forEach(i=>{
+    const sup=(i.supplier||'ללא ספק').trim();
+    if(!suppSold[sup])suppSold[sup]={sold:[],totalCost:0,totalRev:0};
+    const cu=getItemCostByName(i.name,i.sub||'',i.price||0);
+    const revEx=(i.price||0)/VAT*i.qty;
+    const cost=cu*i.qty;
+    suppSold[sup].totalCost+=cost;
+    suppSold[sup].totalRev+=revEx;
+    suppSold[sup].sold.push({name:i.name,sub:i.sub||'',qty:i.qty,cost:cu,totalCost:cost});
+  }));
+  // מלאי שנשאר (לא נמכר עדיין — עלות שכבר שולמה)
+  const suppStock={};
+  Object.entries(_weeklyStock).forEach(([id,stock])=>{
+    const pid=parseInt(id);const p=PRODUCTS.find(x=>x.id===pid);if(!p||!stock)return;
+    const soldQty=orders.reduce((s,o)=>s+o.items.filter(i=>i.name===p.name&&(i.sub||'')===(p.sub||'')).reduce((ss,i)=>ss+i.qty,0),0);
+    const rem=Math.max(0,stock-soldQty);
+    if(rem<=0)return;
+    const sup=(p.supplier||'ללא ספק').trim();
+    const cu=getItemCostByName(p.name,p.sub||'',p.price);
+    if(!suppStock[sup])suppStock[sup]=[];
+    suppStock[sup].push({name:p.name,sub:p.sub||'',rem,cost:cu,totalCost:rem*cu});
+  });
+  const allSups=new Set([...Object.keys(suppSold),...Object.keys(suppStock)]);
+  if(!allSups.size)return '';
+  const rows=[...allSups].sort().map(sup=>{
+    const sold=suppSold[sup]||{sold:[],totalCost:0,totalRev:0};
+    const stock=suppStock[sup]||[];
+    const stockCost=stock.reduce((s,r)=>s+r.totalCost,0);
+    const totalPaid=sold.totalCost+stockCost; // כל מה ששולם לספק
+    const profit=sold.totalRev-sold.totalCost;
+    const margin=sold.totalRev>0?(profit/sold.totalRev*100):0;
+    const soldLines=sold.sold.map(s=>`<span style="font-size:11px;background:#e8f5e9;border-radius:10px;padding:1px 8px;margin:1px;display:inline-block">
+      ${s.name}${s.sub?' ('+s.sub+')':''} ×${s.qty} — עלות ₪${s.totalCost.toFixed(0)}</span>`).join('');
+    const stockLines=stock.map(s=>`<span style="font-size:11px;background:#fff8e1;border-radius:10px;padding:1px 8px;margin:1px;display:inline-block">
+      ${s.name}${s.sub?' ('+s.sub+')':''} נשאר ${s.rem} — ₪${s.totalCost.toFixed(0)}</span>`).join('');
+    return `<tr>
+      <td style="font-weight:700;padding:8px 14px;vertical-align:top">${sup}</td>
+      <td style="padding:8px 14px;vertical-align:top;font-size:12px;line-height:1.8">
+        ${soldLines?`<div style="margin-bottom:4px"><span style="font-size:10px;font-weight:700;color:#2e7d32;letter-spacing:0.5px">נמכר:</span><br>${soldLines}</div>`:''}
+        ${stockLines?`<div><span style="font-size:10px;font-weight:700;color:#e65100;letter-spacing:0.5px">במלאי:</span><br>${stockLines}</div>`:''}
+      </td>
+      <td style="font-weight:700;color:#c62828;text-align:left;white-space:nowrap;padding:8px 14px;vertical-align:top">₪${totalPaid.toFixed(0)}</td>
+      <td style="font-weight:700;color:#2e7d32;text-align:left;white-space:nowrap;padding:8px 14px;vertical-align:top">${sold.sold.length?'₪'+profit.toFixed(0)+' ('+margin.toFixed(0)+'%)':'—'}</td>
+    </tr>`;
+  }).join('');
+  const grandPaid=Object.values(suppSold).reduce((s,x)=>s+x.totalCost,0)+Object.values(suppStock).reduce((s,arr)=>s+arr.reduce((ss,r)=>ss+r.totalCost,0),0);
+  return `
+  <div class="asec">
+    <div class="asec-h">🏪 תשלומים לספקים</div>
+    <div class="asec-b" style="padding:0">
+      <table class="atable" style="margin:0">
+        <thead><tr>
+          <th style="text-align:right">ספק</th>
+          <th style="text-align:right">פירוט (נמכר + מלאי)</th>
+          <th style="text-align:left">עלות כוללת</th>
+          <th style="text-align:left">רווח ממכירות</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+        <tfoot><tr style="background:#1B3A6B;color:white">
+          <td colspan="2" style="font-weight:700;color:white;padding:8px 14px">סה״כ לספקים</td>
+          <td style="font-weight:900;color:#F5E87A;text-align:left;padding:8px 14px">₪${grandPaid.toFixed(0)}</td>
+          <td></td>
+        </tr></tfoot>
+      </table>
+    </div>
+  </div>`;
+}
+
 function renderWeeklyAdmin(){
   const orders=_weeklyOrders;
   // ─ חישוב מכירות ─
@@ -4313,43 +4384,11 @@ function renderWeeklyAdmin(){
     </div>
   </div>
 
-  <!-- INVENTORY STATUS -->
-  <div class="asec">
-    <div class="asec-h">📦 מצב מלאי עדכני
-      <button class="ebtn" onclick="openWeeklyStockModal()">✏️ עדכן כמויות</button>
-    </div>
-    <div class="asec-b" style="padding:0">
-      ${stockRows.length?`
-      <table class="atable" style="margin:0">
-        <thead><tr>
-          <th style="text-align:right">מוצר</th>
-          <th style="text-align:center">פתיחה</th>
-          <th style="text-align:center;color:#2e7d32">נמכר</th>
-          <th style="text-align:center">נשאר</th>
-          <th style="min-width:120px;text-align:center">קצב מכירה</th>
-        </tr></thead>
-        <tbody>
-          ${Object.entries(byCat).map(([cat,rows])=>`
-            <tr style="background:#eaf1fb"><td colspan="5" style="font-weight:700;font-size:12px;color:#1B3A6B;padding:6px 14px">${cat}</td></tr>
-            ${rows.map(r=>{
-              const rc=r.rem>0?(r.pct>=80?'#2e7d32':r.pct>=50?'#e65100':'#c62828'):'#2e7d32';
-              return `<tr>
-                <td style="font-weight:600;padding:6px 14px">${r.p.name}${r.p.sub?`<div style="font-size:11px;color:#888">${r.p.sub}</div>`:''}</td>
-                <td style="text-align:center">${r.stock}</td>
-                <td style="text-align:center;font-weight:800;color:#2e7d32">${r.sold}</td>
-                <td style="text-align:center;font-weight:800;color:${rc}">${r.rem}</td>
-                <td style="padding:6px 14px"><div style="display:flex;align-items:center;gap:4px">
-                  <div style="flex:1;height:8px;background:#e8e8e8;border-radius:4px;overflow:hidden">
-                    <div style="width:${r.pct}%;height:100%;background:${r.pct>=80?'#2e7d32':r.pct>=50?'#e65100':'#c62828'};border-radius:4px"></div>
-                  </div>
-                  <span style="font-size:11px;min-width:32px">${r.pct}%</span>
-                </div></td>
-              </tr>`;
-            }).join('')}`).join('')}
-        </tbody>
-      </table>`:`<div class="no-data" style="padding:24px">אין מלאי מוגדר — לחץ "עדכן כמויות"</div>`}
-    </div>
-  </div>`;
+  ${buildWeeklySupplierSummary(orders)}
+  ${buildProfitAnalysis(orders)}
+  ${buildInventoryReport(orders)}
+  `;
+  setTimeout(initProfitCharts,50);
 }
 
 function openWeeklyOrderModal(){
