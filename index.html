@@ -1586,6 +1586,28 @@ function loadOrdersFromFirebase(cb){fbDB.ref('orders').once('value').then(snap=>
 
 let _lastPLData=null;  // cache for P&L Excel export
 
+// ─── מכירות שבועיות — Firebase ───────────────────────────────────────────────
+let _weeklyOrders=[];
+function loadWeeklyOrders(cb){
+  fbDB.ref('weekly_orders').once('value').then(snap=>{
+    const d=snap.val();
+    _weeklyOrders=d?Object.values(d).sort((a,b)=>a.id>b.id?1:-1):[];
+    if(cb)cb();
+  }).catch(()=>{_weeklyOrders=[];if(cb)cb();});
+}
+function saveWeeklyOrder(o){fbDB.ref('weekly_orders/'+o.id).set(o).catch(()=>{});}
+function deleteWeeklyOrder(id){
+  _weeklyOrders=_weeklyOrders.filter(o=>o.id!==id);
+  fbDB.ref('weekly_orders/'+id).remove().catch(()=>{});
+  renderWeeklyAdmin();
+}
+function markWeeklyPaid(id,paid){
+  const o=_weeklyOrders.find(x=>x.id===id);if(!o)return;
+  o.paid=paid;
+  saveWeeklyOrder(o);
+  renderWeeklyAdmin();
+}
+
 // ─── מלאי שבועי ───────────────────────────────────────────────────────────────
 let _weeklyStock={};   // {productId: openingQty}
 function loadWeeklyStock(cb){
@@ -3738,6 +3760,299 @@ function saveManualOrder(){
   renderAdmin();
 }
 
+// ─── ממשק מכירות שבועיות ──────────────────────────────────────────────────────
+function openWeeklyAdmin(){
+  if(!_admin.ok()){openModal('adminLoginModal');return;}
+  document.getElementById('adminView').innerHTML='<div style="text-align:center;padding:40px;color:#888">⏳ טוען...</div>';
+  document.getElementById('shopView').style.display='none';
+  document.getElementById('adminView').style.display='block';
+  loadWeeklyStock(()=>loadWeeklyOrders(renderWeeklyAdmin));
+}
+
+function renderWeeklyAdmin(){
+  const orders=_weeklyOrders;
+  // ─ חישוב מכירות ─
+  const soldMap={};
+  orders.forEach(o=>o.items.forEach(i=>{
+    const p=PRODUCTS.find(x=>x.name===i.name&&(x.sub||'')===(i.sub||''));
+    if(p) soldMap[p.id]=(soldMap[p.id]||0)+i.qty;
+  }));
+  const totalRevenue=orders.reduce((s,o)=>s+(o.total||0),0);
+  const totalRevenueEx=totalRevenue/VAT;
+  const totalCOGS=orders.reduce((s,o)=>s+o.items.reduce((ss,i)=>ss+getItemCostByName(i.name,i.sub||'',i.price||0)*i.qty,0),0);
+  const grossProfit=totalRevenueEx-totalCOGS;
+  const grossPct=totalRevenueEx>0?(grossProfit/totalRevenueEx*100):0;
+  const paidRevenue=orders.filter(o=>o.paid).reduce((s,o)=>s+(o.total||0),0);
+  const unpaidRevenue=orders.filter(o=>!o.paid).reduce((s,o)=>s+(o.total||0),0);
+
+  // ─ מלאי עדכני (פתיחה - נמכר) ─
+  const stockRows=Object.entries(_weeklyStock).map(([id,stock])=>{
+    const pid=parseInt(id);const p=PRODUCTS.find(x=>x.id===pid);if(!p)return null;
+    const sold=soldMap[pid]||0;const rem=Math.max(0,stock-sold);
+    const pct=stock>0?Math.round(sold/stock*100):0;
+    const cu=getItemCostByName(p.name,p.sub||'',p.price);
+    return{p,stock,sold,rem,pct,remCost:rem*cu,cat:p.cat};
+  }).filter(Boolean).sort((a,b)=>a.cat.localeCompare(b.cat,'he'));
+
+  const byCat={};
+  stockRows.forEach(r=>{if(!byCat[r.cat])byCat[r.cat]=[];byCat[r.cat].push(r);});
+
+  const date=new Date().toLocaleDateString('he-IL');
+
+  document.getElementById('adminView').innerHTML=`
+  <!-- HEADER -->
+  <div class="admin-hdr">
+    <h1>🛒 מכירות שבועיות — BENON'S</h1>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+        <span style="font-size:10px;color:#aaa;font-weight:700;letter-spacing:1px;min-width:52px;text-align:right">פעולות</span>
+        <div style="width:1px;height:22px;background:#ddd;flex-shrink:0"></div>
+        <button class="ebtn" style="background:#4A7C59;color:#fff;font-weight:700" onclick="openWeeklyOrderModal()">➕ מכירה חדשה</button>
+        <button class="ebtn" onclick="openWeeklyStockModal()">📦 עדכן מלאי</button>
+        <button class="ebtn" onclick="exportWeeklyExcel()">📊 Excel</button>
+        <button class="ebtn" onclick="openWeeklyAdmin()">🔄 רענן</button>
+        <div style="width:1px;height:22px;background:#ddd;flex-shrink:0;margin:0 2px"></div>
+        <button class="ebtn" style="background:#1B3A6B;color:#F5D87A;font-weight:600" onclick="renderAdmin()">← חזרה לממשק שבועות</button>
+        <button class="ebtn" style="background:#eee;color:#555" onclick="adminLogout()">🔒 יציאה</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- KPI CARDS -->
+  <div class="stats-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:12px">
+    <div class="stat-card"><div class="stat-num">${orders.length}</div><div class="stat-lbl">מכירות</div></div>
+    <div class="stat-card" style="border-top:3px solid #2e7d32"><div class="stat-num" style="color:#2e7d32">₪${totalRevenue.toFixed(0)}</div><div class="stat-lbl">הכנסות כולל מע״מ</div></div>
+    <div class="stat-card" style="border-top:3px solid #1B3A6B"><div class="stat-num" style="color:#1B3A6B">₪${paidRevenue.toFixed(0)}</div><div class="stat-lbl">שולם ✓</div></div>
+    <div class="stat-card" style="border-top:3px solid ${unpaidRevenue>0?'#c62828':'#ccc'}"><div class="stat-num" style="color:${unpaidRevenue>0?'#c62828':'#aaa'}">₪${unpaidRevenue.toFixed(0)}</div><div class="stat-lbl">ממתין לתשלום</div></div>
+  </div>
+  <div class="stats-grid" style="grid-template-columns:repeat(4,1fr)">
+    <div class="stat-card"><div class="stat-num">₪${totalRevenueEx.toFixed(0)}</div><div class="stat-lbl">הכנסות לפני מע״מ</div></div>
+    <div class="stat-card"><div class="stat-num">₪${totalCOGS.toFixed(0)}</div><div class="stat-lbl">עלות סחורה</div></div>
+    <div class="stat-card" style="border-top:3px solid #2e7d32"><div class="stat-num" style="color:#2e7d32">₪${grossProfit.toFixed(0)}</div><div class="stat-lbl">רווח גולמי</div></div>
+    <div class="stat-card" style="border-top:3px solid #1B3A6B"><div class="stat-num" style="color:#1B3A6B">${grossPct.toFixed(1)}%</div><div class="stat-lbl">שולי רווח</div></div>
+  </div>
+
+  <!-- ORDERS LIST -->
+  <div class="asec">
+    <div class="asec-h">🛒 רשימת מכירות <span style="font-size:11px;font-weight:400;opacity:0.7">(${orders.length} מכירות)</span></div>
+    <div class="asec-b" style="padding:0">
+      ${orders.length?`
+      <table class="atable" style="margin:0">
+        <thead><tr>
+          <th style="text-align:right">שם לקוח</th>
+          <th style="text-align:right">פריטים</th>
+          <th style="text-align:left">סה״כ</th>
+          <th style="text-align:center">תשלום</th>
+          <th style="text-align:center">פעולות</th>
+        </tr></thead>
+        <tbody>
+          ${orders.slice().reverse().map(o=>{
+            const itemsStr=o.items.map(i=>i.name+(i.sub?' ('+i.sub+')':'')+'×'+i.qty).join(', ');
+            return `<tr>
+              <td style="font-weight:700;text-align:right">${o.name}${o.phone?`<div style="font-size:11px;color:#888;font-weight:400">${o.phone}</div>`:''}</td>
+              <td style="font-size:12px;color:#555;text-align:right;max-width:320px">${itemsStr}</td>
+              <td style="font-weight:800;color:#1B3A6B;text-align:left">₪${(o.total||0).toFixed(2)}</td>
+              <td style="text-align:center">
+                <button onclick="markWeeklyPaid('${o.id}',${!o.paid})" style="background:${o.paid?'#e8f5e9':'#fff3e0'};color:${o.paid?'#2e7d32':'#e65100'};border:1px solid ${o.paid?'#a5d6a7':'#ffcc80'};border-radius:16px;padding:3px 12px;font-size:12px;cursor:pointer;font-family:inherit;font-weight:700">
+                  ${o.paid?'✓ שולם':'⏳ ממתין'}
+                </button>
+              </td>
+              <td style="text-align:center">
+                <button onclick="deleteWeeklyOrder('${o.id}')" style="color:#c62828;border:none;background:none;cursor:pointer;font-size:13px" title="מחק">✕</button>
+              </td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>`:`<div class="no-data" style="padding:32px">עדיין אין מכירות — לחץ "➕ מכירה חדשה"</div>`}
+    </div>
+  </div>
+
+  <!-- INVENTORY STATUS -->
+  <div class="asec">
+    <div class="asec-h">📦 מצב מלאי עדכני
+      <button class="ebtn" onclick="openWeeklyStockModal()">✏️ עדכן כמויות</button>
+    </div>
+    <div class="asec-b" style="padding:0">
+      ${stockRows.length?`
+      <table class="atable" style="margin:0">
+        <thead><tr>
+          <th style="text-align:right">מוצר</th>
+          <th style="text-align:center">פתיחה</th>
+          <th style="text-align:center;color:#2e7d32">נמכר</th>
+          <th style="text-align:center">נשאר</th>
+          <th style="min-width:120px;text-align:center">קצב מכירה</th>
+        </tr></thead>
+        <tbody>
+          ${Object.entries(byCat).map(([cat,rows])=>`
+            <tr style="background:#eaf1fb"><td colspan="5" style="font-weight:700;font-size:12px;color:#1B3A6B;padding:6px 14px">${cat}</td></tr>
+            ${rows.map(r=>{
+              const rc=r.rem>0?(r.pct>=80?'#2e7d32':r.pct>=50?'#e65100':'#c62828'):'#2e7d32';
+              return `<tr>
+                <td style="font-weight:600;padding:6px 14px">${r.p.name}${r.p.sub?`<div style="font-size:11px;color:#888">${r.p.sub}</div>`:''}</td>
+                <td style="text-align:center">${r.stock}</td>
+                <td style="text-align:center;font-weight:800;color:#2e7d32">${r.sold}</td>
+                <td style="text-align:center;font-weight:800;color:${rc}">${r.rem}</td>
+                <td style="padding:6px 14px"><div style="display:flex;align-items:center;gap:4px">
+                  <div style="flex:1;height:8px;background:#e8e8e8;border-radius:4px;overflow:hidden">
+                    <div style="width:${r.pct}%;height:100%;background:${r.pct>=80?'#2e7d32':r.pct>=50?'#e65100':'#c62828'};border-radius:4px"></div>
+                  </div>
+                  <span style="font-size:11px;min-width:32px">${r.pct}%</span>
+                </div></td>
+              </tr>`;
+            }).join('')}`).join('')}
+        </tbody>
+      </table>`:`<div class="no-data" style="padding:24px">אין מלאי מוגדר — לחץ "עדכן כמויות"</div>`}
+    </div>
+  </div>`;
+}
+
+function openWeeklyOrderModal(){
+  const existing=document.getElementById('weeklyOrderModal');if(existing)existing.remove();
+  const cats=[...new Set(PRODUCTS.map(p=>p.cat).filter(Boolean))];
+  const catTabs=cats.map(c=>`<button onclick="woSetCat('${c}')" id="woCat_${c.replace(/[^a-zA-Zא-ת0-9]/g,'_')}" style="padding:5px 12px;border-radius:16px;border:1px solid #ccc;background:#fff;color:#333;font-size:12px;cursor:pointer;white-space:nowrap;font-family:inherit">${c}</button>`).join('');
+  const mo=document.createElement('div');mo.className='mo';mo.id='weeklyOrderModal';mo.style.zIndex='9999';
+  mo.innerHTML=`<div class="modal" style="max-width:680px;width:98vw">
+    <div class="mh"><h2 style="margin:0">🛒 מכירה חדשה</h2><button class="xbtn" onclick="closeModal('weeklyOrderModal')">✕</button></div>
+    <div class="mb" style="padding:14px">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+        <div class="fg"><label>שם לקוח *</label><input type="text" id="woName" placeholder="שם מלא"></div>
+        <div class="fg"><label>טלפון</label><input type="text" id="woPhone" placeholder="05X-XXXXXXX"></div>
+      </div>
+      <div style="border:1px solid #e0e0e0;border-radius:10px;overflow:hidden;margin-bottom:12px">
+        <div style="background:#f8f9fa;padding:10px 12px;border-bottom:1px solid #e0e0e0">
+          <input type="text" id="woSearch" placeholder="🔍 חיפוש מוצר..." oninput="woFilter()" style="width:100%;border:1px solid #ddd;border-radius:8px;padding:7px 10px;font-size:14px;font-family:inherit;box-sizing:border-box;margin-bottom:8px">
+          <div style="display:flex;gap:6px;flex-wrap:wrap">${catTabs}</div>
+        </div>
+        <div id="woProductList" style="max-height:240px;overflow-y:auto"></div>
+      </div>
+      <div style="font-weight:700;margin-bottom:6px;font-size:14px">🛒 פריטים שנבחרו</div>
+      <div id="woCart" style="min-height:40px;border:1px solid #ddd;border-radius:8px;padding:8px;margin-bottom:10px"><div style="color:#aaa;font-size:13px">טרם נבחרו פריטים</div></div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <label style="font-size:13px;font-weight:600">אמצעי תשלום:</label>
+        <select id="woPayType" style="border:1px solid #ddd;border-radius:8px;padding:6px 10px;font-size:13px;font-family:inherit">
+          <option value="cash">מזומן</option>
+          <option value="bit">Bit</option>
+          <option value="credit">כרטיס אשראי</option>
+          <option value="transfer">העברה בנקאית</option>
+        </select>
+        <label style="font-size:13px;font-weight:600;margin-right:8px">
+          <input type="checkbox" id="woPaid" checked style="margin-left:4px"> שולם
+        </label>
+      </div>
+    </div>
+    <div class="mf" style="display:flex;gap:8px;justify-content:flex-end;padding:12px 16px;border-top:1px solid #eee">
+      <button class="sbtn" onclick="submitWeeklyOrder()">💾 שמור מכירה</button>
+      <button class="cbtn" onclick="closeModal('weeklyOrderModal')">ביטול</button>
+    </div>
+  </div>`;
+  document.body.appendChild(mo);
+  window._woCart={};window._woCat='הכל';
+  openModal('weeklyOrderModal');
+  woFilter();
+}
+
+function woSetCat(cat){
+  window._woCat=cat;
+  document.querySelectorAll('[id^="woCat_"]').forEach(b=>{
+    b.style.background='#fff';b.style.color='#333';
+  });
+  const id='woCat_'+cat.replace(/[^a-zA-Zא-ת0-9]/g,'_');
+  const btn=document.getElementById(id);
+  if(btn){btn.style.background='#4A7C59';btn.style.color='#fff';}
+  woFilter();
+}
+function woFilter(){
+  const q=(document.getElementById('woSearch')?.value||'').toLowerCase();
+  const cat=window._woCat||'הכל';
+  const list=PRODUCTS.filter(p=>{
+    if(cat!=='הכל'&&p.cat!==cat)return false;
+    if(q&&!p.name.toLowerCase().includes(q)&&!(p.sub||'').toLowerCase().includes(q)&&!(p.supplier||'').toLowerCase().includes(q))return false;
+    return true;
+  });
+  const el=document.getElementById('woProductList');if(!el)return;
+  el.innerHTML=list.map(p=>`
+    <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid #f5f5f5;cursor:pointer" onclick="woAdd(${p.id})">
+      <div style="flex:1"><div style="font-weight:600;font-size:13px">${p.name}</div><div style="font-size:11px;color:#888">${p.sub||''}</div></div>
+      <div style="font-weight:700;color:#4A7C59;font-size:13px">₪${p.price.toFixed(2)}</div>
+      <button style="background:#4A7C59;color:#fff;border:none;border-radius:14px;padding:4px 12px;cursor:pointer;font-size:12px;font-family:inherit">+</button>
+    </div>`).join('');
+}
+function woAdd(pid){
+  const p=PRODUCTS.find(x=>x.id===pid);if(!p)return;
+  if(!window._woCart)window._woCart={};
+  window._woCart[pid]=(window._woCart[pid]||0)+1;
+  woRenderCart();
+}
+function woRenderCart(){
+  const el=document.getElementById('woCart');if(!el)return;
+  const items=Object.entries(window._woCart||{}).filter(([,q])=>q>0);
+  if(!items.length){el.innerHTML='<div style="color:#aaa;font-size:13px">טרם נבחרו פריטים</div>';return;}
+  const total=items.reduce((s,[pid,q])=>{const p=PRODUCTS.find(x=>x.id===parseInt(pid));return s+(p?p.price*q:0);},0);
+  el.innerHTML=items.map(([pid,q])=>{
+    const p=PRODUCTS.find(x=>x.id===parseInt(pid));if(!p)return'';
+    return `<div style="display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid #f5f5f5">
+      <div style="flex:1;font-size:13px;font-weight:600">${p.name}${p.sub?`<span style="font-size:11px;color:#888;margin-right:4px">${p.sub}</span>`:''}</div>
+      <button onclick="woChg(${pid},-1)" style="width:24px;height:24px;border:1px solid #ddd;border-radius:50%;cursor:pointer;font-size:13px;background:#fff">−</button>
+      <span style="min-width:24px;text-align:center;font-weight:700">${q}</span>
+      <button onclick="woChg(${pid},1)" style="width:24px;height:24px;border:1px solid #ddd;border-radius:50%;cursor:pointer;font-size:13px;background:#fff">+</button>
+      <div style="min-width:60px;text-align:left;font-weight:700;color:#1B3A6B">₪${(p.price*q).toFixed(2)}</div>
+    </div>`;
+  }).join('')+`<div style="text-align:left;font-weight:800;font-size:15px;padding-top:8px;color:#1B3A6B">סה"כ: ₪${total.toFixed(2)}</div>`;
+}
+function woChg(pid,d){
+  if(!window._woCart)window._woCart={};
+  window._woCart[pid]=Math.max(0,(window._woCart[pid]||0)+d);
+  if(window._woCart[pid]===0)delete window._woCart[pid];
+  woRenderCart();
+}
+function submitWeeklyOrder(){
+  const name=(document.getElementById('woName').value||'').trim();
+  if(!name){alert('נדרש שם לקוח');return;}
+  const items=Object.entries(window._woCart||{}).filter(([,q])=>q>0).map(([pid,q])=>{
+    const p=PRODUCTS.find(x=>x.id===parseInt(pid));
+    return{name:p.name,sub:p.sub||'',supplier:p.supplier||'',qty:q,price:p.price};
+  });
+  if(!items.length){alert('יש לבחור לפחות מוצר אחד');return;}
+  const total=items.reduce((s,i)=>s+i.price*i.qty,0);
+  const payType=document.getElementById('woPayType').value;
+  const paid=document.getElementById('woPaid').checked;
+  const id='w'+Date.now();
+  const order={id,name,phone:(document.getElementById('woPhone').value||'').trim(),items,total,subtotal:total,payType,paid,ts:new Date().toISOString()};
+  _weeklyOrders.push(order);
+  saveWeeklyOrder(order);
+  closeModal('weeklyOrderModal');
+  setTimeout(()=>document.getElementById('weeklyOrderModal')&&document.getElementById('weeklyOrderModal').remove(),300);
+  renderWeeklyAdmin();
+}
+
+function exportWeeklyExcel(){
+  const orders=_weeklyOrders;
+  const soldMap={};
+  orders.forEach(o=>o.items.forEach(i=>{const p=PRODUCTS.find(x=>x.name===i.name&&(x.sub||'')===(i.sub||''));if(p)soldMap[p.id]=(soldMap[p.id]||0)+i.qty;}));
+  const date=new Date().toLocaleDateString('he-IL');
+  const wb=XLSX.utils.book_new();
+  // גיליון מכירות
+  const sRows=[
+    ["BENON'S — מכירות שבועיות","","","",""],["","","","",""],
+    ["שם","טלפון","פריטים","סה\"כ ₪","שולם","אמצעי תשלום"],
+    ...orders.map(o=>[o.name,o.phone||'',o.items.map(i=>i.name+' ×'+i.qty).join(' | '),+o.total.toFixed(2),o.paid?'כן':'לא',o.payType||''])
+  ];
+  const ws1=XLSX.utils.aoa_to_sheet(sRows);ws1['!cols']=[{wch:20},{wch:14},{wch:55},{wch:12},{wch:8},{wch:14}];
+  XLSX.utils.book_append_sheet(wb,ws1,"מכירות");
+  // גיליון מלאי
+  const iRows=[
+    ["BENON'S — מצב מלאי שבועי","","","",""],["","","","",""],
+    ["קטגוריה","מוצר","פתיחה","נמכר","נשאר"],
+    ...Object.entries(_weeklyStock).map(([id,stock])=>{
+      const pid=parseInt(id);const p=PRODUCTS.find(x=>x.id===pid);if(!p)return null;
+      const sold=soldMap[pid]||0;return[p.cat,p.name+(p.sub?' — '+p.sub:''),stock,sold,Math.max(0,stock-sold)];
+    }).filter(Boolean)
+  ];
+  const ws2=XLSX.utils.aoa_to_sheet(iRows);ws2['!cols']=[{wch:22},{wch:32},{wch:12},{wch:10},{wch:10}];
+  XLSX.utils.book_append_sheet(wb,ws2,"מלאי");
+  XLSX.writeFile(wb,"BENONS_שבועי_"+date.replace(/\//g,'-')+".xlsx");
+}
+
 function exportPLExcel(){
   if(!_lastPLData){alert('יש לפתוח את ממשק הניהול תחילה');return;}
   const {grandTotal,sponsoredIncome,grandProfit,extrasManualCost,netProfit,unsoldStockCost,sponsoredOrders,orders}=_lastPLData;
@@ -3995,6 +4310,8 @@ function renderAdminWithOrders(orders){
         <button class="ebtn" style="background:#4A3000;color:#F5D87A;font-weight:700" onclick="openWeeklyStockModal()">📦 מלאי</button>
         <button class="ebtn" style="background:#1b5e20;color:#c8f0c8;font-weight:600;font-size:11px" onclick="loadShavuotCarryover()">📥 עובר משבועות</button>
         <button class="ebtn" style="background:#3d1f6b;color:#d9b8ff;font-weight:600;font-size:11px" onclick="addNewCheeseOrder()">🧀 גבינות חדשות</button>
+        <div style="width:1px;height:22px;background:#ddd;flex-shrink:0;margin:0 2px"></div>
+        <button class="ebtn" style="background:#0a3d6b;color:#fff;font-weight:700" onclick="openWeeklyAdmin()">🛒 מכירות שבועיות</button>
         <button class="ebtn" style="background:#eee;color:#555" onclick="adminLogout()">🔒 יציאה</button>
       </div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
