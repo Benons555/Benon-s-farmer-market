@@ -1653,6 +1653,7 @@ function loadWeeklyOrders(cb){
 }
 function saveWeeklyOrder(o){fbDB.ref(_projOrdersPath+'/'+o.id).set(o).catch(()=>{});}
 function deleteWeeklyOrder(id){
+  if(!confirm('למחוק מכירה זו?'))return;
   _weeklyOrders=_weeklyOrders.filter(o=>o.id!==id);
   fbDB.ref(_projOrdersPath+'/'+id).remove().catch(()=>{});
   renderWeeklyAdmin();
@@ -1661,6 +1662,64 @@ function markWeeklyPaid(id,paid){
   const o=_weeklyOrders.find(x=>x.id===id);if(!o)return;
   o.paid=paid;
   saveWeeklyOrder(o);
+  renderWeeklyAdmin();
+}
+function toggleWeeklyOrderDetail(id){
+  const row=document.getElementById('wod-'+id);
+  if(!row)return;
+  row.style.display=row.style.display==='none'?'':'none';
+}
+function openEditWeeklyOrderModal(id){
+  const o=_weeklyOrders.find(x=>x.id===id);if(!o)return;
+  const existing=document.getElementById('editWeeklyModal');if(existing)existing.remove();
+  const mo=document.createElement('div');mo.className='mo';mo.id='editWeeklyModal';mo.style.zIndex='9999';
+  const cats=[...new Set(PRODUCTS.map(p=>p.cat).filter(Boolean))];
+  mo.innerHTML=`<div class="modal" style="max-width:680px;width:98vw">
+    <div class="mh"><h2 style="margin:0">✏️ עריכת מכירה — ${o.name}</h2><button class="xbtn" onclick="closeModal('editWeeklyModal')">✕</button></div>
+    <div class="mb" style="padding:14px">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+        <div class="fg"><label>שם לקוח *</label><input type="text" id="ewName" value="${o.name||''}"></div>
+        <div class="fg"><label>טלפון</label><input type="text" id="ewPhone" value="${o.phone||''}"></div>
+      </div>
+      <div style="font-weight:700;margin-bottom:6px">פריטים נוכחיים:</div>
+      <div id="ewItemsList" style="border:1px solid #e0e0e0;border-radius:8px;padding:8px;margin-bottom:12px">
+        ${o.items.map((i,idx)=>`<div style="display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid #f0f0f0" id="ewItem_${id}_${idx}">
+          <span style="flex:1;font-size:13px">${i.name}${i.sub?' ('+i.sub+')':''}</span>
+          <input type="number" min="0" value="${i.qty}" style="width:50px;border:1px solid #ddd;border-radius:6px;padding:4px;text-align:center;font-family:inherit" onchange="window._ewQty_${id}=window._ewQty_${id}||{};window._ewQty_${id}[${idx}]=parseInt(this.value)||0">
+          <span style="color:#888;font-size:12px">× ₪${i.price.toFixed(2)}</span>
+          <button onclick="document.getElementById('ewItem_${id}_${idx}').remove()" style="color:#c62828;border:none;background:none;cursor:pointer;font-size:14px">✕</button>
+        </div>`).join('')}
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px">
+        <label style="font-weight:600;font-size:13px">שולם:</label>
+        <input type="checkbox" id="ewPaid" ${o.paid?'checked':''} style="width:18px;height:18px;cursor:pointer">
+        <span style="font-size:13px">אושר תשלום</span>
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button class="cbtn" onclick="closeModal('editWeeklyModal')">ביטול</button>
+        <button class="btn-p" onclick="saveEditWeeklyOrder('${id}')">💾 שמור שינויים</button>
+      </div>
+    </div>
+  </div>`;
+  document.body.appendChild(mo);
+  requestAnimationFrame(()=>mo.classList.add('open'));
+}
+function saveEditWeeklyOrder(id){
+  const o=_weeklyOrders.find(x=>x.id===id);if(!o)return;
+  const name=(document.getElementById('ewName').value||'').trim();
+  if(!name){alert('נדרש שם לקוח');return;}
+  o.name=name;
+  o.phone=(document.getElementById('ewPhone').value||'').trim();
+  o.paid=document.getElementById('ewPaid').checked;
+  // עדכן כמויות
+  const qtyMap=window['_ewQty_'+id]||{};
+  o.items=o.items.map((i,idx)=>({...i,qty:qtyMap[idx]!==undefined?qtyMap[idx]:i.qty})).filter(i=>i.qty>0);
+  // עדכן סה"כ
+  o.total=o.items.reduce((s,i)=>s+i.price*i.qty,0);
+  o.subtotal=o.total;
+  saveWeeklyOrder(o);
+  delete window['_ewQty_'+id];
+  closeModal('editWeeklyModal');
   renderWeeklyAdmin();
 }
 
@@ -4358,7 +4417,7 @@ function renderWeeklyAdmin(){
             const profit=revenueEx-cogs;
             const margin=revenueEx>0?(profit/revenueEx*100):0;
             const profitColor=profit>=0?'#2e7d32':'#c62828';
-            return `<tr style="${isPreorder?'background:#f0f7ff':''}">
+            return `<tr style="cursor:pointer;${isPreorder?'background:#f0f7ff':o.paid?'background:#f0faf0':''}" onclick="toggleWeeklyOrderDetail('${o.id}')">
               <td style="font-weight:700;text-align:right">
                 ${isPreorder?'<span style="background:#1B3A6B;color:#fff;border-radius:10px;font-size:10px;padding:1px 7px;font-weight:700;margin-left:5px">מראש</span>':''}
                 ${o.name}${o.phone?`<div style="font-size:11px;color:#888;font-weight:400">${o.phone}</div>`:''}</td>
@@ -4369,13 +4428,31 @@ function renderWeeklyAdmin(){
               <td style="font-weight:800;color:${profitColor};text-align:left;white-space:nowrap">
                 ₪${profit.toFixed(1)}<div style="font-size:10px;font-weight:600;opacity:.75">${margin.toFixed(0)}%</div>
               </td>
-              <td style="text-align:center">
-                <button onclick="markWeeklyPaid('${o.id}',${!o.paid})" style="background:${o.paid?'#e8f5e9':'#fff3e0'};color:${o.paid?'#2e7d32':'#e65100'};border:1px solid ${o.paid?'#a5d6a7':'#ffcc80'};border-radius:16px;padding:3px 10px;font-size:12px;cursor:pointer;font-family:inherit;font-weight:700">
-                  ${o.paid?'✓':'⏳'}
+              <td style="text-align:center" onclick="event.stopPropagation()">
+                <button onclick="markWeeklyPaid('${o.id}',${!o.paid})" style="background:${o.paid?'#e8f5e9':'#fdecea'};color:${o.paid?'#2e7d32':'#c0392b'};border:1px solid ${o.paid?'#a5d6a7':'#ef9a9a'};border-radius:16px;padding:3px 10px;font-size:12px;cursor:pointer;font-family:inherit;font-weight:700">
+                  ${o.paid?'✅ שולם':'⏳ ממתין'}
                 </button>
               </td>
-              <td style="text-align:center">
-                <button onclick="deleteWeeklyOrder('${o.id}')" style="color:#c62828;border:none;background:none;cursor:pointer;font-size:13px" title="מחק">✕</button>
+              <td style="white-space:nowrap;text-align:center" onclick="event.stopPropagation()">
+                <button class="ebtn" onclick="toggleWeeklyOrderDetail('${o.id}')">👁 פרטים</button>
+                <button class="ebtn" style="background:#e8f0fe;color:#1B3A6B" onclick="openEditWeeklyOrderModal('${o.id}')">✏️ ערוך</button>
+                <button class="ebtn" style="background:#fdecea;color:#c0392b" onclick="deleteWeeklyOrder('${o.id}')">🗑 מחק</button>
+              </td>
+            </tr>
+            <tr id="wod-${o.id}" style="display:none;background:#fafafa">
+              <td colspan="8" style="padding:12px 16px">
+                <div style="margin-bottom:6px;font-weight:700;font-size:13px">פרטי מכירה</div>
+                <table style="width:100%;border:none;font-size:12px">
+                  <tr><td style="color:#888;width:80px">שם</td><td>${o.name}</td></tr>
+                  ${o.phone?`<tr><td style="color:#888">טלפון</td><td>${o.phone}</td></tr>`:''}
+                  ${o.notes?`<tr><td style="color:#888">הערות</td><td>${o.notes}</td></tr>`:''}
+                  <tr><td style="color:#888">אמצעי תשלום</td><td>${o.payType||'—'}</td></tr>
+                </table>
+                <div style="margin-top:8px;font-weight:700;font-size:12px">מוצרים:</div>
+                <ul style="margin:4px 0 0 16px;font-size:12px">
+                  ${o.items.map(i=>`<li>${i.name}${i.sub?' ('+i.sub+')':''} × ${i.qty} = ₪${(i.price*i.qty).toFixed(2)}</li>`).join('')}
+                </ul>
+                <div style="margin-top:6px;font-size:13px;font-weight:700">סה"כ: ₪${(o.total||0).toFixed(2)}</div>
               </td>
             </tr>`;
           }).join('')}
