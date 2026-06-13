@@ -1650,8 +1650,16 @@ function loadWeeklyOrders(cb){
   fbDB.ref(_projOrdersPath).once('value').then(snap=>{
     const d=snap.val();
     console.log('[Weekly] תשובת Firebase:', d===null?'null (ריק)': typeof d==='object'?Object.keys(d).length+' רשומות':d);
-    _weeklyOrders=d?Object.values(d).sort((a,b)=>(b.ts||b.id)>(a.ts||a.id)?1:-1):[];
-    if(d) console.log('[Weekly] דוגמת רשומות:', Object.values(d).slice(0,3).map(o=>o.name));
+    // filter(Boolean) removes null/undefined entries that Firebase can return for deleted records
+    const raw=d?Object.values(d).filter(Boolean):[];
+    console.log('[Weekly] רשומות תקינות לאחר סינון:', raw.length);
+    try{
+      _weeklyOrders=raw.sort((a,b)=>(b.ts||b.id)>(a.ts||a.id)?1:-1);
+    }catch(sortErr){
+      console.warn('[Weekly] שגיאת מיון:',sortErr);
+      _weeklyOrders=raw;
+    }
+    if(raw.length) console.log('[Weekly] דוגמת רשומות:', raw.slice(0,3).map(o=>o&&o.name));
     try{localStorage.setItem(_weeklyOrdersLS(),JSON.stringify(_weeklyOrders));}catch(e){}
     if(cb)cb();
   }).catch((err)=>{
@@ -4330,7 +4338,8 @@ function buildWeeklySupplierSummary(orders){
 }
 
 function renderWeeklyAdmin(){
-  const orders=_weeklyOrders;
+  const orders=(_weeklyOrders||[]).filter(Boolean); // filter nulls defensively
+  console.log('[Weekly] renderWeeklyAdmin — הזמנות:', orders.length);
   // ─ חישוב מכירות ─
   const soldMap={};
   orders.forEach(o=>o.items.forEach(i=>{
@@ -4453,6 +4462,7 @@ function renderWeeklyAdmin(){
         </tr></thead>
         <tbody>
           ${orders.map(o=>{
+            if(!o||!o.items){console.warn('[Weekly] הזמנה בלתי תקינה:',o);return '';}
             const itemsStr=o.items.map(i=>i.name+'×'+i.qty).join(', ');
             const tsDate=o.ts?new Date(o.ts):null;
             const tsStr=tsDate?tsDate.toLocaleString('he-IL',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'—';
