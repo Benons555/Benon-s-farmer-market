@@ -3390,7 +3390,7 @@ async function saveOrderEdits(orderId){
 function buildPLSummary(grandTotal, sponsoredIncome, grandProfit, extrasManualCost, netProfit, sponsoredOrders, unsoldStockCost=0, totalStockInvestment=0){
   const custRevenue = grandTotal - sponsoredIncome;
   const totalCOGS = grandTotal - grandProfit;
-  const totalOpex = TOTAL_OVERHEAD + extrasManualCost;  // מלאי עובר = נכס, לא הוצאה
+  const totalOpex = extrasManualCost;
   const grossPct = grandTotal>0 ? (grandProfit/grandTotal*100).toFixed(1) : '0.0';
   const netPct   = grandTotal>0 ? (netProfit/grandTotal*100).toFixed(1)   : '0.0';
   const netColor = netProfit >= 0 ? '#F5E87A' : '#ffa0a0';
@@ -3429,24 +3429,19 @@ function buildPLSummary(grandTotal, sponsoredIncome, grandProfit, extrasManualCo
           <td style="padding:11px 16px;font-weight:800;font-size:14px">רווח גולמי <span style="font-size:12px;font-weight:600;color:#2e7d32">(${grossPct}%)</span></td>
           <td style="padding:11px 20px;text-align:left;font-weight:900;font-size:17px;color:#2e7d32">₪${grandProfit.toFixed(0)}</td>
         </tr>
+        ${extrasManualCost>0?`
         <!-- OPEX -->
         <tr style="background:#fffbf0">
           <td colspan="2" style="padding:10px 16px 6px;font-weight:800;font-size:11px;letter-spacing:2px;color:#b8860b;text-transform:uppercase;border-bottom:1px solid #f0e0a0">הוצאות תפעוליות</td>
         </tr>
-        ${OVERHEAD_COSTS.map(c=>`
-        <tr>
-          <td style="padding:5px 16px 5px 32px;color:#555;font-size:13px">${c.label}</td>
-          <td style="padding:5px 20px;text-align:left;font-size:13px;color:#c62828">-₪${c.amount.toFixed(0)}</td>
-        </tr>`).join('')}
-        ${extrasManualCost>0?`
         <tr>
           <td style="padding:5px 16px 5px 32px;color:#555;font-size:13px">תוספות ידניות מעל הזמנות</td>
           <td style="padding:5px 20px;text-align:left;font-size:13px;color:#c62828">-₪${extrasManualCost.toFixed(0)}</td>
-        </tr>`:''}
+        </tr>
         <tr style="border-top:2px solid #e8d090;border-bottom:3px solid ${netBg};background:#fffbf0">
           <td style="padding:11px 16px;font-weight:800;font-size:14px">סה״כ הוצאות תפעוליות</td>
           <td style="padding:11px 20px;text-align:left;font-weight:700;color:#c62828;font-size:14px">-₪${totalOpex.toFixed(0)}</td>
-        </tr>
+        </tr>`:'<tr style="border-bottom:3px solid '+netBg+'"><td colspan="2" style="padding:0"></td></tr>'}
         <!-- NET PROFIT -->
         <tr style="background:${netBg}">
           <td style="padding:16px 16px;font-weight:900;font-size:16px;color:white">
@@ -3513,11 +3508,6 @@ function getCategoryForItem(i){
   return 'אחר';
 }
 
-const OVERHEAD_COSTS=[
-  {label:'אריזה — 2 עובדות × 4 שעות × ₪45',detail:'עבודת יד, אריזה ושירות',amount:360},
-  {label:'שקי יוטה למארזים',detail:'אריזות בד/יוטה לכל מארז',amount:300},
-];
-const TOTAL_OVERHEAD=OVERHEAD_COSTS.reduce((s,c)=>s+c.amount,0);
 
 function buildProfitAnalysis(orders){
   const cats={},prods={};
@@ -3538,7 +3528,7 @@ function buildProfitAnalysis(orders){
   const totalRev=catList.reduce((s,[,c])=>s+c.rev,0);
   const totalProfit=catList.reduce((s,[,c])=>s+c.profit,0);
   const maxBarRatio=Math.max(...catList.map(([,c])=>c.rev>0?c.profit/c.rev:0))||1;
-  const netProfit=totalProfit-TOTAL_OVERHEAD;
+  const netProfit=totalProfit;
   function color(m){return m>=30?'#2e7d32':m>=20?'#e65100':'#c62828';}
   // Tax calculation — חברה בע״מ 2025
   const CORP_TAX_RATE=0.23;          // מס חברות
@@ -3658,41 +3648,7 @@ function buildProfitAnalysis(orders){
       </table>
     </div>
   </div>
-  <!-- ── TABLE 3: overhead ── -->
-  <div class="asec">
-    <div class="asec-h">🏗️ הוצאות תפעוליות קבועות</div>
-    <div class="asec-b">
-      <table class="atable">
-        <thead><tr>
-          <th style="text-align:right">הוצאה</th>
-          <th style="text-align:right">פירוט</th>
-          <th style="text-align:right">סכום</th>
-        </tr></thead>
-        <tbody>
-          ${OVERHEAD_COSTS.map(c=>`<tr>
-            <td style="font-weight:600;font-size:13px;text-align:right;padding:12px 16px">${c.label}</td>
-            <td style="color:#888;font-size:13px;text-align:right;padding:12px 16px">${c.detail}</td>
-            <td style="font-weight:700;color:#c62828;font-size:13px;text-align:right;padding:12px 16px">₪${c.amount.toFixed(2)}</td>
-          </tr>`).join('')}
-        </tbody>
-        <tfoot>
-          <tr style="background:#f5f5f5">
-            <td colspan="2" style="font-weight:700;font-size:13px;text-align:right;padding:12px 16px">סה״כ הוצאות קבועות</td>
-            <td style="font-weight:800;color:#c62828;font-size:13px;text-align:right;padding:12px 16px">₪${TOTAL_OVERHEAD.toFixed(2)}</td>
-          </tr>
-          <tr style="background:#1B3A6B">
-            <td colspan="2" style="font-weight:700;font-size:13px;color:white;text-align:right;padding:12px 16px">רווח נטו (לפני מס)</td>
-            <td style="font-weight:800;color:#F5E87A;font-size:13px;text-align:right;padding:12px 16px">₪${netProfit.toFixed(2)}</td>
-          </tr>
-          <tr style="background:#0d2447">
-            <td colspan="2" style="font-weight:700;font-size:13px;color:white;text-align:right;padding:12px 16px">סה״כ הוצאות (מוצרים + תפעול)</td>
-            <td style="font-weight:800;color:#aac8ff;font-size:13px;text-align:right;padding:12px 16px">₪${(totalRev-totalProfit+TOTAL_OVERHEAD).toFixed(2)}</td>
-          </tr>
-        </tfoot>
-      </table>
-    </div>
-  </div>
-  <!-- ── TABLE 4: tax (חברה בע״מ) ── -->
+  <!-- ── TABLE 3: tax (חברה בע״מ) ── -->
   <div class="asec">
     <div class="asec-h">🏛️ הערכת מיסוי — חברה בע״מ 2025 <span style="font-size:11px;font-weight:400;opacity:0.65">(אמדן בלבד, אינו ייעוץ מס)</span></div>
     <div class="asec-b" style="padding:20px">
@@ -4681,7 +4637,7 @@ function exportPLExcel(){
   const {grandTotal,sponsoredIncome,grandProfit,extrasManualCost,netProfit,unsoldStockCost,totalStockInvestment=0,sponsoredOrders,orders}=_lastPLData;
   const custRevenue=grandTotal-sponsoredIncome;
   const totalCOGS=grandTotal-grandProfit;
-  const totalOpex=TOTAL_OVERHEAD+extrasManualCost;
+  const totalOpex=extrasManualCost;
   const grossPct=grandTotal>0?(grandProfit/grandTotal*100):0;
   const netPct=grandTotal>0?(netProfit/grandTotal*100):0;
   const date=new Date().toLocaleDateString('he-IL');
@@ -4704,13 +4660,16 @@ function exportPLExcel(){
     ["  עלות סחורה (ספקים)",+(-totalCOGS).toFixed(2),""],
     ["רווח גולמי",+grandProfit.toFixed(2),+(grossPct.toFixed(1))+"%"],
     ["","",""],
-    ["הוצאות תפעוליות","",""],
   );
-  OVERHEAD_COSTS.forEach(c=>plRows.push(["  "+c.label,+(-c.amount).toFixed(2),""]));
-  if(extrasManualCost>0) plRows.push(["  תוספות ידניות",+(-extrasManualCost).toFixed(2),""]);
+  if(extrasManualCost>0){
+    plRows.push(
+      ["הוצאות תפעוליות","",""],
+      ["  תוספות ידניות",+(-extrasManualCost).toFixed(2),""],
+      ["סה\"כ הוצאות תפעוליות",+(-totalOpex).toFixed(2),""],
+      ["","",""],
+    );
+  }
   plRows.push(
-    ["סה\"כ הוצאות תפעוליות",+(-totalOpex).toFixed(2),""],
-    ["","",""],
     ["רווח נטו לפני מס",+netProfit.toFixed(2),+(netPct.toFixed(1))+"%"],
   );
   if(totalStockInvestment>0){
@@ -5040,7 +4999,7 @@ function renderAdminWithOrders(orders){
   const extrasManualCost=calcExtrasAndManualCost();
   const unsoldStockCost=calcUnsoldStockCost(orders);  // ← ערך מלאי עובר (נכס)
   const totalStockInvestment=calcTotalStockInvestment(orders); // ← כמה שולם על כל המלאי הפתיחה
-  const netProfit=grandProfit-TOTAL_OVERHEAD-extrasManualCost;  // ← רווח נטו של השבועות בלבד
+  const netProfit=grandProfit-extrasManualCost;  // ← רווח נטו של השבועות בלבד
   _lastPLData={grandTotal,sponsoredIncome,grandProfit,extrasManualCost,netProfit,unsoldStockCost,totalStockInvestment,sponsoredOrders,orders};
   const avgOrderVal=orders.length?grandTotal/orders.length:0;
   const avgMargin=grandTotal>0?(grandProfit/grandTotal*100):0;
