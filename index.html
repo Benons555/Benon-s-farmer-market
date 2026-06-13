@@ -4474,6 +4474,12 @@ function renderWeeklyAdmin(){
                   ${o.items.map(i=>`<li>${i.name}${i.sub?' ('+i.sub+')':''} × ${i.qty} = ₪${(i.price*i.qty).toFixed(2)}</li>`).join('')}
                 </ul>
                 <div style="margin-top:6px;font-size:13px;font-weight:700">סה"כ: ₪${(o.total||0).toFixed(2)}</div>
+                <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+                  ${o.giDocId
+                    ? `<button id="wgi_${o.id}" class="ebtn" style="background:#2e7d32;color:#fff;border-color:#2e7d32;font-weight:700" onclick="window.open('https://app.greeninvoice.co.il/documents/${o.giDocId}','_blank')">✅ פתח חשבונית ירוקה</button>`
+                    : `<button id="wgi_${o.id}" class="ebtn" style="background:#1B3A6B;color:#F5D87A;font-weight:700" onclick="event.stopPropagation();createWeeklyInvoice('${o.id}')">📄 אשר תשלום + חשבונית</button>`
+                  }
+                </div>
               </td>
             </tr>`;
           }).join('')}
@@ -5391,6 +5397,8 @@ function selectPaymentMethod(){
       <div style="font-size:16px;font-weight:700;margin-bottom:18px;color:#1B3A6B;text-align:center;">בחר אמצעי תשלום</div>
       <select id="pmSelect" style="width:100%;padding:10px 12px;font-size:15px;border:1px solid #ccc;border-radius:8px;font-family:inherit;direction:rtl;margin-bottom:18px;">
         <option value="1">מזומן</option>
+        <option value="4" selected>Bit</option>
+        <option value="4">Paybox</option>
         <option value="4">העברה בנקאית</option>
         <option value="3">כרטיס אשראי</option>
       </select>
@@ -5402,6 +5410,48 @@ function selectPaymentMethod(){
     window._pmResolve=resolve;
     document.body.appendChild(m);
   });
+}
+
+async function createWeeklyInvoice(orderId){
+  const o=_weeklyOrders.find(x=>x.id===orderId);
+  if(!o){alert('לא נמצאה מכירה: '+orderId);return;}
+  const btn=document.getElementById('wgi_'+orderId);
+  const payType=await selectPaymentMethod();
+  if(payType===null)return;
+  if(btn){btn.disabled=true;btn.textContent='יוצר חשבונית...';}
+  try{
+    const token=await giToken();
+    const today=new Date().toISOString().slice(0,10);
+    const income=o.items.map(i=>({
+      description:i.name+(i.sub?' — '+i.sub:''),
+      quantity:i.qty,
+      price:parseFloat((i.price/VAT).toFixed(2))
+    }));
+    if((o.discount||0)>0){
+      income.push({description:'הנחה'+(o.coupon?' ('+o.coupon+')':''),quantity:1,price:parseFloat((-o.discount/VAT).toFixed(2))});
+    }
+    const payload={
+      description:'מכירה שבועית BENON\'S — '+o.name,
+      type:320,date:today,lang:'he',currency:'ILS',
+      client:{name:o.name,phone:o.phone||''},
+      income,
+      payment:[{type:payType,price:parseFloat((o.total||0).toFixed(2)),currency:'ILS',date:today}]
+    };
+    const res=await fetch(GI_BASE+'/documents',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify(payload)});
+    const doc=await res.json();
+    if(doc.id){
+      o.paid=true;
+      o.giDocId=doc.id;
+      saveWeeklyOrder(o);
+      renderWeeklyAdmin();
+    } else {
+      throw new Error(JSON.stringify(doc));
+    }
+  }catch(e){
+    if(btn){btn.textContent='✗ שגיאה';btn.style.cssText='background:#c62828;color:white;border:1px solid #c62828';btn.disabled=false;}
+    console.error('GI weekly invoice error',e);
+    alert('שגיאה ביצירת חשבונית:\n'+e.message);
+  }
 }
 
 async function createInvoice(orderId){
