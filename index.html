@@ -1844,40 +1844,52 @@ function loadShavuotCarryover(){
   saveWeeklyStock();
   renderWeeklyAdmin();
 }
-function loadEidoJune2026(){
-  // תעודת משלוח 6877 (03/06/2026) + תעודת משלוח 6935 (10/06/2026) — ספק עידו
-  // מלאי פתיחה מהתעודות:
-  const openingStock={
-    44: 108,  // אוכמניות כרמל: 72 (ת.6877) + 36 (ת.6935)
-    45: 5,    // פטל: 5 (ת.6877)
-    48: 41    // דובדבן: 11 (5.7ק"ג÷0.5, ת.6877) + 30 (15ק"ג÷0.5, ת.6935)
-  };
-  const lines=[
-    'אוכמניות כרמל: 108 יח׳ (ת.6877: 72 + ת.6935: 36)',
-    'פטל: 5 יח׳ (ת.6877)',
-    'דובדבן: 41 יח׳ ≈ 20.7 ק"ג (ת.6877: 5.7 + ת.6935: 15)'
-  ];
-  if(!confirm('לטעון מלאי פתיחה עידו — יוני 2026?\n\n'+lines.join('\n')+'\n\n(ידרוס מלאי קיים ויחסיר מה שנמכר)'))return;
-  // חשב כמה מכל מוצר כבר נמכר
+function _loadEidoDelivery(openingStock, label){
+  // פונקציה כללית לטעינת תעודת משלוח עידו
+  // מחסירה אוטומטית מה שנמכר ומוסיפה על מלאי קיים
   const soldMap={};
   _weeklyOrders.forEach(o=>o.items.forEach(i=>{
     const p=PRODUCTS.find(x=>x.name===i.name&&(x.sub||'')===(i.sub||''));
     if(p&&openingStock[p.id]!==undefined)
       soldMap[p.id]=(soldMap[p.id]||0)+i.qty;
   }));
-  // קבע מלאי נותר = פתיחה − נמכר
-  Object.entries(openingStock).forEach(([id,opening])=>{
+  // הוסף על המלאי הנוכחי: כמות חדשה פחות מה שנמכר מהכמות החדשה
+  Object.entries(openingStock).forEach(([id,qty])=>{
     const pid=parseInt(id);
-    _weeklyStock[pid]=Math.max(0,opening-(soldMap[pid]||0));
+    const currentRemaining=_weeklyStock[pid]||0;
+    const sold=soldMap[pid]||0;
+    // הנחה: מה שנמכר מהתעודה הזו = sold (פשטנות)
+    _weeklyStock[pid]=currentRemaining+Math.max(0,qty-sold);
   });
   saveWeeklyStock();
   renderWeeklyAdmin();
-  const soldLines=Object.entries(openingStock).map(([id,op])=>{
+  const lines=Object.entries(openingStock).map(([id,qty])=>{
     const p=PRODUCTS.find(x=>x.id===parseInt(id));
     const sold=soldMap[parseInt(id)]||0;
-    return `${p?p.name:id}: פתיחה ${op} → נמכר ${sold} → נשאר ${Math.max(0,op-sold)}`;
+    return `${p?p.name:id}: +${Math.max(0,qty-sold)} יח׳ (מתוך ${qty}, נמכר ${sold})`;
   });
-  alert('✅ מלאי עידו יוני 2026 עודכן!\n\n'+soldLines.join('\n'));
+  alert('✅ '+label+'\n\n'+lines.join('\n'));
+}
+
+function loadEido6877(){
+  // תעודת משלוח 6877 — 03/06/2026
+  const opening={
+    44: 72,   // אוכמניות כרמל 72 יח׳ @ ₪12
+    45: 5,    // פטל 5 יח׳ @ ₪27
+    48: 11    // דובדבן 5.7ק"ג ÷ 0.5 = 11 יח׳ @ ₪30
+  };
+  if(!confirm('לטעון ת.משלוח 6877 (03/06)?\n\nאוכמניות: 72 יח׳\nפטל: 5 יח׳\nדובדבן: 11 יח׳ (5.7 ק"ג)\n\n(יצטבר על המלאי הקיים)'))return;
+  _loadEidoDelivery(opening,'ת.משלוח 6877 (03/06) נטענה!');
+}
+
+function loadEido6935(){
+  // תעודת משלוח 6935 — 10/06/2026
+  const opening={
+    44: 36,   // אוכמניות כרמל 36 יח׳ @ ₪11
+    48: 30    // דובדבן 15ק"ג ÷ 0.5 = 30 יח׳ @ ₪27.50
+  };
+  if(!confirm('לטעון ת.משלוח 6935 (10/06)?\n\nאוכמניות: 36 יח׳\nדובדבן: 30 יח׳ (15 ק"ג)\n\n(יצטבר על המלאי הקיים)'))return;
+  _loadEidoDelivery(opening,'ת.משלוח 6935 (10/06) נטענה!');
 }
 
 function addNewCheeseOrder(){
@@ -4961,7 +4973,7 @@ const PRODUCT_COSTS={
   'עגבניות שרי לובלו-משק רוזנברג':20.00,'אבוקדו ריד-משק רוזנברג':12.00,
   // פירות — עידו (₪70/ק"ג כולל מע"מ ÷ 1.18 ÷ 2 = ₪29.66/½ ק"ג | אננס ₪34 כולל מע"מ ÷ 1.18 = ₪28.81)
   // אוכמניות: ₪12/יח' (מחשבונית) | דובדבן: ₪70/ק"ג כולל מע"מ ÷ 1.18 ÷ 2 = ₪29.66/½ ק"ג | פטל: ₪27/150 גרם | אננס: ₪34 כולל מע"מ ÷ 1.18 = ₪28.81
-  'אוכמניות כרמל':11.67,'אננס דלמונטה':28.81,'פטל':27.00,'דובדבן':28.17,
+  'אוכמניות כרמל':12.00,'אננס דלמונטה':28.81,'פטל':27.00,'דובדבן':30.00,
   // פרחים — משק פרחים אברהם בן שלום (כולל מע"מ 18%, ÷ 1.18)
   // לבן: ₪3/גבעול × 10 = ₪30 כולל מע"מ = ₪25.42 לפני | צהוב: ₪2/גבעול × 10 = ₪20 כולל = ₪16.95 לפני
   'פרחים- נץ החלב לבן':25.42,'פרחים- נץ החלב צהוב':16.95,'פטריות רעמת האריה':29.66,
@@ -5078,7 +5090,8 @@ function renderAdminWithOrders(orders){
         <button class="ebtn" style="background:#3d1f6b;color:#d9b8ff;font-weight:600;font-size:11px" onclick="addNewCheeseOrder()">🧀 גבינות חדשות</button>
         <button class="ebtn" style="background:#b45309;color:#fef3c7;font-weight:700;font-size:11px" onclick="migrateTodayOrdersToWeekly()">↗️ העבר היום לשבועי</button>
         <button class="ebtn" style="background:#166534;color:#bbf7d0;font-weight:700;font-size:11px" onclick="loadFreshProduceStock()">🍇 פירות שבועי</button>
-        <button class="ebtn" style="background:#064e3b;color:#a7f3d0;font-weight:700;font-size:11px" onclick="loadEidoJune2026()">🍒 עידו יוני 2026</button>
+        <button class="ebtn" style="background:#064e3b;color:#a7f3d0;font-weight:700;font-size:11px" onclick="loadEido6877()">🍒 עידו ת.6877</button>
+        <button class="ebtn" style="background:#065f46;color:#6ee7b7;font-weight:700;font-size:11px" onclick="loadEido6935()">🍒 עידו ת.6935</button>
         <div style="width:1px;height:22px;background:#ddd;flex-shrink:0;margin:0 2px"></div>
         <button class="ebtn" style="background:#555;color:#fff;font-weight:700" onclick="history.back()">← כל הפרוייקטים</button>
         <button class="ebtn" style="background:#eee;color:#555" onclick="adminLogout()">🔒 יציאה</button>
