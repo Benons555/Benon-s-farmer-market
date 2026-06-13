@@ -1797,7 +1797,7 @@ function migrateTodayOrdersToWeekly(){
     });
     Promise.all(promises).then(()=>{
       alert('✅ '+todayOrders.length+' הזמנות הועברו לרשימה השבועית');
-      renderAdmin();
+      renderWeeklyAdmin();
     }).catch(e=>alert('שגיאה: '+e.message));
   }).catch(e=>alert('שגיאה: '+e.message));
 }
@@ -1809,7 +1809,7 @@ function loadFreshProduceStock(){
     _weeklyStock[parseInt(id)]=(_weeklyStock[parseInt(id)]||0)+qty;
   });
   saveWeeklyStock();
-  renderAdmin();
+  renderWeeklyAdmin();
   alert('✅ מלאי פירות עודכן!');
 }
 
@@ -1825,7 +1825,7 @@ function loadShavuotCarryover(){
     26: 2, 27: 4, 34: 3, 33: 3
   };
   saveWeeklyStock();
-  renderAdmin();
+  renderWeeklyAdmin();
 }
 function loadEidoJune2026(){
   // תעודת משלוח 6877 (03/06/2026) + תעודת משלוח 6935 (10/06/2026) — ספק עידו
@@ -1844,7 +1844,7 @@ function loadEidoJune2026(){
     _weeklyStock[parseInt(id)]=(_weeklyStock[parseInt(id)]||0)+qty;
   });
   saveWeeklyStock();
-  renderAdmin();
+  renderWeeklyAdmin();
   alert('✅ מלאי עידו יוני 2026 עודכן!\n'+lines.join('\n'));
 }
 
@@ -1875,7 +1875,7 @@ function addNewCheeseOrder(){
     _weeklyStock[parseInt(id)] = (_weeklyStock[parseInt(id)]||0) + qty;
   });
   saveWeeklyStock();
-  renderAdmin();
+  renderWeeklyAdmin();
 }
 function saveWeeklyStockFromModal(){
   document.querySelectorAll('[data-pid]').forEach(input=>{
@@ -1887,7 +1887,7 @@ function saveWeeklyStockFromModal(){
   saveWeeklyStock();
   closeModal('weeklyStockModal');
   setTimeout(()=>document.getElementById('weeklyStockModal')&&document.getElementById('weeklyStockModal').remove(),300);
-  renderAdmin();
+  renderWeeklyAdmin();
 }
 function calcUnsoldStockCost(orders){
   const soldMap={};
