@@ -1644,18 +1644,35 @@ let _projStockPath='weekly_stock';     // נתיב Firebase למלאי הפרו�
 let _currentProjectMeta=null;          // מטא-דאטה של הפרוייקט הפתוח
 
 let _weeklyOrders=[];
+function _weeklyOrdersLS(){return'benon_worders_'+_projOrdersPath;}
 function loadWeeklyOrders(cb){
   fbDB.ref(_projOrdersPath).once('value').then(snap=>{
     const d=snap.val();
     _weeklyOrders=d?Object.values(d).sort((a,b)=>(b.ts||b.id)>(a.ts||a.id)?1:-1):[];
+    try{localStorage.setItem(_weeklyOrdersLS(),JSON.stringify(_weeklyOrders));}catch(e){}
     if(cb)cb();
-  }).catch(()=>{_weeklyOrders=[];if(cb)cb();});
+  }).catch((err)=>{
+    console.warn('Firebase weekly orders failed:',err);
+    // fallback to localStorage
+    try{_weeklyOrders=JSON.parse(localStorage.getItem(_weeklyOrdersLS())||'[]');}catch(e){_weeklyOrders=[];}
+    if(cb)cb('firebase_error');
+  });
 }
-function saveWeeklyOrder(o){fbDB.ref(_projOrdersPath+'/'+o.id).set(o).catch(()=>{});}
+function saveWeeklyOrder(o){
+  fbDB.ref(_projOrdersPath+'/'+o.id).set(o).catch(()=>{});
+  // update localStorage cache
+  try{
+    const all=JSON.parse(localStorage.getItem(_weeklyOrdersLS())||'[]');
+    const idx=all.findIndex(x=>x.id===o.id);
+    if(idx>=0)all[idx]=o; else all.push(o);
+    localStorage.setItem(_weeklyOrdersLS(),JSON.stringify(all));
+  }catch(e){}
+}
 function deleteWeeklyOrder(id){
   if(!confirm('למחוק מכירה זו?'))return;
   _weeklyOrders=_weeklyOrders.filter(o=>o.id!==id);
   fbDB.ref(_projOrdersPath+'/'+id).remove().catch(()=>{});
+  try{localStorage.setItem(_weeklyOrdersLS(),JSON.stringify(_weeklyOrders));}catch(e){}
   renderWeeklyAdmin();
 }
 function markWeeklyPaid(id,paid){
@@ -4201,7 +4218,15 @@ function openWeeklyAdmin(){
   document.getElementById('shopView').style.display='none';
   document.getElementById('weeklyShopView').style.display='none';
   document.getElementById('adminView').style.display='block';
-  loadWeeklyStock(()=>loadWeeklyOrders(renderWeeklyAdmin));
+  loadWeeklyStock(()=>loadWeeklyOrders(err=>{
+    if(err==='firebase_error'){
+      const banner=document.createElement('div');
+      banner.style.cssText='background:#fff3cd;border:1px solid #ffc107;border-radius:8px;padding:10px 16px;margin:8px 16px;font-size:13px;color:#856404;direction:rtl';
+      banner.innerHTML='⚠️ <strong>שגיאת Firebase</strong> — הנתונים נטענו מהזיכרון המקומי. ייתכן שהנתונים אינם עדכניים. <button onclick="openWeeklyAdmin()" style="margin-right:8px;background:#856404;color:#fff;border:none;border-radius:6px;padding:3px 10px;cursor:pointer;font-family:inherit">נסה שוב</button>';
+      document.getElementById('adminView').prepend(banner);
+    }
+    renderWeeklyAdmin();
+  }));
 }
 
 function buildWeeklySupplierSummary(orders){
