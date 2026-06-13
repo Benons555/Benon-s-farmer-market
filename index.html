@@ -1646,14 +1646,16 @@ let _currentProjectMeta=null;          // מטא-דאטה של הפרוייקט 
 let _weeklyOrders=[];
 function _weeklyOrdersLS(){return'benon_worders_'+_projOrdersPath;}
 function loadWeeklyOrders(cb){
+  console.log('[Weekly] טוען הזמנות מנתיב:', _projOrdersPath);
   fbDB.ref(_projOrdersPath).once('value').then(snap=>{
     const d=snap.val();
+    console.log('[Weekly] תשובת Firebase:', d===null?'null (ריק)': typeof d==='object'?Object.keys(d).length+' רשומות':d);
     _weeklyOrders=d?Object.values(d).sort((a,b)=>(b.ts||b.id)>(a.ts||a.id)?1:-1):[];
+    if(d) console.log('[Weekly] דוגמת רשומות:', Object.values(d).slice(0,3).map(o=>o.name));
     try{localStorage.setItem(_weeklyOrdersLS(),JSON.stringify(_weeklyOrders));}catch(e){}
     if(cb)cb();
   }).catch((err)=>{
-    console.warn('Firebase weekly orders failed:',err);
-    // fallback to localStorage
+    console.warn('[Weekly] שגיאת Firebase:',err);
     try{_weeklyOrders=JSON.parse(localStorage.getItem(_weeklyOrdersLS())||'[]');}catch(e){_weeklyOrders=[];}
     if(cb)cb('firebase_error');
   });
