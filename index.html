@@ -1846,23 +1846,38 @@ function loadShavuotCarryover(){
 }
 function loadEidoJune2026(){
   // תעודת משלוח 6877 (03/06/2026) + תעודת משלוח 6935 (10/06/2026) — ספק עידו
-  const additions={
+  // מלאי פתיחה מהתעודות:
+  const openingStock={
     44: 108,  // אוכמניות כרמל: 72 (ת.6877) + 36 (ת.6935)
     45: 5,    // פטל: 5 (ת.6877)
     48: 41    // דובדבן: 11 (5.7ק"ג÷0.5, ת.6877) + 30 (15ק"ג÷0.5, ת.6935)
   };
   const lines=[
-    'אוכמניות כרמל: +108 יח׳ (ת.6877: 72 + ת.6935: 36)',
-    'פטל: +5 יח׳ (ת.6877)',
-    'דובדבן: +41 יח׳ ≈ 20.7 ק"ג (ת.6877: 5.7 + ת.6935: 15)'
+    'אוכמניות כרמל: 108 יח׳ (ת.6877: 72 + ת.6935: 36)',
+    'פטל: 5 יח׳ (ת.6877)',
+    'דובדבן: 41 יח׳ ≈ 20.7 ק"ג (ת.6877: 5.7 + ת.6935: 15)'
   ];
-  if(!confirm('לטעון מלאי עידו — יוני 2026?\n\n'+lines.join('\n')+'\n\n(יצטבר על המלאי הקיים)'))return;
-  Object.entries(additions).forEach(([id,qty])=>{
-    _weeklyStock[parseInt(id)]=(_weeklyStock[parseInt(id)]||0)+qty;
+  if(!confirm('לטעון מלאי פתיחה עידו — יוני 2026?\n\n'+lines.join('\n')+'\n\n(ידרוס מלאי קיים ויחסיר מה שנמכר)'))return;
+  // חשב כמה מכל מוצר כבר נמכר
+  const soldMap={};
+  _weeklyOrders.forEach(o=>o.items.forEach(i=>{
+    const p=PRODUCTS.find(x=>x.name===i.name&&(x.sub||'')===(i.sub||''));
+    if(p&&openingStock[p.id]!==undefined)
+      soldMap[p.id]=(soldMap[p.id]||0)+i.qty;
+  }));
+  // קבע מלאי נותר = פתיחה − נמכר
+  Object.entries(openingStock).forEach(([id,opening])=>{
+    const pid=parseInt(id);
+    _weeklyStock[pid]=Math.max(0,opening-(soldMap[pid]||0));
   });
   saveWeeklyStock();
   renderWeeklyAdmin();
-  alert('✅ מלאי עידו יוני 2026 עודכן!\n'+lines.join('\n'));
+  const soldLines=Object.entries(openingStock).map(([id,op])=>{
+    const p=PRODUCTS.find(x=>x.id===parseInt(id));
+    const sold=soldMap[parseInt(id)]||0;
+    return `${p?p.name:id}: פתיחה ${op} → נמכר ${sold} → נשאר ${Math.max(0,op-sold)}`;
+  });
+  alert('✅ מלאי עידו יוני 2026 עודכן!\n\n'+soldLines.join('\n'));
 }
 
 function addNewCheeseOrder(){
@@ -4316,14 +4331,17 @@ function renderWeeklyAdmin(){
   const paidRevenue=orders.filter(o=>o.paid).reduce((s,o)=>s+(o.total||0),0);
   const unpaidRevenue=orders.filter(o=>!o.paid).reduce((s,o)=>s+(o.total||0),0);
 
-  // ─ מלאי עדכני (פתיחה - נמכר) ─
+  // ─ מלאי עדכני ─
+  // _weeklyStock מכיל את מה שנשאר (פתיחה − נמכר, מחושב ע"י loadEidoJune2026 וכד')
+  // sold = מה שנמכר לפי ההזמנות
+  // opening = stock + sold (שחזור מלאי הפתיחה)
   const stockRows=Object.entries(_weeklyStock).map(([id,stock])=>{
     const pid=parseInt(id);const p=PRODUCTS.find(x=>x.id===pid);if(!p)return null;
-    const sold=soldMap[pid]||0;const rem=Math.max(0,stock-sold);
-    const pct=stock>0?Math.round(sold/stock*100):0;
+    const sold=soldMap[pid]||0;
+    const opening=stock+sold;   // מלאי פתיחה משוחזר
+    const rem=stock;            // הנשאר = ערך _weeklyStock הנוכחי (כבר מחסיר מכירות)
+    const pct=opening>0?Math.round(sold/opening*100):0;
     const cu=getItemCostByName(p.name,p.sub||'',p.price);
-    // opening = current _weeklyStock + sold (reverse preorder decrements)
-    const opening=stock+sold;
     return{p,stock,sold,rem,pct,remCost:rem*cu,openCost:opening*cu,cat:p.cat};
   }).filter(Boolean).sort((a,b)=>a.cat.localeCompare(b.cat,'he'));
 
