@@ -1871,8 +1871,9 @@ function openWeeklyStockModal(){
       <div style="display:flex;align-items:center;gap:10px;padding:6px 12px;border-bottom:1px solid #f0f0f0">
         <div style="flex:1;font-size:13px;font-weight:600">${p.name}${p.sub?`<span style="font-size:11px;color:#888;margin-right:6px"> ${p.sub}</span>`:''}</div>
         <div style="font-size:12px;color:#888;min-width:55px;text-align:left">₪${p.price.toFixed(0)}</div>
-        <input type="number" min="0" value="${_weeklyStock[p.id]||0}" data-pid="${p.id}"
-          style="width:68px;border:1px solid #ddd;border-radius:6px;padding:5px 8px;text-align:center;font-size:13px;font-family:inherit">
+        <input type="number" min="0" value="${_weeklyStock[p.id]!==undefined?_weeklyStock[p.id]:''}" placeholder="${_weeklyStock[p.id]!==undefined?'':'ריק=לא שבועי'}" data-pid="${p.id}" data-orig="${_weeklyStock[p.id]!==undefined?_weeklyStock[p.id]:''}"
+          oninput="this.dataset.changed='1'"
+          style="width:68px;border:1px solid ${_weeklyStock[p.id]!==undefined?'#ddd':'#e8e8e8'};border-radius:6px;padding:5px 8px;text-align:center;font-size:13px;font-family:inherit;background:${_weeklyStock[p.id]!==undefined?'#fff':'#fafafa'};color:${_weeklyStock[p.id]===0?'#c0392b':'inherit'}">
         <span style="font-size:11px;color:#aaa">יח'</span>
       </div>`).join('')}
     </div>`;
@@ -2203,13 +2204,22 @@ function addNewCheeseOrder(){
 function saveWeeklyStockFromModal(){
   document.querySelectorAll('[data-pid]').forEach(input=>{
     const pid=parseInt(input.dataset.pid);
-    const qty=parseInt(input.value)||0;
-    if(qty>0){
+    const rawVal=input.value.trim();
+    const qty=rawVal===''?null:parseInt(rawVal)||0;
+    const wasTracked=_weeklyStock[pid]!==undefined;
+    const userChanged=input.dataset.changed==='1';
+    if(qty===null){
+      // שדה ריק = הסר ממעקב (מוצר שלא שייך לשבוע הזה)
+      if(wasTracked) delete _weeklyStock[pid];
+    } else if(qty>0){
       _weeklyStock[pid]=qty; // יש מלאי — עקוב
-    } else if(_weeklyStock[pid]!==undefined){
-      _weeklyStock[pid]=0;  // היה במעקב ועכשיו 0 — שמור כ-"אזל" ולא למחוק
+    } else {
+      // qty=0
+      if(wasTracked||userChanged){
+        _weeklyStock[pid]=0; // היה במעקב או סומן ידנית — שמור כ-"אזל"
+      }
+      // אם לא היה במעקב ולא שונה → אל תוסיף
     }
-    // אם לא היה במעקב ו-qty=0 — אל תוסיף (מוצר שלא שייך למלאי השבועי)
   });
   saveWeeklyStock();
   closeModal('weeklyStockModal');
