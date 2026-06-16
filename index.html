@@ -2364,9 +2364,9 @@ function calcUnsoldStockCost(orders){
     const pid=parseInt(id);
     const p=PRODUCTS.find(x=>x.id===pid);
     if(!p)return s;
-    const remaining=Math.max(0,stock-(soldMap[pid]||0));
-    if(remaining<=0)return s;
-    return s+remaining*getItemCostByName(p.name,p.sub||'',p.price);
+    // stock = _weeklyStock[pid] = מלאי נותר נוכחי (כבר אחרי גריעות)
+    if(stock<=0)return s;
+    return s+stock*getItemCostByName(p.name,p.sub||'',p.price);
   },0);
 }
 function calcTotalStockInvestment(orders){
@@ -2393,13 +2393,25 @@ function buildInventoryReport(orders){
   }));
   const entries=Object.entries(_weeklyStock).map(([id,stock])=>{
     const pid=parseInt(id);const p=PRODUCTS.find(x=>x.id===pid);if(!p)return null;
-    const sold=soldMap[pid]||0;const remaining=Math.max(0,stock-sold);
+    const sold=soldMap[pid]||0;
+    // stock = _weeklyStock[pid] = מלאי נותר נוכחי (אחרי גריעות הזמנות)
+    // opening = נותר + מה שנמכר לפי הזמנות
+    const opening=stock+sold;
+    const remaining=stock; // הנותר = _weeklyStock עצמו, לא stock-sold (שזה כפל גריעה)
     const costPerUnit=getItemCostByName(p.name,p.sub||'',p.price);
     const remainingCost=remaining*costPerUnit;
-    const soldPct=stock>0?Math.round(sold/stock*100):0;
-    return {p,stock,sold,remaining,costPerUnit,remainingCost,soldPct,cat:p.cat};
+    const soldPct=opening>0?Math.round(sold/opening*100):sold>0?100:0;
+    return {p,stock:opening,sold,remaining,costPerUnit,remainingCost,soldPct,cat:p.cat};
   }).filter(Boolean);
   if(!entries.length)return '';
+  // auto-sync: מוצר שנמכר הכל (remaining=0) → סנכרן _weeklyStock ל-0 כדי שחנות תציג "אזל"
+  let autoSyncNeeded=false;
+  entries.forEach(e=>{
+    if(e.remaining===0&&_weeklyStock[e.p.id]!==0){
+      _weeklyStock[e.p.id]=0;autoSyncNeeded=true;
+    }
+  });
+  if(autoSyncNeeded)saveWeeklyStock();
   const totalRemCost=entries.reduce((s,e)=>s+e.remainingCost,0);
   const totalSold=entries.reduce((s,e)=>s+e.sold,0);
   const totalStock=entries.reduce((s,e)=>s+e.stock,0);
