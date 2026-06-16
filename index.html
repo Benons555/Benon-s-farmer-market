@@ -5570,7 +5570,7 @@ async function bulkCreateWeeklyInvoices(){
     </div>
   </div>`;
   document.body.appendChild(ov);
-  let done=0,failed=0;
+  let done=0;const failedOrders=[];
   try{
     const token=await giToken();
     const today=new Date().toISOString().slice(0,10);
@@ -5597,23 +5597,35 @@ async function bulkCreateWeeklyInvoices(){
         const res=await fetch(GI_BASE+'/documents',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify(payload)});
         const doc=await res.json();
         if(doc.id){
-          o.paid=true;o.giDocId=doc.id;
+          o.paid=true;o.giDocId=doc.id;o.handled=true;
           saveWeeklyOrder(o);
           done++;
         } else {
           console.error('bulk weekly GI error',o.name,doc);
-          failed++;
+          failedOrders.push({name:o.name,total:o.total,err:doc.message||JSON.stringify(doc)});
         }
-      }catch(e){console.error('bulk weekly invoice exception',o.name,e);failed++;}
+      }catch(e){
+        console.error('bulk weekly invoice exception',o.name,e);
+        failedOrders.push({name:o.name,total:o.total,err:e.message||'שגיאת רשת'});
+      }
       if(prog)prog.textContent=`${done} / ${pending.length} — ${o.name}`;
-      if(bar)bar.style.width=Math.round((done+failed)/pending.length*100)+'%';
+      if(bar)bar.style.width=Math.round((done+failedOrders.length)/pending.length*100)+'%';
       await new Promise(r=>setTimeout(r,400));
     }
-  }catch(e){console.error('bulk weekly token error',e);}
-  ov.innerHTML=`<div style="background:#fff;border-radius:16px;padding:28px 32px;min-width:300px;text-align:center;direction:rtl">
-    <div style="font-size:2rem;margin-bottom:10px">${failed?'⚠️':'✅'}</div>
-    <div style="font-size:1rem;font-weight:700;margin-bottom:6px">${done} חשבוניות נוצרו בהצלחה${failed?' | '+failed+' שגיאות':''}</div>
-    <button onclick="this.closest('#rpni-overlay').remove();renderWeeklyAdmin()" style="margin-top:14px;background:#1B3A6B;color:#fff;border:none;border-radius:10px;padding:10px 28px;font-size:14px;cursor:pointer;font-family:inherit;font-weight:700">סגור ורענן</button>
+  }catch(e){console.error('bulk weekly token error',e);failedOrders.push({name:'שגיאת טוקן',total:0,err:e.message});}
+  const failedHtml=failedOrders.length?`
+    <div style="margin-top:12px;background:#fdecea;border-radius:8px;padding:10px 14px;text-align:right">
+      <div style="font-weight:700;color:#c62828;margin-bottom:6px">⚠️ נכשלו — לחץ "📄 חשבונית" על כל אחד:</div>
+      ${failedOrders.map(f=>`<div style="font-size:13px;padding:3px 0;border-bottom:1px solid #f5c6cb;color:#333">
+        <strong>${f.name}</strong> — ₪${(f.total||0).toFixed(0)}<br>
+        <span style="font-size:11px;color:#888">${f.err}</span>
+      </div>`).join('')}
+    </div>`:'';
+  ov.innerHTML=`<div style="background:#fff;border-radius:16px;padding:24px 28px;max-width:420px;width:90vw;text-align:center;direction:rtl;max-height:80vh;overflow-y:auto">
+    <div style="font-size:2rem;margin-bottom:8px">${failedOrders.length?'⚠️':'✅'}</div>
+    <div style="font-size:1rem;font-weight:700;margin-bottom:4px">✅ ${done} חשבוניות נוצרו${failedOrders.length?' | ⚠️ '+failedOrders.length+' נכשלו':''}</div>
+    ${failedHtml}
+    <button onclick="this.closest('#rpni-overlay').remove();renderWeeklyAdmin()" style="margin-top:16px;background:#1B3A6B;color:#fff;border:none;border-radius:10px;padding:10px 28px;font-size:14px;cursor:pointer;font-family:inherit;font-weight:700">סגור ורענן</button>
   </div>`;
 }
 
