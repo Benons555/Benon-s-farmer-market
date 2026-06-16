@@ -4354,6 +4354,7 @@ function submitWeeklyPreorder(){
   if(!ph){document.getElementById('weeklyCheckoutErr').textContent='נא למלא מספר טלפון';return;}
   const items=wCartItems().map(p=>({id:p.id,name:p.name,sub:p.sub,cat:p.cat,qty:weeklyCart[p.id]||0,price:p.price,supplier:p.supplier||''}));
   const total=wCartTotal();
+  const projName=(_currentProjectMeta&&_currentProjectMeta.name)||'שבועי';
   const order={
     id:'wp'+Date.now(),
     source:'preorder',
@@ -4365,8 +4366,9 @@ function submitWeeklyPreorder(){
     paid:false,
     ts:new Date().toISOString()
   };
-  // Save to Firebase
-  fbDB.ref('weekly_orders/'+order.id).set(order).catch(()=>{});
+  // Save to Firebase — תמיד לנתיב הפרויקט הנוכחי
+  const targetPath=_projOrdersPath||'weekly_orders';
+  fbDB.ref(targetPath+'/'+order.id).set(order).catch(()=>{});
   // Reduce stock (reserve)
   items.forEach(i=>{
     _weeklyStock[i.id]=Math.max(0,(_weeklyStock[i.id]||0)-i.qty);
@@ -4380,6 +4382,13 @@ function submitWeeklyPreorder(){
   updateWeeklyCartUI();
   // Re-render shop with updated stock
   renderWeeklyShop();
+  // שלח התראת וואטסאפ למנהל
+  setTimeout(()=>{
+    let m=`*הזמנה חדשה - BENON'S*%0A*${projName}*%0Aמס׳: ${order.id}%0Aשם: ${order.name}%0Aטל: ${order.phone}%0A${order.notes?'הערות: '+order.notes+'%0A':''}%0A*פרטי הזמנה:*%0A`+
+      order.items.map(i=>`• ${i.name} (${i.sub||''}) × ${i.qty} = ₪${(i.price*i.qty).toFixed(2)}%0A`).join('')+
+      `%0A*סה״כ: ₪${total.toFixed(2)}*`;
+    window.open('https://wa.me/'+MANAGER_WA+'?text='+m,'_blank');
+  },400);
   // Thank you message
   const view=document.getElementById('weeklyShopView');
   if(view){
