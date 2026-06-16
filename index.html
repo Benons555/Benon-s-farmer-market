@@ -1906,6 +1906,7 @@ function loadStock16_6(){
   // מלאי פירות וירקות — 16/06/2026
   // עגבניות שרי: 42 יח׳ @ ₪20 | דובדבן: 30ק"ג ÷ 0.5 = 60 יח׳ @ ₪25
   // אוכמניות: 72 יח׳ @ ₪11 | פטל: 10 יח׳ @ ₪22 | אננס: 9 יח׳ @ ₪33.30
+  // פרחים (24,25) — לא במלאי 16/6
   const opening={
     22: 42,   // עגבניות שרי לובלו 42 חבילות
     44: 72,   // אוכמניות כרמל 72 מארזים
@@ -1913,8 +1914,18 @@ function loadStock16_6(){
     48: 60,   // דובדבן 30ק"ג ÷ 0.5 = 60 יח׳
     66: 9     // אננס דלמונטה 9 יחידות
   };
-  if(!confirm('לטעון מלאי 16/06?\n\nעגבניות שרי: 42 חבילות\nאוכמניות: 72 מארזים\nפטל: 10 מארזים\nדובדבן: 60 יח׳ (30 ק"ג)\nאננס: 9 יחידות\n\n(יצטבר על המלאי הקיים)'))return;
-  _loadEidoDelivery(opening,'מלאי 16/06 נטען!');
+  if(!confirm('לטעון מלאי 16/06?\n\nעגבניות שרי: 42 חבילות\nאוכמניות: 72 מארזים\nפטל: 10 מארזים\nדובדבן: 60 יח׳ (30 ק"ג)\nאננס: 9 יחידות\n\nפרחים: לא נכללים\n\n(יצטבר על המלאי הקיים)'))return;
+  // הסר פרחים
+  [24,25].forEach(id=>{delete _weeklyStock[id];});
+  _loadEidoDelivery(opening,'מלאי 16/06 נטען! פרחים הוסרו.');
+}
+
+function removeFlowersFromStock(){
+  if(!confirm('להסיר פרחים (נץ החלב לבן/צהוב) מהמלאי הנוכחי?'))return;
+  [24,25].forEach(id=>{delete _weeklyStock[id];});
+  saveWeeklyStock();
+  renderWeeklyAdmin();
+  alert('✅ פרחים הוסרו מהמלאי');
 }
 
 function addNewCheeseOrder(){
@@ -5203,6 +5214,7 @@ function renderAdminWithOrders(orders){
         <button class="ebtn" style="background:#064e3b;color:#a7f3d0;font-weight:700;font-size:11px" onclick="loadEido6877()">🍒 עידו ת.6877</button>
         <button class="ebtn" style="background:#065f46;color:#6ee7b7;font-weight:700;font-size:11px" onclick="loadEido6935()">🍒 עידו ת.6935</button>
         <button class="ebtn" style="background:#14532d;color:#86efac;font-weight:700;font-size:11px" onclick="loadStock16_6()">🥝 מלאי 16/6</button>
+        <button class="ebtn" style="background:#7f1d1d;color:#fecaca;font-weight:700;font-size:11px" onclick="removeFlowersFromStock()">🌸 הסר פרחים</button>
         <div style="width:1px;height:22px;background:#ddd;flex-shrink:0;margin:0 2px"></div>
         <button class="ebtn" style="background:#555;color:#fff;font-weight:700" onclick="history.back()">← כל הפרוייקטים</button>
         <button class="ebtn" style="background:#eee;color:#555" onclick="adminLogout()">🔒 יציאה</button>
