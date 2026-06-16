@@ -1906,6 +1906,111 @@ function openWeeklyStockModal(){
   document.body.appendChild(mo);
   openModal('weeklyStockModal');
 }
+function openStockReconcileModal(){
+  // בנה מפת מכירות לפי מוצר
+  const soldMap={};
+  (_weeklyOrders||[]).forEach(o=>(o.items||[]).forEach(i=>{
+    const p=PRODUCTS.find(x=>x.name===i.name&&(x.sub||'')===(i.sub||''));
+    if(p) soldMap[p.id]=(soldMap[p.id]||0)+(i.qty||1);
+  }));
+
+  // לכל הזמנה — האם צפויה לגרוע ממלאי?
+  // preorder = חנות שבועית = כן. admin (ללא source) = כן. shop/migrated = לא לפני תיקון
+  const orderRows=(_weeklyOrders||[]).map(o=>{
+    const src=o.source||'admin';
+    const deducted=src==='preorder'||src==='admin'||src==='weekly';
+    const color=deducted?'#e8f5e9':'#fff3e0';
+    const badge=deducted
+      ?`<span style="background:#2e7d32;color:#fff;font-size:10px;padding:2px 7px;border-radius:10px">✓ גרע</span>`
+      :`<span style="background:#e65100;color:#fff;font-size:10px;padding:2px 7px;border-radius:10px">⚠ לא גרע</span>`;
+    const itemsStr=(o.items||[]).map(i=>`${i.name}×${i.qty||1}`).join(', ');
+    return `<tr style="background:${color}">
+      <td style="padding:5px 10px;font-size:12px;font-weight:700">${o.name||'?'}</td>
+      <td style="padding:5px 10px;font-size:11px;color:#555">${itemsStr}</td>
+      <td style="padding:5px 10px;font-size:11px;color:#888">${src}</td>
+      <td style="padding:5px 10px;text-align:center">${badge}</td>
+    </tr>`;
+  }).join('');
+
+  // חשב כמה לא נגרע
+  const notDeductedOrders=(_weeklyOrders||[]).filter(o=>o.source==='shop'||o.source==='migrated');
+  const toDeductMap={};
+  notDeductedOrders.forEach(o=>(o.items||[]).forEach(i=>{
+    const p=PRODUCTS.find(x=>x.name===i.name&&(x.sub||'')===(i.sub||''));
+    if(p&&_weeklyStock[p.id]!==undefined) toDeductMap[p.id]=(toDeductMap[p.id]||0)+(i.qty||1);
+  }));
+  const pendingRows=Object.entries(toDeductMap).map(([pid,qty])=>{
+    const p=PRODUCTS.find(x=>x.id===parseInt(pid));
+    const cur=_weeklyStock[parseInt(pid)]||0;
+    return `<tr>
+      <td style="padding:4px 10px;font-size:12px">${p?p.name:'?'}</td>
+      <td style="padding:4px 10px;text-align:center;font-weight:700;color:#e65100">${qty}</td>
+      <td style="padding:4px 10px;text-align:center">${cur}</td>
+      <td style="padding:4px 10px;text-align:center;font-weight:700;color:#2e7d32">${Math.max(0,cur-qty)}</td>
+    </tr>`;
+  }).join('');
+
+  const mo=document.createElement('div');
+  mo.className='mo';mo.id='stockReconcileModal';mo.style.zIndex='9999';
+  mo.innerHTML=`<div class="modal" style="max-width:700px;width:98vw">
+    <div class="mh"><h2 style="margin:0">🔍 יישוב מלאי עם הזמנות</h2><button class="xbtn" onclick="closeModal('stockReconcileModal')">✕</button></div>
+    <div class="mb" style="padding:14px;max-height:75vh;overflow-y:auto">
+      <h3 style="margin:0 0 10px;font-size:13px;color:#1B3A6B">📋 כל ההזמנות</h3>
+      <table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:20px">
+        <thead><tr style="background:#1B3A6B;color:#fff">
+          <th style="padding:6px 10px;text-align:right">לקוח</th>
+          <th style="padding:6px 10px;text-align:right">פריטים</th>
+          <th style="padding:6px 10px;text-align:center">מקור</th>
+          <th style="padding:6px 10px;text-align:center">מלאי</th>
+        </tr></thead>
+        <tbody>${orderRows||'<tr><td colspan="4" style="text-align:center;padding:20px;color:#aaa">אין הזמנות</td></tr>'}</tbody>
+      </table>
+      ${pendingRows?`
+      <h3 style="margin:0 0 10px;font-size:13px;color:#b45309">⚠️ פריטים שעוד לא גרעו ממלאי</h3>
+      <table style="width:100%;border-collapse:collapse;font-size:12px">
+        <thead><tr style="background:#b45309;color:#fff">
+          <th style="padding:6px 10px;text-align:right">מוצר</th>
+          <th style="padding:6px 10px;text-align:center">לגרוע</th>
+          <th style="padding:6px 10px;text-align:center">מלאי נוכחי</th>
+          <th style="padding:6px 10px;text-align:center">לאחר גריעה</th>
+        </tr></thead>
+        <tbody>${pendingRows}</tbody>
+      </table>`:'<div style="background:#e8f5e9;border-radius:8px;padding:12px;text-align:center;color:#2e7d32;font-weight:700">✅ כל ההזמנות גרעו ממלאי</div>'}
+    </div>
+    <div class="mf" style="display:flex;gap:8px;justify-content:flex-end;padding:12px 16px;border-top:1px solid #eee">
+      ${pendingRows?`<button class="sbtn" style="background:#e65100" onclick="applyMissingDeductions()">⚡ גרע הכל עכשיו</button>`:''}
+      <button class="cbtn" onclick="closeModal('stockReconcileModal')">סגור</button>
+    </div>
+  </div>`;
+  document.body.appendChild(mo);
+  openModal('stockReconcileModal');
+}
+
+function applyMissingDeductions(){
+  const notDeducted=(_weeklyOrders||[]).filter(o=>o.source==='shop'||o.source==='migrated');
+  if(!notDeducted.length){alert('אין הזמנות לגריעה');return;}
+  let count=0;
+  notDeducted.forEach(o=>(o.items||[]).forEach(i=>{
+    const p=PRODUCTS.find(x=>x.name===i.name&&(x.sub||'')===(i.sub||''));
+    if(p&&_weeklyStock[p.id]!==undefined){
+      _weeklyStock[p.id]=Math.max(0,(_weeklyStock[p.id]||0)-(i.qty||1));
+      count++;
+    }
+  }));
+  // סמן הזמנות אלה כ"preorder" כדי שלא יגרעו שוב
+  notDeducted.forEach(o=>{
+    o.source='preorder';
+    fbDB.ref(_projOrdersPath+'/'+o.id).update({source:'preorder'}).catch(()=>{});
+  });
+  saveWeeklyStock();
+  closeModal('stockReconcileModal');
+  setTimeout(()=>{
+    document.getElementById('stockReconcileModal')&&document.getElementById('stockReconcileModal').remove();
+    renderWeeklyAdmin();
+    alert('✅ גרעת '+notDeducted.length+' הזמנות מהמלאי');
+  },300);
+}
+
 function migrateOrdersToCurrentProject(){
   // מושך הזמנות מ-weekly_orders/ וגם מ-orders/ (חנות רגילה) ומעביר לנתיב הנוכחי
   const target=_projOrdersPath||'weekly_orders';
@@ -4738,6 +4843,7 @@ function renderWeeklyAdmin(){
         <button class="ebtn" onclick="exportCurrentStock()">📋 יצוא מלאי</button>
         <button class="ebtn" onclick="exportWeeklyExcel()">📊 Excel</button>
         <button class="ebtn" onclick="openWeeklyAdmin()">🔄 רענן</button>
+        <button class="ebtn" style="background:#4a1942;color:#fff;font-weight:700" onclick="openStockReconcileModal()">🔍 יישב מלאי</button>
         <button class="ebtn" style="background:#2e7d32;color:#fff;font-weight:700" onclick="bulkCreateWeeklyInvoices()">📄 חשבוניות לכולם</button>
         <div style="width:1px;height:22px;background:#ddd;flex-shrink:0;margin:0 2px"></div>
         <button class="ebtn" style="background:#1B3A6B;color:#F5D87A;font-weight:600" onclick="history.back()">← כל הפרוייקטים</button>
