@@ -1852,6 +1852,57 @@ function openWeeklyStockModal(){
   document.body.appendChild(mo);
   openModal('weeklyStockModal');
 }
+function migrateOrdersToCurrentProject(){
+  // מושך הזמנות מ-weekly_orders/ וגם מ-orders/ (חנות רגילה) ומעביר לנתיב הנוכחי
+  const target=_projOrdersPath||'weekly_orders';
+  if(target==='weekly_orders'){alert('הנתיב הנוכחי הוא weekly_orders — אין מה להעביר');return;}
+  const today=new Date().toLocaleDateString('he-IL');
+  Promise.all([
+    fbDB.ref('weekly_orders').once('value'),
+    fbDB.ref('orders').once('value')
+  ]).then(([snapW,snapO])=>{
+    const fromWeekly=Object.values(snapW.val()||{});
+    const fromOrders=Object.values(snapO.val()||{}).filter(o=>{
+      // רק הזמנות של היום מהחנות הרגילה
+      return o.date&&o.date.startsWith(today);
+    });
+    const all=[
+      ...fromWeekly.map(o=>({...o,_src:'weekly_orders'})),
+      ...fromOrders.map(o=>({...o,_src:'orders'}))
+    ];
+    if(!all.length){alert('לא נמצאו הזמנות להעברה\n(weekly_orders/ ו-orders/ ריקים)');return;}
+    const lines=all.map(o=>`• ${o.name||'?'} — ₪${(o.total||0).toFixed(2)} [${o._src}]`).join('\n');
+    if(!confirm(`נמצאו ${all.length} הזמנות:\n\n${lines}\n\nלהעביר ל-${target}?\n(ימחקו מהנתיב המקורי)`))return;
+    const promises=[];
+    all.forEach(o=>{
+      const src=o._src;
+      delete o._src;
+      // נרמל מזהה
+      const newId=o.id.startsWith('w')||o.id.startsWith('BN')?o.id:'w'+o.id;
+      const wo={
+        id:newId,
+        source:o.source||'migrated',
+        name:o.name||'',
+        phone:o.phone||'',
+        notes:[o.notes,o.floor?'קומה: '+o.floor:''].filter(Boolean).join(' | '),
+        items:o.items||[],
+        total:o.total||o.subtotal||0,
+        subtotal:o.subtotal||o.total||0,
+        discount:o.discount||0,
+        paid:o.paid||false,
+        payType:o.payType||o.ref||'',
+        ts:o.ts||o.date||new Date().toISOString()
+      };
+      promises.push(fbDB.ref(target+'/'+newId).set(wo));
+      promises.push(fbDB.ref(src+'/'+o.id).remove());
+    });
+    Promise.all(promises).then(()=>{
+      loadWeeklyOrders(()=>{renderWeeklyAdmin();});
+      alert('✅ הועברו '+all.length+' הזמנות ל-'+target);
+    }).catch(e=>alert('שגיאה: '+e.message));
+  }).catch(e=>alert('שגיאה בקריאה: '+e.message));
+}
+
 function migrateTodayOrdersToWeekly(){
   const today=new Date().toLocaleDateString('he-IL');
   fbDB.ref('orders').once('value').then(snap=>{
@@ -5420,6 +5471,7 @@ function renderAdminWithOrders(orders){
         <button class="ebtn" style="background:#166534;color:#bbf7d0;font-weight:700;font-size:11px" onclick="loadFreshProduceStock()">🍇 פירות שבועי</button>
         <button class="ebtn" style="background:#064e3b;color:#a7f3d0;font-weight:700;font-size:11px" onclick="loadEido6877()">🍒 עידו ת.6877</button>
         <button class="ebtn" style="background:#065f46;color:#6ee7b7;font-weight:700;font-size:11px" onclick="loadEido6935()">🍒 עידו ת.6935</button>
+        <button class="ebtn" style="background:#b45309;color:#fff8e1;font-weight:800;font-size:12px;border:2px solid #f59e0b" onclick="migrateOrdersToCurrentProject()">↗️ ייבא הזמנות ישנות</button>
         <button class="ebtn" style="background:#14532d;color:#86efac;font-weight:700;font-size:11px" onclick="loadStock16_6()">🥝 מלאי 16/6</button>
         <button class="ebtn" style="background:#7f1d1d;color:#fecaca;font-weight:700;font-size:11px" onclick="cleanStock16_6()">🧹 נקה מלאי</button>
         <button class="ebtn" style="background:#0c4a6e;color:#bae6fd;font-weight:700;font-size:11px" onclick="carryOverStockFrom10_6()">📦 גרור מ-10/6</button>
