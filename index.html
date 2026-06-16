@@ -1639,8 +1639,10 @@ let _lastPLData=null;  // cache for P&L Excel export
 
 // ─── מכירות שבועיות — Firebase ───────────────────────────────────────────────
 // ─── פרוייקטים — נתיבים דינמיים ─────────────────────────────────────────────
-let _projOrdersPath='weekly_orders';   // נתיב Firebase להזמנות הפרוייקט הנוכחי
-let _projStockPath='weekly_stock';     // נתיב Firebase למלאי הפרוייקט הנוכחי
+// ברירת מחדל = הפרויקט הפעיל (ACTIVE_WEEKLY_ID) — מתעדכן כשפותחים פרויקט באדמין
+// לקוחות שמזמינים מהחנות השבועית תמיד שולחים ל-ACTIVE_ORDERS_PATH ישירות
+let _projOrdersPath='weekly_orders_16_6';   // נתיב Firebase להזמנות הפרוייקט הנוכחי
+let _projStockPath='weekly_stock_16_6';     // נתיב Firebase למלאי הפרוייקט הנוכחי
 let _currentProjectMeta=null;          // מטא-דאטה של הפרוייקט הפתוח
 
 let _weeklyOrders=[];
@@ -2449,8 +2451,10 @@ try{ const saved=JSON.parse(localStorage.getItem('benon_cart')||'{}'); if(typeof
 document.getElementById('logoImg').src=LOGO;
 document.getElementById('loginLogo').src=LOGO;
 
-buildTabs(); renderShop(); updateCartUI();
-console.log("✅ Initialization complete");
+buildTabs(); updateCartUI();
+// טוען מלאי הפרויקט הפעיל — מעדכן סימוני "מלאי אזל" בחנות הראשית
+loadWeeklyStock(()=>{ renderShop(); });
+console.log("✅ Initialization complete — פרויקט פעיל:", ACTIVE_WEEKLY_ID, ACTIVE_ORDERS_PATH);
 
 function buildTabs(){
   let h='<button class="cat-tab active" onclick="scrollCat(null,this)">הכל</button>';
@@ -4483,9 +4487,8 @@ function submitWeeklyPreorder(){
     paid:false,
     ts:new Date().toISOString()
   };
-  // Save to Firebase — תמיד לנתיב הפרויקט הנוכחי
-  const targetPath=_projOrdersPath||'weekly_orders';
-  fbDB.ref(targetPath+'/'+order.id).set(order).catch(()=>{});
+  // Save to Firebase — תמיד ל-ACTIVE_ORDERS_PATH (קבוע, לא תלוי בסשן האדמין)
+  fbDB.ref(ACTIVE_ORDERS_PATH+'/'+order.id).set(order).catch(()=>{});
   // Reduce stock (reserve)
   items.forEach(i=>{
     _weeklyStock[i.id]=Math.max(0,(_weeklyStock[i.id]||0)-i.qty);
@@ -5232,6 +5235,14 @@ const SYSTEM_PROJECTS=[
   {id:'weekly_16_6', name:'מכירות 16/6', icon:'🛒', color:'#1b7a4f', type:'weekly',
    ordersPath:'weekly_orders_16_6', stockPath:'weekly_stock_16_6', desc:'שבוע 16/6 — עגבניות, דובדבן, אוכמניות, פטל, אננס'}
 ];
+
+// ─── פרויקט שבועי פעיל — כאן מגיעות הזמנות לקוחות מהחנות השבועית ───────────────
+// לעדכן רק את השורה הזאת כשמתחילים שבוע חדש:
+const ACTIVE_WEEKLY_ID = 'weekly_16_6';
+// ──────────────────────────────────────────────────────────────────────────────────
+const ACTIVE_WEEKLY = SYSTEM_PROJECTS.find(p=>p.id===ACTIVE_WEEKLY_ID)||SYSTEM_PROJECTS[SYSTEM_PROJECTS.length-1];
+const ACTIVE_ORDERS_PATH  = ACTIVE_WEEKLY.ordersPath;   // weekly_orders_16_6
+const ACTIVE_STOCK_PATH   = ACTIVE_WEEKLY.stockPath;    // weekly_stock_16_6
 let _userProjects=[];
 
 function loadUserProjects(cb){
