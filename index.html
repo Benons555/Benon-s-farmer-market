@@ -1643,6 +1643,18 @@ function saveOrderToFirebase(o){
       fbDB.ref(activePath+'/'+o.id).set(wo).catch(()=>{});
     }
   }catch(e){}
+  // גרע מהמלאי השבועי — רק לפריטים שנמצאים במעקב (_weeklyStock)
+  try{
+    let stockChanged=false;
+    (o.items||[]).forEach(i=>{
+      const p=PRODUCTS.find(x=>x.name===i.name&&(x.sub||'')===(i.sub||''));
+      if(p&&typeof _weeklyStock!=='undefined'&&_weeklyStock[p.id]!==undefined){
+        _weeklyStock[p.id]=Math.max(0,(_weeklyStock[p.id]||0)-(i.qty||1));
+        stockChanged=true;
+      }
+    });
+    if(stockChanged) saveWeeklyStock();
+  }catch(e){}
 }
 function loadOrdersFromFirebase(cb){fbDB.ref('orders').once('value').then(snap=>{const d=snap.val();const orders=d?Object.values(d).sort((a,b)=>a.id>b.id?1:-1):[];try{localStorage.setItem('benon_orders',JSON.stringify(orders));}catch(e){}cb(orders);}).catch(()=>cb(getOrders()));}
 
