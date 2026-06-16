@@ -1883,16 +1883,22 @@ function migrateOrdersToCurrentProject(){
     fbDB.ref('weekly_orders').once('value'),
     fbDB.ref('orders').once('value')
   ]).then(([snapW,snapO])=>{
-    const fromWeekly=Object.values(snapW.val()||{});
-    // כל הזמנות מהחנות הרגילה — ללא סינון תאריך
-    const fromOrders=Object.values(snapO.val()||{});
+    // סינון לפי תאריך — רק הזמנות של היום
+    const isToday=o=>{
+      if(!o)return false;
+      const d=o.date||o.ts||'';
+      // תאריך בפורמט עברי (16.6.2026) או ISO (2026-06-16T...)
+      return d.startsWith(today)||d.includes('T')&&new Date(d).toLocaleDateString('he-IL')===today;
+    };
+    const fromWeekly=Object.values(snapW.val()||{}).filter(isToday);
+    const fromOrders=Object.values(snapO.val()||{}).filter(isToday);
     const all=[
       ...fromWeekly.map(o=>({...o,_src:'weekly_orders'})),
       ...fromOrders.map(o=>({...o,_src:'orders'}))
     ];
-    if(!all.length){alert('לא נמצאו הזמנות להעברה\n(weekly_orders/ ו-orders/ ריקים)');return;}
+    if(!all.length){alert('לא נמצאו הזמנות מהיום ('+today+')\nב-weekly_orders/ ו-orders/');return;}
     const lines=all.map(o=>`• ${o.name||'?'} — ₪${(o.total||0).toFixed(2)} [${o._src}]`).join('\n');
-    if(!confirm(`נמצאו ${all.length} הזמנות:\n\n${lines}\n\nלהעביר ל-${target}?\n(ימחקו מהנתיב המקורי)`))return;
+    if(!confirm(`נמצאו ${all.length} הזמנות מהיום (${today}):\n\n${lines}\n\nלהעביר ל-${target}?\n(ימחקו מהנתיב המקורי)`))return;
     const promises=[];
     all.forEach(o=>{
       const src=o._src;
