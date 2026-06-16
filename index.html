@@ -1883,7 +1883,7 @@ function openWeeklyStockModal(){
   mo.innerHTML=`<div class="modal" style="max-width:580px;width:98vw">
     <div class="mh"><h2 style="margin:0">📦 מלאי פתיחה שבועי</h2><button class="xbtn" onclick="closeModal('weeklyStockModal')">✕</button></div>
     <div style="background:#fff8e1;border-bottom:1px solid #ffe082;padding:8px 16px;font-size:12px;color:#7a5c00">
-      💡 הזן <strong>מלאי פתיחה</strong> (כמה יחידות היו לך בהתחלה) — המערכת תחסר הזמנות קיימות אוטומטית
+      💡 הזן <strong>מלאי נותר עכשיו</strong> — הכמות שנשארה לאחר הזמנות שכבר גרעת
     </div>
     <div class="mb" style="padding:14px;max-height:68vh;overflow-y:auto">${rows}</div>
     <div class="mf" style="display:flex;gap:8px;justify-content:flex-end;padding:12px 16px;border-top:1px solid #eee">
@@ -2213,14 +2213,7 @@ function addNewCheeseOrder(){
   renderWeeklyAdmin();
 }
 function saveWeeklyStockFromModal(){
-  // שלב 1: בנה soldMap — כמה נמכר מכל מוצר לפי הזמנות קיימות
-  const soldMap={};
-  (_weeklyOrders||[]).forEach(o=>(o.items||[]).forEach(i=>{
-    const p=PRODUCTS.find(x=>x.name===i.name&&(x.sub||'')===(i.sub||''));
-    if(p) soldMap[p.id]=(soldMap[p.id]||0)+(i.qty||1);
-  }));
-
-  // שלב 2: שמור מלאי — הכמות שהוזנה = מלאי פתיחה, חסר מכירות קיימות
+  // הכמות שמוזנת = מלאי נותר עכשיו (לא פתיחה) — המערכת לא מחסרת הזמנות קיימות
   document.querySelectorAll('[data-pid]').forEach(input=>{
     const pid=parseInt(input.dataset.pid);
     const rawVal=input.value.trim();
@@ -2231,9 +2224,7 @@ function saveWeeklyStockFromModal(){
       // שדה ריק = הסר ממעקב
       if(wasTracked) delete _weeklyStock[pid];
     } else if(qty>0){
-      // מלאי פתיחה שהוזן — חסר מה שכבר נמכר
-      const sold=soldMap[pid]||0;
-      _weeklyStock[pid]=Math.max(0,qty-sold);
+      _weeklyStock[pid]=qty;
     } else {
       // qty=0
       if(wasTracked||userChanged){
