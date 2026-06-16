@@ -4887,8 +4887,10 @@ function exportPLExcel(){
 const SYSTEM_PROJECTS=[
   {id:'shavuot_2026', name:'שבועות 2026', icon:'🎉', color:'#1B3A6B', type:'shavuot',
    desc:'אירוע שבועות — הזמנות, חשבוניות, P&L'},
-  {id:'weekly', name:'מכירות שבועיות', icon:'🛒', color:'#40916c', type:'weekly',
-   ordersPath:'weekly_orders', stockPath:'weekly_stock', desc:'מלאי שוטף — גרעון אוטומטי מכל מכירה'}
+  {id:'weekly_3_6', name:'מכירות 3/6', icon:'🛒', color:'#2d6a4f', type:'weekly',
+   ordersPath:'weekly_orders', stockPath:'weekly_stock_3_6', desc:'שבוע 3/6 — מכירות שבועיות'},
+  {id:'weekly_10_6', name:'מכירות 10/6', icon:'🛒', color:'#40916c', type:'weekly',
+   ordersPath:'weekly_orders_10_6', stockPath:'weekly_stock_10_6', desc:'שבוע 10/6 — מכירות שבועיות'}
 ];
 let _userProjects=[];
 
@@ -4900,7 +4902,11 @@ function loadUserProjects(cb){
   }).catch(()=>{_userProjects=[];cb();});
 }
 
-function getAllProjects(){return [...SYSTEM_PROJECTS,..._userProjects];}
+function getAllProjects(){
+  const sysIds=new Set(SYSTEM_PROJECTS.map(p=>p.id));
+  const filtered=(_userProjects||[]).filter(p=>p&&!sysIds.has(p.id));
+  return [...SYSTEM_PROJECTS,...filtered];
+}
 
 function renderAdminLanding(){
   if(!_admin.ok()){openModal('adminLoginModal');return;}
@@ -5524,12 +5530,15 @@ async function createWeeklyInvoice(orderId){
     if((o.discount||0)>0){
       income.push({description:'הנחה'+(o.coupon?' ('+o.coupon+')':''),quantity:1,price:parseFloat((-o.discount/VAT).toFixed(2))});
     }
+    // חישוב סכום תשלום מתוך שורות הכנסה — מניעת שגיאה 2422 (עיגולים)
+    const incomeSum=income.reduce((s,i)=>s+parseFloat((i.price*(i.quantity||1)).toFixed(2)),0);
+    const paymentPrice=parseFloat((incomeSum*VAT).toFixed(2));
     const payload={
       description:'מכירה שבועית BENON\'S — '+o.name,
       type:320,date:today,lang:'he',currency:'ILS',
       client:{name:o.name,phone:o.phone||''},
       income,
-      payment:[{type:payType,price:parseFloat((o.total||0).toFixed(2)),currency:'ILS',date:today}]
+      payment:[{type:payType,price:paymentPrice,currency:'ILS',date:today}]
     };
     const res=await fetch(GI_BASE+'/documents',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify(payload)});
     const doc=await res.json();
@@ -5587,12 +5596,15 @@ async function bulkCreateWeeklyInvoices(){
         if((o.discount||0)>0){
           income.push({description:'הנחה',quantity:1,price:parseFloat((-o.discount/VAT).toFixed(2))});
         }
+        // מניעת שגיאה 2422 — חישוב תשלום מתוך שורות הכנסה
+        const incomeSum=income.reduce((s,i)=>s+parseFloat((i.price*(i.quantity||1)).toFixed(2)),0);
+        const paymentPrice=parseFloat((incomeSum*VAT).toFixed(2));
         const payload={
           description:'מכירה שבועית BENON\'S — '+o.name,
           type:320,date:today,lang:'he',currency:'ILS',
           client:{name:o.name,phone:o.phone||''},
           income,
-          payment:[{type:payType,price:parseFloat((o.total||0).toFixed(2)),currency:'ILS',date:today}]
+          payment:[{type:payType,price:paymentPrice,currency:'ILS',date:today}]
         };
         const res=await fetch(GI_BASE+'/documents',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify(payload)});
         const doc=await res.json();
