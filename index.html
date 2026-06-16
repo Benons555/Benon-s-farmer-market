@@ -4490,6 +4490,10 @@ function renderWeeklyAdmin(){
                 </button>
               </td>
               <td style="white-space:nowrap;text-align:center" onclick="event.stopPropagation()">
+                ${o.giDocId
+                  ? `<button class="ebtn" style="background:#2e7d32;color:#fff;border-color:#2e7d32;font-weight:700" onclick="window.open('https://app.greeninvoice.co.il/documents/${o.giDocId}','_blank')">✅ חשבונית</button>`
+                  : `<button id="wgi_${o.id}" class="ebtn" style="background:#1B3A6B;color:#F5D87A;font-weight:700" onclick="createWeeklyInvoice('${o.id}')">📄 חשבונית</button>`
+                }
                 <button class="ebtn" onclick="toggleWeeklyOrderDetail('${o.id}')">👁 פרטים</button>
                 <button class="ebtn" style="background:#e8f0fe;color:#1B3A6B" onclick="openEditWeeklyOrderModal('${o.id}')">✏️ ערוך</button>
                 <button class="ebtn" style="background:#fdecea;color:#c0392b" onclick="deleteWeeklyOrder('${o.id}')">🗑 מחק</button>
