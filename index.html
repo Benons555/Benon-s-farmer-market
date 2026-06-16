@@ -1717,6 +1717,12 @@ function openEditWeeklyOrderModal(id){
           <button onclick="document.getElementById('ewItem_${id}_${idx}').remove()" style="color:#c62828;border:none;background:none;cursor:pointer;font-size:14px">✕</button>
         </div>`).join('')}
       </div>
+      <div style="font-weight:700;margin-bottom:6px;color:#1B3A6B">➕ הוסף פריט:</div>
+      <div style="display:flex;gap:6px;margin-bottom:10px">
+        <input type="text" id="ewAddSearch" placeholder="חפש מוצר..." oninput="ewFilterProducts('${id}')"
+          style="flex:1;border:1px solid #ddd;border-radius:8px;padding:6px 10px;font-family:inherit;font-size:13px">
+      </div>
+      <div id="ewProductList" style="border:1px solid #e0e0e0;border-radius:8px;max-height:150px;overflow-y:auto;margin-bottom:12px"></div>
       <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px">
         <label style="font-weight:600;font-size:13px">שולם:</label>
         <input type="checkbox" id="ewPaid" ${o.paid?'checked':''} style="width:18px;height:18px;cursor:pointer">
@@ -1731,6 +1737,43 @@ function openEditWeeklyOrderModal(id){
   document.body.appendChild(mo);
   requestAnimationFrame(()=>mo.classList.add('open'));
 }
+function ewFilterProducts(orderId){
+  const q=(document.getElementById('ewAddSearch')?.value||'').toLowerCase();
+  const el=document.getElementById('ewProductList');if(!el)return;
+  if(!q){el.innerHTML='';return;}
+  const list=PRODUCTS.filter(p=>
+    p.name.toLowerCase().includes(q)||(p.sub||'').toLowerCase().includes(q)||(p.supplier||'').toLowerCase().includes(q)
+  ).slice(0,12);
+  el.innerHTML=list.map(p=>`
+    <div style="display:flex;align-items:center;gap:8px;padding:7px 10px;border-bottom:1px solid #f5f5f5;cursor:pointer" onclick="ewAddProduct('${orderId}',${p.id})">
+      <div style="flex:1"><div style="font-weight:600;font-size:13px">${p.name}</div><div style="font-size:11px;color:#888">${p.sub||''}</div></div>
+      <div style="font-weight:700;color:#1B3A6B;font-size:13px">₪${p.price.toFixed(2)}</div>
+      <button style="background:#1B3A6B;color:#fff;border:none;border-radius:14px;padding:3px 10px;cursor:pointer;font-size:12px">+</button>
+    </div>`).join('');
+}
+function ewAddProduct(orderId,pid){
+  const p=PRODUCTS.find(x=>x.id===pid);if(!p)return;
+  const list=document.getElementById('ewItemsList');if(!list)return;
+  // בדוק אם כבר קיים — אם כן, הגדל כמות
+  const existing=list.querySelector(`[data-pid="${pid}"]`);
+  if(existing){
+    const inp=existing.querySelector('input');
+    if(inp)inp.value=parseInt(inp.value||1)+1;
+    return;
+  }
+  // הוסף שורה חדשה
+  const div=document.createElement('div');
+  div.setAttribute('data-pid',pid);
+  div.style.cssText='display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid #f0f0f0';
+  div.innerHTML=`<span style="flex:1;font-size:13px">${p.name}${p.sub?' ('+p.sub+')':''}</span>
+    <input type="number" min="1" value="1" style="width:50px;border:1px solid #ddd;border-radius:6px;padding:4px;text-align:center;font-family:inherit" data-new="1" data-pid="${pid}" data-price="${p.price}">
+    <span style="color:#888;font-size:12px">× ₪${p.price.toFixed(2)}</span>
+    <button onclick="this.parentNode.remove()" style="color:#c62828;border:none;background:none;cursor:pointer;font-size:14px">✕</button>`;
+  list.appendChild(div);
+  // נקה חיפוש
+  const s=document.getElementById('ewAddSearch');if(s)s.value='';
+  const pl=document.getElementById('ewProductList');if(pl)pl.innerHTML='';
+}
 function saveEditWeeklyOrder(id){
   const o=_weeklyOrders.find(x=>x.id===id);if(!o)return;
   const name=(document.getElementById('ewName').value||'').trim();
@@ -1738,9 +1781,18 @@ function saveEditWeeklyOrder(id){
   o.name=name;
   o.phone=(document.getElementById('ewPhone').value||'').trim();
   o.paid=document.getElementById('ewPaid').checked;
-  // עדכן כמויות
+  // עדכן כמויות פריטים קיימים
   const qtyMap=window['_ewQty_'+id]||{};
   o.items=o.items.map((i,idx)=>({...i,qty:qtyMap[idx]!==undefined?qtyMap[idx]:i.qty})).filter(i=>i.qty>0);
+  // הוסף פריטים חדשים שנוספו
+  const newRows=document.querySelectorAll('#ewItemsList [data-new="1"]');
+  newRows.forEach(inp=>{
+    const pid=parseInt(inp.getAttribute('data-pid'));
+    const price=parseFloat(inp.getAttribute('data-price'));
+    const qty=parseInt(inp.value)||1;
+    const p=PRODUCTS.find(x=>x.id===pid);
+    if(p&&qty>0) o.items.push({name:p.name,sub:p.sub||'',supplier:p.supplier||'',qty,price});
+  });
   // עדכן סה"כ
   o.total=o.items.reduce((s,i)=>s+i.price*i.qty,0);
   o.subtotal=o.total;
