@@ -4651,8 +4651,13 @@ function woFilter(){
 }
 function woAdd(pid){
   const p=PRODUCTS.find(x=>x.id===pid);if(!p)return;
+  // בדיקת מלאי — אם אזל, חסום
+  const stock=_weeklyStock[pid];
+  if(stock!==undefined&&stock<=0){alert('מוצר זה אזל מהמלאי 🚫');return;}
   if(!window._woCart)window._woCart={};
-  window._woCart[pid]=(window._woCart[pid]||0)+1;
+  const inCart=(window._woCart[pid]||0);
+  if(stock!==undefined&&inCart>=stock){alert(`נשארו רק ${stock} יחידות במלאי`);return;}
+  window._woCart[pid]=inCart+1;
   woRenderCart();
 }
 function woRenderCart(){
@@ -4693,7 +4698,9 @@ function woSetDiscountType(t){
 }
 function woChg(pid,d){
   if(!window._woCart)window._woCart={};
-  window._woCart[pid]=Math.max(0,(window._woCart[pid]||0)+d);
+  const stock=_weeklyStock[pid];
+  const maxQty=stock!==undefined?stock:9999;
+  window._woCart[pid]=Math.max(0,Math.min(maxQty,(window._woCart[pid]||0)+d));
   if(window._woCart[pid]===0)delete window._woCart[pid];
   woRenderCart();
 }
@@ -4705,6 +4712,14 @@ function submitWeeklyOrder(){
     return{name:p.name,sub:p.sub||'',supplier:p.supplier||'',qty:q,price:p.price};
   });
   if(!items.length){alert('יש לבחור לפחות מוצר אחד');return;}
+  // בדיקת מלאי לפני שמירה
+  const stockErrors=items.filter(i=>{
+    const p=PRODUCTS.find(x=>x.name===i.name&&(x.sub||'')===(i.sub||''));
+    if(!p)return false;
+    const st=_weeklyStock[p.id];
+    return st!==undefined&&i.qty>st;
+  }).map(i=>`${i.name}: מבוקש ${i.qty}, נשאר ${_weeklyStock[PRODUCTS.find(x=>x.name===i.name)?.id]||0}`);
+  if(stockErrors.length){alert('חוסר במלאי:\n'+stockErrors.join('\n'));return;}
   const subtotal=items.reduce((s,i)=>s+i.price*i.qty,0);
   const discVal=parseFloat(document.getElementById('woDiscountVal')?.value||0)||0;
   const discType=window._woDiscountType||'shk';
