@@ -2204,8 +2204,12 @@ function saveWeeklyStockFromModal(){
   document.querySelectorAll('[data-pid]').forEach(input=>{
     const pid=parseInt(input.dataset.pid);
     const qty=parseInt(input.value)||0;
-    if(qty>0)_weeklyStock[pid]=qty;
-    else delete _weeklyStock[pid];
+    if(qty>0){
+      _weeklyStock[pid]=qty; // יש מלאי — עקוב
+    } else if(_weeklyStock[pid]!==undefined){
+      _weeklyStock[pid]=0;  // היה במעקב ועכשיו 0 — שמור כ-"אזל" ולא למחוק
+    }
+    // אם לא היה במעקב ו-qty=0 — אל תוסיף (מוצר שלא שייך למלאי השבועי)
   });
   saveWeeklyStock();
   closeModal('weeklyStockModal');
