@@ -1851,8 +1851,13 @@ function loadWeeklyStock(cb){
 function saveWeeklyStock(){
   fbDB.ref(_projStockPath).set(_weeklyStock).catch(()=>{});
   try{localStorage.setItem('benon_weekly_stock_'+_projStockPath,JSON.stringify(_weeklyStock));}catch(e){}
-  // רענן חנות ראשית כדי לעדכן תגי "מלאי אזל"
+  // רענן חנות ראשית — תגי "מלאי אזל"
   if(typeof renderShop==='function')try{renderShop();}catch(e){}
+  // רענן חנות שבועית — הסתרת פריטים שנגמרו
+  if(typeof renderWeeklyShop==='function'){
+    const wv=document.getElementById('weeklyShopView');
+    if(wv&&wv.style.display!=='none')try{renderWeeklyShop();}catch(e){}
+  }
 }
 function openWeeklyStockModal(){
   const existing=document.getElementById('weeklyStockModal');
@@ -5006,9 +5011,11 @@ function submitWeeklyOrder(){
   _weeklyOrders.push(order);
   saveWeeklyOrder(order);
   // גרע מהמלאי אחרי כל מכירה מאושרת
+  // אם המוצר לא היה במעקב — הוסף אותו (כדי שיסומן "אזל" כשמגיע ל-0)
   Object.entries(window._woCart||{}).filter(([,q])=>q>0).forEach(([pid,q])=>{
     const id=parseInt(pid);
-    _weeklyStock[id]=Math.max(0,(_weeklyStock[id]||0)-q);
+    const current=_weeklyStock[id]!==undefined?_weeklyStock[id]:q; // אם לא עוקב — הנח שהכמות הנוכחית = מה שנמכר
+    _weeklyStock[id]=Math.max(0,current-q);
   });
   saveWeeklyStock();
   closeModal('weeklyOrderModal');
