@@ -1882,7 +1882,10 @@ function openWeeklyStockModal(){
   mo.className='mo';mo.id='weeklyStockModal';mo.style.zIndex='9999';
   mo.innerHTML=`<div class="modal" style="max-width:580px;width:98vw">
     <div class="mh"><h2 style="margin:0">📦 מלאי פתיחה שבועי</h2><button class="xbtn" onclick="closeModal('weeklyStockModal')">✕</button></div>
-    <div class="mb" style="padding:14px;max-height:72vh;overflow-y:auto">${rows}</div>
+    <div style="background:#fff8e1;border-bottom:1px solid #ffe082;padding:8px 16px;font-size:12px;color:#7a5c00">
+      💡 הזן <strong>מלאי פתיחה</strong> (כמה יחידות היו לך בהתחלה) — המערכת תחסר הזמנות קיימות אוטומטית
+    </div>
+    <div class="mb" style="padding:14px;max-height:68vh;overflow-y:auto">${rows}</div>
     <div class="mf" style="display:flex;gap:8px;justify-content:flex-end;padding:12px 16px;border-top:1px solid #eee">
       <button class="sbtn" onclick="saveWeeklyStockFromModal()">💾 שמור מלאי</button>
       <button class="cbtn" onclick="closeModal('weeklyStockModal')">ביטול</button>
@@ -1940,8 +1943,16 @@ function migrateOrdersToCurrentProject(){
       promises.push(fbDB.ref(src+'/'+o.id).remove());
     });
     Promise.all(promises).then(()=>{
+      // גרע את הפריטים של ההזמנות המיובאות מהמלאי
+      all.forEach(o=>(o.items||[]).forEach(i=>{
+        const p=PRODUCTS.find(x=>x.name===i.name&&(x.sub||'')===(i.sub||''));
+        if(p&&_weeklyStock[p.id]!==undefined){
+          _weeklyStock[p.id]=Math.max(0,(_weeklyStock[p.id]||0)-(i.qty||1));
+        }
+      }));
+      saveWeeklyStock();
       loadWeeklyOrders(()=>{renderWeeklyAdmin();});
-      alert('✅ הועברו '+all.length+' הזמנות ל-'+target);
+      alert('✅ הועברו '+all.length+' הזמנות ל-'+target+'\nהמלאי עודכן בהתאם');
     }).catch(e=>alert('שגיאה: '+e.message));
   }).catch(e=>alert('שגיאה בקריאה: '+e.message));
 }
@@ -2202,6 +2213,14 @@ function addNewCheeseOrder(){
   renderWeeklyAdmin();
 }
 function saveWeeklyStockFromModal(){
+  // שלב 1: בנה soldMap — כמה נמכר מכל מוצר לפי הזמנות קיימות
+  const soldMap={};
+  (_weeklyOrders||[]).forEach(o=>(o.items||[]).forEach(i=>{
+    const p=PRODUCTS.find(x=>x.name===i.name&&(x.sub||'')===(i.sub||''));
+    if(p) soldMap[p.id]=(soldMap[p.id]||0)+(i.qty||1);
+  }));
+
+  // שלב 2: שמור מלאי — הכמות שהוזנה = מלאי פתיחה, חסר מכירות קיימות
   document.querySelectorAll('[data-pid]').forEach(input=>{
     const pid=parseInt(input.dataset.pid);
     const rawVal=input.value.trim();
@@ -2209,16 +2228,17 @@ function saveWeeklyStockFromModal(){
     const wasTracked=_weeklyStock[pid]!==undefined;
     const userChanged=input.dataset.changed==='1';
     if(qty===null){
-      // שדה ריק = הסר ממעקב (מוצר שלא שייך לשבוע הזה)
+      // שדה ריק = הסר ממעקב
       if(wasTracked) delete _weeklyStock[pid];
     } else if(qty>0){
-      _weeklyStock[pid]=qty; // יש מלאי — עקוב
+      // מלאי פתיחה שהוזן — חסר מה שכבר נמכר
+      const sold=soldMap[pid]||0;
+      _weeklyStock[pid]=Math.max(0,qty-sold);
     } else {
       // qty=0
       if(wasTracked||userChanged){
-        _weeklyStock[pid]=0; // היה במעקב או סומן ידנית — שמור כ-"אזל"
+        _weeklyStock[pid]=0;
       }
-      // אם לא היה במעקב ולא שונה → אל תוסיף
     }
   });
   saveWeeklyStock();
