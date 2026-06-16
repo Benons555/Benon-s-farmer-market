@@ -2001,33 +2001,81 @@ function cleanStock16_6(){
 }
 
 function carryOverStockFrom10_6(){
-  if(!confirm('לגרור מלאי שמן זית, דבש, יין וגבינות מפרויקט 10/6 אל 16/6?\n(הכמויות יצטברו על המלאי הנוכחי)'))return;
+  const carryIds=new Set([
+    10,11,12,
+    26,27,28,29,30,31,32,33,34,35,36,37,38,
+    65,
+    1,2,3,4,5,6,7,8,9,50,51,52,53,54,55,56,57,58,59,60,61,62
+  ]);
+  // שלב 1: הצג מלאי קיים של שני הפרויקטים בטרם גרירה
   fbDB.ref('weekly_stock_10_6').once('value').then(snap=>{
     const stock10=snap.val()||{};
-    const carryIds=new Set([
-      10,11,12,                                          // שמן זית
-      26,27,28,29,30,31,32,33,34,35,36,37,38,           // דבש
-      65,                                                // שרדונה 2025 בלבד
-      1,2,3,4,5,6,7,8,9,50,51,52,53,54,55,56,57,58,59,60,61,62 // גבינות
-    ]);
-    const details=[];
-    let carried=0;
-    Object.entries(stock10).forEach(([id,qty])=>{
-      const pid=parseInt(id);
-      if(carryIds.has(pid)&&qty>0){
-        const before=_weeklyStock[pid]||0;
-        _weeklyStock[pid]=before+qty;
-        const p=PRODUCTS.find(x=>x.id===pid);
-        const nm=p?p.name:'id='+pid;
-        details.push(nm+': '+qty+' יח׳ ('+before+'→'+_weeklyStock[pid]+')');
-        carried++;
-      }
+    // בנה טבלת תצוגה
+    const rows=[];
+    carryIds.forEach(pid=>{
+      const qty10=stock10[pid]||0;
+      const qty16=_weeklyStock[pid]||0;
+      if(qty10===0&&qty16===0)return; // לא להציג שורות ריקות לגמרי
+      const p=PRODUCTS.find(x=>x.id===pid);
+      if(!p)return;
+      rows.push({name:p.name,sub:p.sub||'',qty10,qty16,after:qty16+qty10});
     });
-    if(!carried){alert('לא נמצאו כמויות להעביר במלאי 10/6');return;}
-    saveWeeklyStock();
-    renderWeeklyAdmin();
-    alert('✅ גרירת מלאי הושלמה — '+carried+' פריטים:\n\n'+details.join('\n'));
+    if(!rows.length){alert('לא נמצאו כמויות רלוונטיות במלאי 10/6 או 16/6');return;}
+    // הצג modal עם תצוגה מקדימה
+    const existing=document.getElementById('carryOverModal');if(existing)existing.remove();
+    const mo=document.createElement('div');mo.className='mo';mo.id='carryOverModal';mo.style.zIndex='10000';
+    const tableRows=rows.map(r=>`
+      <tr style="border-bottom:1px solid #f0f0f0">
+        <td style="padding:7px 10px;font-size:13px;font-weight:600">${r.name}${r.sub?'<br><span style="font-size:11px;color:#888">'+r.sub+'</span>':''}</td>
+        <td style="padding:7px 10px;text-align:center;font-size:13px;color:#0c4a6e;font-weight:700">${r.qty16}</td>
+        <td style="padding:7px 10px;text-align:center;font-size:13px;color:#92400e;font-weight:700">${r.qty10}</td>
+        <td style="padding:7px 10px;text-align:center;font-size:13px;font-weight:800;color:${r.after>0?'#166534':'#aaa'}">${r.after}</td>
+      </tr>`).join('');
+    mo.innerHTML=`<div class="modal" style="max-width:500px;width:98vw">
+      <div class="mh"><h2 style="margin:0">📦 גרירת מלאי מ-10/6</h2><button class="xbtn" onclick="closeModal('carryOverModal')">✕</button></div>
+      <div class="mb" style="padding:14px;max-height:65vh;overflow-y:auto">
+        <div style="font-size:12px;color:#666;margin-bottom:10px">מלאי קיים ב-16/6 + מלאי שיועבר מ-10/6 = סה"כ לאחר גרירה</div>
+        <table style="width:100%;border-collapse:collapse">
+          <thead>
+            <tr style="background:#f0f4ff">
+              <th style="padding:7px 10px;text-align:right;font-size:12px;color:#555">מוצר</th>
+              <th style="padding:7px 10px;text-align:center;font-size:12px;color:#0c4a6e">קיים 16/6</th>
+              <th style="padding:7px 10px;text-align:center;font-size:12px;color:#92400e">מ-10/6</th>
+              <th style="padding:7px 10px;text-align:center;font-size:12px;color:#166534">סה"כ</th>
+            </tr>
+          </thead>
+          <tbody>${tableRows}</tbody>
+        </table>
+      </div>
+      <div class="mf" style="display:flex;gap:8px;justify-content:flex-end;padding:12px 16px;border-top:1px solid #eee">
+        <button class="sbtn" style="background:#0c4a6e" onclick="doCarryOver()">✅ אשר גרירה</button>
+        <button class="cbtn" onclick="closeModal('carryOverModal')">ביטול</button>
+      </div>
+    </div>`;
+    document.body.appendChild(mo);
+    openModal('carryOverModal');
+    // שמור stock10 לשימוש ב-doCarryOver
+    window._pendingStock10=stock10;
+    window._pendingCarryIds=carryIds;
   }).catch(e=>alert('שגיאה בקריאת מלאי 10/6:\n'+e.message));
+}
+
+function doCarryOver(){
+  const stock10=window._pendingStock10||{};
+  const carryIds=window._pendingCarryIds||new Set();
+  let carried=0;
+  Object.entries(stock10).forEach(([id,qty])=>{
+    const pid=parseInt(id);
+    if(carryIds.has(pid)&&qty>0){
+      _weeklyStock[pid]=(_weeklyStock[pid]||0)+qty;
+      carried++;
+    }
+  });
+  if(!carried){closeModal('carryOverModal');alert('לא נמצאו כמויות להעביר');return;}
+  saveWeeklyStock();
+  renderWeeklyAdmin();
+  closeModal('carryOverModal');
+  alert('✅ גרירת מלאי הושלמה — '+carried+' פריטים הועברו מ-10/6 ל-16/6');
 }
 
 function addNewCheeseOrder(){
