@@ -4491,8 +4491,8 @@ function renderWeeklyAdmin(){
               </td>
               <td style="white-space:nowrap;text-align:center" onclick="event.stopPropagation()">
                 ${o.giDocId
-                  ? `<button class="ebtn" style="background:#2e7d32;color:#fff;border-color:#2e7d32;font-weight:700" onclick="window.open('https://app.greeninvoice.co.il/documents/${o.giDocId}','_blank')">✅ חשבונית</button>`
-                  : `<button id="wgi_${o.id}" class="ebtn" style="background:#1B3A6B;color:#F5D87A;font-weight:700" onclick="createWeeklyInvoice('${o.id}')">📄 חשבונית</button>`
+                  ? `<button class="ebtn" style="background:#2e7d32;color:#fff;border-color:#2e7d32;font-weight:700;min-width:90px" onclick="window.open('https://app.greeninvoice.co.il/documents/${o.giDocId}','_blank')">✅ טופל</button>`
+                  : `<button id="wgi_${o.id}" class="ebtn" style="background:#1B3A6B;color:#F5D87A;font-weight:700;min-width:90px" onclick="createWeeklyInvoice('${o.id}')">📄 חשבונית</button>`
                 }
                 <button class="ebtn" onclick="toggleWeeklyOrderDetail('${o.id}')">👁 פרטים</button>
                 <button class="ebtn" style="background:#e8f0fe;color:#1B3A6B" onclick="openEditWeeklyOrderModal('${o.id}')">✏️ ערוך</button>
@@ -4515,7 +4515,7 @@ function renderWeeklyAdmin(){
                 <div style="margin-top:6px;font-size:13px;font-weight:700">סה"כ: ₪${(o.total||0).toFixed(2)}</div>
                 <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
                   ${o.giDocId
-                    ? `<button id="wgi_${o.id}" class="ebtn" style="background:#2e7d32;color:#fff;border-color:#2e7d32;font-weight:700" onclick="window.open('https://app.greeninvoice.co.il/documents/${o.giDocId}','_blank')">✅ פתח חשבונית ירוקה</button>`
+                    ? `<button class="ebtn" style="background:#2e7d32;color:#fff;border-color:#2e7d32;font-weight:700" onclick="window.open('https://app.greeninvoice.co.il/documents/${o.giDocId}','_blank')">✅ פתח חשבונית — סיום טיפול</button>`
                     : `<button id="wgi_${o.id}" class="ebtn" style="background:#1B3A6B;color:#F5D87A;font-weight:700" onclick="event.stopPropagation();createWeeklyInvoice('${o.id}')">📄 אשר תשלום + חשבונית</button>`
                   }
                 </div>
@@ -5491,13 +5491,28 @@ function selectPaymentMethod(){
   });
 }
 
+// מניעת חשבונית כפולה — מעקב הזמנות בתהליך
+const _wiPending=new Set();
+
 async function createWeeklyInvoice(orderId){
   const o=_weeklyOrders.find(x=>x.id===orderId);
-  if(!o){alert('לא נמצאה מכירה: '+orderId);return;}
+  if(!o)return;
+  // מניעת כפל: אם כבר קיימת חשבונית — פתח אותה
+  if(o.giDocId){
+    window.open('https://app.greeninvoice.co.il/documents/'+o.giDocId,'_blank');
+    return;
+  }
+  // מניעת כפל: אם בתהליך עכשיו — חסום
+  if(_wiPending.has(orderId)){
+    alert('⏳ החשבונית בתהליך יצירה, אנא המתן...');
+    return;
+  }
   const btn=document.getElementById('wgi_'+orderId);
   const payType=await selectPaymentMethod();
   if(payType===null)return;
-  if(btn){btn.disabled=true;btn.textContent='יוצר חשבונית...';}
+  // נעל — מניעת לחיצה נוספת
+  _wiPending.add(orderId);
+  if(btn){btn.disabled=true;btn.textContent='⏳ יוצר...';}
   try{
     const token=await giToken();
     const today=new Date().toISOString().slice(0,10);
@@ -5519,17 +5534,21 @@ async function createWeeklyInvoice(orderId){
     const res=await fetch(GI_BASE+'/documents',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify(payload)});
     const doc=await res.json();
     if(doc.id){
+      // שמור מיד ב-memory לפני Firebase — מניעת כפל
       o.paid=true;
       o.giDocId=doc.id;
+      o.handled=true;
       saveWeeklyOrder(o);
       renderWeeklyAdmin();
     } else {
       throw new Error(JSON.stringify(doc));
     }
   }catch(e){
-    if(btn){btn.textContent='✗ שגיאה';btn.style.cssText='background:#c62828;color:white;border:1px solid #c62828';btn.disabled=false;}
     console.error('GI weekly invoice error',e);
     alert('שגיאה ביצירת חשבונית:\n'+e.message);
+    if(btn){btn.textContent='📄 חשבונית';btn.disabled=false;}
+  }finally{
+    _wiPending.delete(orderId);
   }
 }
 
