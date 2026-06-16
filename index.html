@@ -4123,8 +4123,9 @@ function renderWeeklyShop(){
   const view=document.getElementById('weeklyShopView');
   if(!view)return;
 
-  const inStockIds=new Set(Object.keys(_weeklyStock).filter(k=>_weeklyStock[k]>0).map(Number));
-  const inStockProducts=PRODUCTS.filter(p=>inStockIds.has(p.id));
+  // כל המוצרים שיש להם רשומה במלאי (כולל 0 — אזל)
+  const trackedIds=new Set(Object.keys(_weeklyStock).map(Number));
+  const inStockProducts=PRODUCTS.filter(p=>trackedIds.has(p.id));
 
   if(!inStockProducts.length){
     view.innerHTML=`<div style="background:#f6f1eb;min-height:60vh;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#6b5744;padding:40px 20px;text-align:center">
@@ -4140,25 +4141,29 @@ function renderWeeklyShop(){
 
   const prow=(p)=>{
     const stock=_weeklyStock[p.id]||0;
-    const q=weeklyCart[p.id]||0;
+    const outOfStock=stock===0;
+    const q=outOfStock?0:(weeklyCart[p.id]||0);
     const ic=ICONS[p.cat]||'🌿';
-    const img=p.img?`<img src="${p.img}" alt="${p.name}" style="width:56px;height:56px;object-fit:cover;border-radius:10px;flex-shrink:0" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div style="display:none;width:56px;height:56px;align-items:center;justify-content:center;font-size:1.8rem;background:#e8f5e9;border-radius:10px;flex-shrink:0">${ic}</div>`:
-      `<div style="width:56px;height:56px;display:flex;align-items:center;justify-content:center;font-size:1.8rem;background:#e8f5e9;border-radius:10px;flex-shrink:0">${ic}</div>`;
-    const lowStock=stock<=3;
-    return `<div id="wpc${p.id}" style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:#fff;border-radius:12px;margin-bottom:8px;border:2px solid ${q>0?G:'transparent'};transition:border-color .2s;box-shadow:0 1px 4px rgba(0,0,0,.06)">
+    const img=p.img?`<img src="${p.img}" alt="${p.name}" style="width:56px;height:56px;object-fit:cover;border-radius:10px;flex-shrink:0;${outOfStock?'opacity:.35':''}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div style="display:none;width:56px;height:56px;align-items:center;justify-content:center;font-size:1.8rem;background:#e8f5e9;border-radius:10px;flex-shrink:0">${ic}</div>`:
+      `<div style="width:56px;height:56px;display:flex;align-items:center;justify-content:center;font-size:1.8rem;background:${outOfStock?'#f5f5f5':'#e8f5e9'};border-radius:10px;flex-shrink:0;${outOfStock?'opacity:.5':''}">${ic}</div>`;
+    const lowStock=!outOfStock&&stock<=3;
+    const stockBadge=outOfStock
+      ? `<span style="font-size:10px;padding:2px 8px;border-radius:20px;font-weight:700;background:#fdecea;color:#c0392b">אזל 🚫</span>`
+      : `<span style="font-size:10px;padding:1px 7px;border-radius:20px;font-weight:700;background:${lowStock?'#fdecea':'#e8f5e9'};color:${lowStock?'#c0392b':G}">${lowStock?'נשארו '+stock:'במלאי'}</span>`;
+    return `<div id="wpc${p.id}" style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:${outOfStock?'#fafafa':'#fff'};border-radius:12px;margin-bottom:8px;border:2px solid ${outOfStock?'#eee':q>0?G:'transparent'};transition:border-color .2s;box-shadow:0 1px 4px rgba(0,0,0,.06);${outOfStock?'opacity:.65':''}">
       ${img}
       <div style="flex:1;min-width:0">
-        <div style="font-weight:700;font-size:0.95rem;color:#1a1a1a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${p.name}</div>
+        <div style="font-weight:700;font-size:0.95rem;color:${outOfStock?'#aaa':'#1a1a1a'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;${outOfStock?'text-decoration:line-through':''}">${p.name}</div>
         <div style="font-size:0.78rem;color:#888;margin-bottom:3px">${p.sub}</div>
         <div style="display:flex;align-items:center;gap:8px">
-          <span style="font-weight:800;color:${G};font-size:1rem">₪${p.price.toFixed(2)}</span>
-          <span style="font-size:10px;padding:1px 7px;border-radius:20px;font-weight:700;background:${lowStock?'#fdecea':'#e8f5e9'};color:${lowStock?'#c0392b':G}">${lowStock?'נשארו '+stock:'במלאי'}</span>
+          <span style="font-weight:800;color:${outOfStock?'#bbb':G};font-size:1rem">₪${p.price.toFixed(2)}</span>
+          ${stockBadge}
         </div>
       </div>
       <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
-        <button onclick="wChg(${p.id},-1)" style="width:30px;height:30px;border:2px solid #ddd;border-radius:50%;background:#fff;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;color:#555">−</button>
+        <button onclick="wChg(${p.id},-1)" ${outOfStock?'disabled':''} style="width:30px;height:30px;border:2px solid #ddd;border-radius:50%;background:#fff;cursor:${outOfStock?'default':'pointer'};font-size:18px;display:flex;align-items:center;justify-content:center;color:#555;opacity:${outOfStock?.3:1}">−</button>
         <span id="wqn${p.id}" style="min-width:22px;text-align:center;font-weight:800;font-size:1rem;color:${GD}">${q}</span>
-        <button onclick="wChg(${p.id},1)" style="width:30px;height:30px;border:2px solid ${G};border-radius:50%;background:${G};cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;color:#fff">+</button>
+        <button onclick="${outOfStock?'':'wChg('+p.id+',1)'}" ${outOfStock?'disabled':''} style="width:30px;height:30px;border:2px solid ${outOfStock?'#ddd':G};border-radius:50%;background:${outOfStock?'#ddd':G};cursor:${outOfStock?'default':'pointer'};font-size:18px;display:flex;align-items:center;justify-content:center;color:#fff;opacity:${outOfStock?.4:1}">+</button>
       </div>
     </div>`;
   };
@@ -4623,12 +4628,26 @@ function woFilter(){
     return true;
   });
   const el=document.getElementById('woProductList');if(!el)return;
-  el.innerHTML=list.map(p=>`
-    <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid #f5f5f5;cursor:pointer" onclick="woAdd(${p.id})">
-      <div style="flex:1"><div style="font-weight:600;font-size:13px">${p.name}</div><div style="font-size:11px;color:#888">${p.sub||''}</div></div>
-      <div style="font-weight:700;color:#4A7C59;font-size:13px">₪${p.price.toFixed(2)}</div>
-      <button style="background:#4A7C59;color:#fff;border:none;border-radius:14px;padding:4px 12px;cursor:pointer;font-size:12px;font-family:inherit">+</button>
-    </div>`).join('');
+  el.innerHTML=list.map(p=>{
+    const stock=_weeklyStock[p.id];
+    const tracked=stock!==undefined;
+    const outOfStock=tracked&&stock===0;
+    const lowStock=tracked&&!outOfStock&&stock<=3;
+    const badge=outOfStock
+      ?`<span style="font-size:10px;padding:2px 6px;border-radius:10px;background:#fdecea;color:#c0392b;font-weight:700;white-space:nowrap">אזל 🚫</span>`
+      :lowStock
+        ?`<span style="font-size:10px;padding:2px 6px;border-radius:10px;background:#fff8e1;color:#e65100;font-weight:700;white-space:nowrap">נשארו ${stock}</span>`
+        :'';
+    return `<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid #f5f5f5;${outOfStock?'opacity:.55':''}cursor:${outOfStock?'default':'pointer'}" ${outOfStock?'':' onclick="woAdd('+p.id+')"'}>
+      <div style="flex:1">
+        <div style="font-weight:600;font-size:13px;${outOfStock?'text-decoration:line-through;color:#aaa':''}">${p.name}</div>
+        <div style="font-size:11px;color:#888">${p.sub||''}</div>
+      </div>
+      ${badge}
+      <div style="font-weight:700;color:${outOfStock?'#bbb':'#4A7C59'};font-size:13px">₪${p.price.toFixed(2)}</div>
+      <button ${outOfStock?'disabled':''} style="background:${outOfStock?'#ddd':'#4A7C59'};color:#fff;border:none;border-radius:14px;padding:4px 12px;cursor:${outOfStock?'default':'pointer'};font-size:12px;font-family:inherit">+</button>
+    </div>`;
+  }).join('');
 }
 function woAdd(pid){
   const p=PRODUCTS.find(x=>x.id===pid);if(!p)return;
