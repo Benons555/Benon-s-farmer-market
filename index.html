@@ -1644,28 +1644,48 @@ let _projStockPath='weekly_stock';     // נתיב Firebase למלאי הפרו�
 let _currentProjectMeta=null;          // מטא-דאטה של הפרוייקט הפתוח
 
 let _weeklyOrders=[];
+let _weeklyOrdersListener=null;  // Firebase real-time listener ref
 function _weeklyOrdersLS(){return'benon_worders_'+_projOrdersPath;}
+
+function detachWeeklyOrdersListener(){
+  if(_weeklyOrdersListener){
+    try{fbDB.ref(_weeklyOrdersListener).off('value');}catch(e){}
+    _weeklyOrdersListener=null;
+  }
+}
+
 function loadWeeklyOrders(cb){
-  console.log('[Weekly] טוען הזמנות מנתיב:', _projOrdersPath);
-  fbDB.ref(_projOrdersPath).once('value').then(snap=>{
+  console.log('[Weekly] מאזין להזמנות בזמן אמת:', _projOrdersPath);
+  // ניתוק listener קודם אם קיים
+  detachWeeklyOrdersListener();
+  _weeklyOrdersListener=_projOrdersPath;
+  let firstCall=true;
+  fbDB.ref(_projOrdersPath).on('value', snap=>{
     const d=snap.val();
-    console.log('[Weekly] תשובת Firebase:', d===null?'null (ריק)': typeof d==='object'?Object.keys(d).length+' רשומות':d);
-    // filter(Boolean) removes null/undefined entries that Firebase can return for deleted records
     const raw=d?Object.values(d).filter(Boolean):[];
-    console.log('[Weekly] רשומות תקינות לאחר סינון:', raw.length);
     try{
       _weeklyOrders=raw.sort((a,b)=>(b.ts||b.id)>(a.ts||a.id)?1:-1);
-    }catch(sortErr){
-      console.warn('[Weekly] שגיאת מיון:',sortErr);
-      _weeklyOrders=raw;
-    }
-    if(raw.length) console.log('[Weekly] דוגמת רשומות:', raw.slice(0,3).map(o=>o&&o.name));
+    }catch(e){_weeklyOrders=raw;}
     try{localStorage.setItem(_weeklyOrdersLS(),JSON.stringify(_weeklyOrders));}catch(e){}
-    if(cb)cb();
-  }).catch((err)=>{
-    console.warn('[Weekly] שגיאת Firebase:',err);
+    if(firstCall){firstCall=false;if(cb)cb();}
+    else{
+      // עדכון חי — רק אם האדמין פתוח
+      if(document.getElementById('adminView')&&document.getElementById('adminView').style.display!=='none'){
+        renderWeeklyAdmin();
+        // התראה קצרה על הזמנה חדשה
+        try{
+          const badge=document.createElement('div');
+          badge.style.cssText='position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#166534;color:#fff;padding:10px 22px;border-radius:24px;font-size:14px;font-weight:700;z-index:9999;box-shadow:0 4px 16px rgba(0,0,0,.25);direction:rtl';
+          badge.textContent='🔔 הזמנה חדשה נקלטה!';
+          document.body.appendChild(badge);
+          setTimeout(()=>badge.remove(),3500);
+        }catch(e){}
+      }
+    }
+  }, err=>{
+    console.warn('[Weekly] שגיאת Firebase listener:',err);
     try{_weeklyOrders=JSON.parse(localStorage.getItem(_weeklyOrdersLS())||'[]');}catch(e){_weeklyOrders=[];}
-    if(cb)cb('firebase_error');
+    if(firstCall){firstCall=false;if(cb)cb('firebase_error');}
   });
 }
 function saveWeeklyOrder(o){
@@ -5260,6 +5280,7 @@ function renderAdminLanding(){
 }
 
 function openProject(id){
+  detachWeeklyOrdersListener(); // ניתוק listener של פרויקט קודם
   const all=getAllProjects();
   const p=all.find(x=>x.id===id);
   if(!p)return;
