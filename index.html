@@ -1766,6 +1766,8 @@ function loadWeeklyStock(cb){
 function saveWeeklyStock(){
   fbDB.ref(_projStockPath).set(_weeklyStock).catch(()=>{});
   try{localStorage.setItem('benon_weekly_stock_'+_projStockPath,JSON.stringify(_weeklyStock));}catch(e){}
+  // רענן חנות ראשית כדי לעדכן תגי "מלאי אזל"
+  if(typeof renderShop==='function')try{renderShop();}catch(e){}
 }
 function openWeeklyStockModal(){
   const existing=document.getElementById('weeklyStockModal');
@@ -2268,24 +2270,31 @@ function scrollCat(cat,btn){
 function pcard(p){
   const q=cart[p.id]||0;
   const ic=ICONS[p.cat]||'🛒';
-  const img=p.img?`<img class="p-img" src="${p.img}" alt="${p.name}" loading="lazy" onerror="this.parentNode.innerHTML='<div class=p-ph>'+ic+'</div>'">`:
+  // בדיקת מלאי שבועי — אם קיימת רשומה ומלאי=0, מוצר אזל
+  const weeklyStock=typeof _weeklyStock!=='undefined'?_weeklyStock:{};
+  const tracked=weeklyStock[p.id]!==undefined;
+  const outOfStock=tracked&&(weeklyStock[p.id]||0)===0;
+  const img=p.img?`<img class="p-img" src="${p.img}" alt="${p.name}" loading="lazy" style="${outOfStock?'opacity:.5;filter:grayscale(.6)':''}" onerror="this.parentNode.innerHTML='<div class=p-ph>'+ic+'</div>'">`:
     `<div class="p-ph">${ic}</div>`;
   const badge = p.cat === 'פרחים' ? `<div class="flower-badge">אין צורך במים</div>` : '';
   const kosherBadge = p.cat === 'יין' ? `<img src="${KOSHER_STAMP}" alt="כשרות צהר" class="kosher-stamp-badge">` : '';
-  return `<div class="p-card${q>0?' in-cart':''}" id="pc${p.id}">
-    <div class="p-img-wrap">${img}${badge}${kosherBadge}</div>
+  const soldOutBadge = outOfStock ? `<div style="position:absolute;top:10px;right:10px;background:rgba(180,0,0,.85);color:#fff;font-size:12px;font-weight:800;padding:4px 10px;border-radius:20px;letter-spacing:.5px;z-index:10">מלאי אזל 🚫</div>` : '';
+  return `<div class="p-card${q>0?' in-cart':''}" id="pc${p.id}" style="${outOfStock?'opacity:.7':''}">
+    <div class="p-img-wrap" style="position:relative">${img}${badge}${kosherBadge}${soldOutBadge}</div>
     <div class="p-body">
       <div class="p-name">${p.name}</div>
       <div class="p-sub">${p.sub}</div>${p.desc?`<div class="p-desc">${p.desc}</div>`:''}
-      <div class="p-price">₪${p.price.toFixed(2)}</div>
-      <div class="qty-row">
+      <div class="p-price" style="${outOfStock?'color:#bbb;text-decoration:line-through':''}">₪${p.price.toFixed(2)}</div>
+      ${outOfStock
+        ? `<div style="color:#c0392b;font-weight:700;font-size:13px;margin-top:8px;text-align:center">לא זמין להזמנה</div>`
+        : `<div class="qty-row">
         <span class="qty-lbl">כמות:</span>
         <div class="qty-ctrl">
           <button class="qb" onclick="chg(${p.id},-1)">−</button>
           <div class="qn" id="qn${p.id}">${q}</div>
           <button class="qb" onclick="chg(${p.id},1)">+</button>
         </div>
-      </div>
+      </div>`}
     </div>
   </div>`;
 }
