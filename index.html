@@ -1632,7 +1632,18 @@ const PRODUCTS = [{"id": 1,"cat": "גבינות צאן חצי קשות","supplie
 const firebaseConfig={apiKey:"AIzaSyATM1vpLDTn9ZTFAjzjMDxSXwBKVEypDBQ",authDomain:"benons-market.firebaseapp.com",databaseURL:"https://benons-market-default-rtdb.europe-west1.firebasedatabase.app",projectId:"benons-market",storageBucket:"benons-market.firebasestorage.app",messagingSenderId:"57925776782",appId:"1:57925776782:web:69a53a99fdc3a02687a0df"};
 firebase.initializeApp(firebaseConfig);
 const fbDB=firebase.database();
-function saveOrderToFirebase(o){fbDB.ref('orders/'+o.id).set(o).catch(()=>{});}
+function saveOrderToFirebase(o){
+  // שמור בנתיב הראשי תמיד
+  fbDB.ref('orders/'+o.id).set(o).catch(()=>{});
+  // שמור גם בפרויקט השבועי הפעיל — כך האדמין מתעדכן אוטומטית
+  try{
+    const activePath=typeof ACTIVE_ORDERS_PATH!=='undefined'?ACTIVE_ORDERS_PATH:null;
+    if(activePath&&activePath!=='weekly_orders'){
+      const wo={...o,source:'shop',id:o.id};
+      fbDB.ref(activePath+'/'+o.id).set(wo).catch(()=>{});
+    }
+  }catch(e){}
+}
 function loadOrdersFromFirebase(cb){fbDB.ref('orders').once('value').then(snap=>{const d=snap.val();const orders=d?Object.values(d).sort((a,b)=>a.id>b.id?1:-1):[];try{localStorage.setItem('benon_orders',JSON.stringify(orders));}catch(e){}cb(orders);}).catch(()=>cb(getOrders()));}
 
 let _lastPLData=null;  // cache for P&L Excel export
