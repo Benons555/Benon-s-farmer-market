@@ -1894,23 +1894,28 @@ function openWeeklyStockModal(){
     const prods=PRODUCTS.filter(p=>p.cat===cat);
     return `<div style="margin-bottom:16px">
       <div style="font-weight:700;font-size:13px;color:#1B3A6B;padding:7px 12px;background:#e8f0fb;border-radius:6px;margin-bottom:4px">${cat}</div>
-      ${prods.map(p=>`
+      ${prods.map(p=>{
+        const cur=_weeklyStock[p.id]!==undefined?_weeklyStock[p.id]:0;
+        const col=cur===0?'#c0392b':'#1a1a1a';
+        return `
       <div style="display:flex;align-items:center;gap:10px;padding:6px 12px;border-bottom:1px solid #f0f0f0">
         <div style="flex:1;font-size:13px;font-weight:600">${p.name}${p.sub?`<span style="font-size:11px;color:#888;margin-right:6px"> ${p.sub}</span>`:''}</div>
         <div style="font-size:12px;color:#888;min-width:55px;text-align:left">₪${p.price.toFixed(0)}</div>
-        <input type="number" min="0" value="${_weeklyStock[p.id]!==undefined?_weeklyStock[p.id]:''}" placeholder="${_weeklyStock[p.id]!==undefined?'':'ריק=לא שבועי'}" data-pid="${p.id}" data-orig="${_weeklyStock[p.id]!==undefined?_weeklyStock[p.id]:''}"
-          oninput="this.dataset.changed='1'"
-          style="width:68px;border:1px solid ${_weeklyStock[p.id]!==undefined?'#ddd':'#e8e8e8'};border-radius:6px;padding:5px 8px;text-align:center;font-size:13px;font-family:inherit;background:${_weeklyStock[p.id]!==undefined?'#fff':'#fafafa'};color:${_weeklyStock[p.id]===0?'#c0392b':'inherit'}">
+        <input type="number" min="0" value="${cur}" data-pid="${p.id}"
+          oninput="this.style.color=this.value==0||this.value===''?'#c0392b':'#1a1a1a'"
+          style="width:68px;border:1px solid #ddd;border-radius:6px;padding:5px 8px;text-align:center;font-size:13px;font-family:inherit;background:#fff;color:${col}">
         <span style="font-size:11px;color:#aaa">יח'</span>
-      </div>`).join('')}
+      </div>`;
+      }).join('')}
     </div>`;
   }).join('');
   const mo=document.createElement('div');
   mo.className='mo';mo.id='weeklyStockModal';mo.style.zIndex='9999';
   mo.innerHTML=`<div class="modal" style="max-width:580px;width:98vw">
-    <div class="mh"><h2 style="margin:0">📦 מלאי פתיחה שבועי</h2><button class="xbtn" onclick="closeModal('weeklyStockModal')">✕</button></div>
-    <div style="background:#fff8e1;border-bottom:1px solid #ffe082;padding:8px 16px;font-size:12px;color:#7a5c00">
-      💡 הזן <strong>מלאי נותר עכשיו</strong> — הכמות שנשארה לאחר הזמנות שכבר גרעת
+    <div class="mh"><h2 style="margin:0">📦 מלאי שבועי</h2><button class="xbtn" onclick="closeModal('weeklyStockModal')">✕</button></div>
+    <div style="background:#e8f5e9;border-bottom:1px solid #c8e6c9;padding:8px 16px;font-size:12px;color:#1b5e20;display:flex;align-items:center;justify-content:space-between">
+      <span>💡 כל המוצרים מתחילים ב-0 — הזן כמות רק למה שסופק השבוע</span>
+      <button onclick="document.querySelectorAll('#weeklyStockModal input[data-pid]').forEach(i=>{i.value=0;i.style.color='#c0392b'})" style="background:#fff;border:1px solid #aed6b1;border-radius:6px;padding:3px 10px;font-size:11px;cursor:pointer;color:#2e7d32;font-family:inherit">אפס הכל ל-0</button>
     </div>
     <div class="mb" style="padding:14px;max-height:68vh;overflow-y:auto">${rows}</div>
     <div class="mf" style="display:flex;gap:8px;justify-content:flex-end;padding:12px 16px;border-top:1px solid #eee">
@@ -2345,24 +2350,11 @@ function addNewCheeseOrder(){
   renderWeeklyAdmin();
 }
 function saveWeeklyStockFromModal(){
-  // הכמות שמוזנת = מלאי נותר עכשיו (לא פתיחה) — המערכת לא מחסרת הזמנות קיימות
-  document.querySelectorAll('[data-pid]').forEach(input=>{
+  // כל מוצר תמיד מעוקב — ברירת מחדל 0, האדמין מזין רק מה שסופק
+  document.querySelectorAll('#weeklyStockModal input[data-pid]').forEach(input=>{
     const pid=parseInt(input.dataset.pid);
-    const rawVal=input.value.trim();
-    const qty=rawVal===''?null:parseInt(rawVal)||0;
-    const wasTracked=_weeklyStock[pid]!==undefined;
-    const userChanged=input.dataset.changed==='1';
-    if(qty===null){
-      // שדה ריק = הסר ממעקב
-      if(wasTracked) delete _weeklyStock[pid];
-    } else if(qty>0){
-      _weeklyStock[pid]=qty;
-    } else {
-      // qty=0
-      if(wasTracked||userChanged){
-        _weeklyStock[pid]=0;
-      }
-    }
+    const qty=parseInt(input.value)||0;
+    _weeklyStock[pid]=Math.max(0,qty);
   });
   saveWeeklyStock();
   closeModal('weeklyStockModal');
@@ -2417,7 +2409,7 @@ function buildInventoryReport(orders){
     const remainingCost=remaining*costPerUnit;
     const soldPct=opening>0?Math.round(sold/opening*100):sold>0?100:0;
     return {p,stock:opening,sold,remaining,costPerUnit,remainingCost,soldPct,cat:p.cat};
-  }).filter(Boolean);
+  }).filter(e=>e&&(e.stock>0||e.sold>0)); // סנן מוצרים שלא היו בכלל השבוע (פתיחה=0 ומכר=0)
   if(!entries.length)return '';
   // auto-sync: מוצר שנמכר הכל (remaining=0) → סנכרן _weeklyStock ל-0 כדי שחנות תציג "אזל"
   let autoSyncNeeded=false;
@@ -2664,16 +2656,16 @@ function scrollCat(cat,btn){
 function pcard(p){
   const q=cart[p.id]||0;
   const ic=ICONS[p.cat]||'🛒';
-  // בדיקת מלאי שבועי — אם קיימת רשומה ומלאי=0, מוצר אזל
+  // מוצר זמין רק אם הוא ב-_weeklyStock עם כמות > 0 — כל השאר = אזל
   const weeklyStock=typeof _weeklyStock!=='undefined'?_weeklyStock:{};
   const tracked=weeklyStock[p.id]!==undefined;
-  const outOfStock=tracked&&(weeklyStock[p.id]||0)===0;
+  const outOfStock=!tracked||(weeklyStock[p.id]||0)===0;
   const img=p.img?`<img class="p-img" src="${p.img}" alt="${p.name}" loading="lazy" style="${outOfStock?'opacity:.5;filter:grayscale(.6)':''}" onerror="this.parentNode.innerHTML='<div class=p-ph>'+ic+'</div>'">`:
     `<div class="p-ph">${ic}</div>`;
   const badge = p.cat === 'פרחים' ? `<div class="flower-badge">אין צורך במים</div>` : '';
   const kosherBadge = p.cat === 'יין' ? `<img src="${KOSHER_STAMP}" alt="כשרות צהר" class="kosher-stamp-badge">` : '';
   const soldOutBadge = outOfStock ? `<div style="position:absolute;top:10px;right:10px;background:rgba(180,0,0,.85);color:#fff;font-size:12px;font-weight:800;padding:4px 10px;border-radius:20px;letter-spacing:.5px;z-index:10">מלאי אזל 🚫</div>` : '';
-  const stockLeft = tracked && !outOfStock ? weeklyStock[p.id] : null;
+  const stockLeft = tracked && !outOfStock && weeklyStock[p.id]>0 ? weeklyStock[p.id] : null;
   const stockBadge = stockLeft !== null ? (()=>{
     const c = stockLeft<=3 ? '#c0392b' : stockLeft<=8 ? '#e65100' : '#2e7d32';
     const bg = stockLeft<=3 ? '#fdecea' : stockLeft<=8 ? '#fff3e0' : '#e8f5e9';
@@ -4823,7 +4815,7 @@ function renderWeeklyAdmin(){
     if(p) soldMap[p.id]=(soldMap[p.id]||0)+i.qty;
   }));
   const totalRevenue=orders.reduce((s,o)=>s+(o.total||0),0);
-  const totalRevenueEx=totalRevenue/VAT;
+  const totalRevenueEx=orders.reduce((s,o)=>s+o.items.reduce((ss,i)=>ss+(FRUIT_NAMES.has(i.name)?i.price:i.price/VAT)*i.qty,0),0);
   const totalCOGS=orders.reduce((s,o)=>s+o.items.reduce((ss,i)=>ss+getItemCostByName(i.name,i.sub||'',i.price||0)*i.qty,0),0);
   const grossProfit=totalRevenueEx-totalCOGS;
   const grossPct=totalRevenueEx>0?(grossProfit/totalRevenueEx*100):0;
@@ -4947,7 +4939,7 @@ function renderWeeklyAdmin(){
             const tsDate=o.ts?new Date(o.ts):null;
             const tsStr=tsDate?tsDate.toLocaleString('he-IL',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'—';
             const isPreorder=o.source==='preorder';
-            const revenueEx=(o.total||0)/VAT;
+            const revenueEx=o.items.reduce((s,i)=>s+(FRUIT_NAMES.has(i.name)?i.price:i.price/VAT)*i.qty,0);
             const cogs=o.items.reduce((s,i)=>s+getItemCostByName(i.name,i.sub||'',i.price||0)*i.qty,0);
             const profit=revenueEx-cogs;
             const margin=revenueEx>0?(profit/revenueEx*100):0;
@@ -5587,9 +5579,10 @@ const PRODUCT_COSTS={
   'מארז דבש חגיגי':42,
   // ירקות — משק רוזנברג (פטור ממע"מ, ישיר מחשבונית)
   // שרי: ₪16.67/ק"ג × 1.2 ק"ג למארז = ₪20.00 | אבוקדו: ₪12.00 לשק 2 ק"ג
-  'עגבניות שרי לובלו-משק רוזנברג':16.95, // ₪20 כולל מע"מ ÷ 1.18 = ₪16.95 לפני מע"מ'אבוקדו ריד-משק רוזנברג':12.00,
+  'עגבניות שרי לובלו-משק רוזנברג':16.67, // ₪16.67/יח׳ — פטור ממע"מ (חשבונית 400031)
+  'אבוקדו ריד-משק רוזנברג':12.00,
   // פירות — עידו (16/06/2026 — פטור ממע"מ)
-  // אוכמניות: ₪11/יח' | דובדבן: ₪50/ק"ג ÷ 2 = ₪25/½ ק"ג | פטל: ₪22/מארז | אננס: ₪33.30/יח'
+  // פירות עידו — פטור ממע"מ, מחירים נטו (ללא מע"מ)
   'אוכמניות כרמל':11.00,'אננס דלמונטה':33.30,'פטל':22.00,'דובדבן':25.00,
   // פרחים — משק פרחים אברהם בן שלום (כולל מע"מ 18%, ÷ 1.18)
   // לבן: ₪3/גבעול × 10 = ₪30 כולל מע"מ = ₪25.42 לפני | צהוב: ₪2/גבעול × 10 = ₪20 כולל = ₪16.95 לפני
@@ -5601,25 +5594,26 @@ const PRODUCT_COSTS={
 const HONEY_COSTS={
   'צנצנת 250 גרם':17,'צנצנת 500 גרם':26,'צנצנת 1 קג׳':41
 };
-const FRUIT_NAMES=new Set(['ענבים שחורים','אוכמניות כרמל','פטל','תות פקיסטני','ענבים ירוקים','דובדבן']);
+const FRUIT_NAMES=new Set(['ענבים שחורים','אוכמניות כרמל','פטל','תות פקיסטני','ענבים ירוקים','דובדבן','עגבניות שרי לובלו-משק רוזנברג','אבוקדו ריד-משק רוזנברג']);
 function getItemProfit(i){
-  // i.price הוא מחיר קמעוני כולל מע"מ; PRODUCT/HONEY_COSTS הם לפני מע"מ
-  const priceEx=i.price/VAT;
+  // פירות פטורים ממע"מ — משתמשים במחיר המלא; שאר המוצרים — מחיר לפני מע"מ
+  const rev=FRUIT_NAMES.has(i.name)?i.price:i.price/VAT;
   if(['דבש אבוקדו','דבש הדרים','דבש שיזף','דבש פרחי בר טבעי'].includes(i.name)){
     const c=HONEY_COSTS[i.sub];
-    if(c!==undefined) return (priceEx-c)*i.qty;
+    if(c!==undefined) return (rev-c)*i.qty;
   }
   const c=PRODUCT_COSTS[i.name];
-  if(c!==undefined) return (priceEx-c)*i.qty;
-  if(FRUIT_NAMES.has(i.name)) return priceEx*i.qty*0.20;
-  return priceEx*i.qty*0.35;
+  if(c!==undefined) return (rev-c)*i.qty;
+  if(FRUIT_NAMES.has(i.name)) return rev*i.qty*0.20;
+  return rev*i.qty*0.35;
 }
 function getItemCostByName(name,sub,fallbackPrice){
   if(['דבש אבוקדו','דבש הדרים','דבש שיזף','דבש פרחי בר טבעי'].includes(name)){
     const c=HONEY_COSTS[sub]; if(c!==undefined)return c;
   }
   const c=PRODUCT_COSTS[name]; if(c!==undefined)return c;
-  if(FRUIT_NAMES.has(name))return (fallbackPrice/VAT)*0.80;
+  // פירות פטורים ממע"מ — fallbackPrice הוא המחיר נטו, לא חולק ב-VAT
+  if(FRUIT_NAMES.has(name))return fallbackPrice*0.80;
   return (fallbackPrice/VAT)*0.65;
 }
 
