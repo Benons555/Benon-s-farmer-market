@@ -1862,10 +1862,8 @@ function migrateOrdersToCurrentProject(){
     fbDB.ref('orders').once('value')
   ]).then(([snapW,snapO])=>{
     const fromWeekly=Object.values(snapW.val()||{});
-    const fromOrders=Object.values(snapO.val()||{}).filter(o=>{
-      // רק הזמנות של היום מהחנות הרגילה
-      return o.date&&o.date.startsWith(today);
-    });
+    // כל הזמנות מהחנות הרגילה — ללא סינון תאריך
+    const fromOrders=Object.values(snapO.val()||{});
     const all=[
       ...fromWeekly.map(o=>({...o,_src:'weekly_orders'})),
       ...fromOrders.map(o=>({...o,_src:'orders'}))
