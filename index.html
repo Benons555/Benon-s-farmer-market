@@ -2000,6 +2000,36 @@ function cleanStock16_6(){
   alert('✅ הוסרו '+removed.length+' מוצרים מהמלאי');
 }
 
+function carryOverStockFrom10_6(){
+  if(!confirm('לגרור מלאי שמן זית, דבש, יין וגבינות מפרויקט 10/6 אל 16/6?\n(הכמויות יצטברו על המלאי הנוכחי)'))return;
+  fbDB.ref('weekly_stock_10_6').once('value').then(snap=>{
+    const stock10=snap.val()||{};
+    const carryIds=new Set([
+      10,11,12,                                          // שמן זית
+      26,27,28,29,30,31,32,33,34,35,36,37,38,           // דבש
+      65,                                                // שרדונה 2025 בלבד
+      1,2,3,4,5,6,7,8,9,50,51,52,53,54,55,56,57,58,59,60,61,62 // גבינות
+    ]);
+    const details=[];
+    let carried=0;
+    Object.entries(stock10).forEach(([id,qty])=>{
+      const pid=parseInt(id);
+      if(carryIds.has(pid)&&qty>0){
+        const before=_weeklyStock[pid]||0;
+        _weeklyStock[pid]=before+qty;
+        const p=PRODUCTS.find(x=>x.id===pid);
+        const nm=p?p.name:'id='+pid;
+        details.push(nm+': '+qty+' יח׳ ('+before+'→'+_weeklyStock[pid]+')');
+        carried++;
+      }
+    });
+    if(!carried){alert('לא נמצאו כמויות להעביר במלאי 10/6');return;}
+    saveWeeklyStock();
+    renderWeeklyAdmin();
+    alert('✅ גרירת מלאי הושלמה — '+carried+' פריטים:\n\n'+details.join('\n'));
+  }).catch(e=>alert('שגיאה בקריאת מלאי 10/6:\n'+e.message));
+}
+
 function addNewCheeseOrder(){
   if(!confirm('להוסיף הזמנת גבינות חדשה למלאי?\n(יצטבר על הקיים)'))return;
   // הזמנת גבינות חדשה — הוזמנה לאחר שכל ההזמנה הראשונה נמכרה בשבועות
@@ -5298,6 +5328,7 @@ function renderAdminWithOrders(orders){
         <button class="ebtn" style="background:#065f46;color:#6ee7b7;font-weight:700;font-size:11px" onclick="loadEido6935()">🍒 עידו ת.6935</button>
         <button class="ebtn" style="background:#14532d;color:#86efac;font-weight:700;font-size:11px" onclick="loadStock16_6()">🥝 מלאי 16/6</button>
         <button class="ebtn" style="background:#7f1d1d;color:#fecaca;font-weight:700;font-size:11px" onclick="cleanStock16_6()">🧹 נקה מלאי</button>
+        <button class="ebtn" style="background:#0c4a6e;color:#bae6fd;font-weight:700;font-size:11px" onclick="carryOverStockFrom10_6()">📦 גרור מ-10/6</button>
         <div style="width:1px;height:22px;background:#ddd;flex-shrink:0;margin:0 2px"></div>
         <button class="ebtn" style="background:#555;color:#fff;font-weight:700" onclick="history.back()">← כל הפרוייקטים</button>
         <button class="ebtn" style="background:#eee;color:#555" onclick="adminLogout()">🔒 יציאה</button>
