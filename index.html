@@ -4670,8 +4670,9 @@ function woFilter(){
     return true;
   });
   const el=document.getElementById('woProductList');if(!el)return;
+  const ws=typeof _weeklyStock!=='undefined'?_weeklyStock:{};
   el.innerHTML=list.map(p=>{
-    const stock=_weeklyStock[p.id];
+    const stock=ws[p.id];
     const tracked=stock!==undefined;
     const outOfStock=tracked&&stock===0;
     const lowStock=tracked&&!outOfStock&&stock<=3;
@@ -4694,7 +4695,8 @@ function woFilter(){
 function woAdd(pid){
   const p=PRODUCTS.find(x=>x.id===pid);if(!p)return;
   // בדיקת מלאי — אם אזל, חסום
-  const stock=_weeklyStock[pid];
+  const ws=typeof _weeklyStock!=='undefined'?_weeklyStock:{};
+  const stock=ws[pid];
   if(stock!==undefined&&stock<=0){alert('מוצר זה אזל מהמלאי 🚫');return;}
   if(!window._woCart)window._woCart={};
   const inCart=(window._woCart[pid]||0);
