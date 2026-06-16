@@ -2508,12 +2508,19 @@ function pcard(p){
   const badge = p.cat === 'פרחים' ? `<div class="flower-badge">אין צורך במים</div>` : '';
   const kosherBadge = p.cat === 'יין' ? `<img src="${KOSHER_STAMP}" alt="כשרות צהר" class="kosher-stamp-badge">` : '';
   const soldOutBadge = outOfStock ? `<div style="position:absolute;top:10px;right:10px;background:rgba(180,0,0,.85);color:#fff;font-size:12px;font-weight:800;padding:4px 10px;border-radius:20px;letter-spacing:.5px;z-index:10">מלאי אזל 🚫</div>` : '';
+  const stockLeft = tracked && !outOfStock ? weeklyStock[p.id] : null;
+  const stockBadge = stockLeft !== null ? (()=>{
+    const c = stockLeft<=3 ? '#c0392b' : stockLeft<=8 ? '#e65100' : '#2e7d32';
+    const bg = stockLeft<=3 ? '#fdecea' : stockLeft<=8 ? '#fff3e0' : '#e8f5e9';
+    return `<span style="display:inline-block;margin-right:6px;font-size:11px;padding:2px 8px;border-radius:20px;font-weight:700;background:${bg};color:${c}">נותר: ${stockLeft} יח'</span>`;
+  })() : '';
   return `<div class="p-card${q>0?' in-cart':''}" id="pc${p.id}" style="${outOfStock?'opacity:.7':''}">
     <div class="p-img-wrap" style="position:relative">${img}${badge}${kosherBadge}${soldOutBadge}</div>
     <div class="p-body">
       <div class="p-name">${p.name}</div>
       <div class="p-sub">${p.sub}</div>${p.desc?`<div class="p-desc">${p.desc}</div>`:''}
       <div class="p-price" style="${outOfStock?'color:#bbb;text-decoration:line-through':''}">₪${p.price.toFixed(2)}</div>
+      ${stockBadge}
       ${outOfStock
         ? `<div style="color:#c0392b;font-weight:700;font-size:13px;margin-top:8px;text-align:center">לא זמין להזמנה</div>`
         : `<div class="qty-row">
@@ -4421,6 +4428,8 @@ function renderWeeklyShop(){
     const img=p.img?`<img src="${p.img}" alt="${p.name}" style="width:56px;height:56px;object-fit:cover;border-radius:10px;flex-shrink:0" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div style="display:none;width:56px;height:56px;align-items:center;justify-content:center;font-size:1.8rem;background:#e8f5e9;border-radius:10px;flex-shrink:0">${ic}</div>`:
       `<div style="width:56px;height:56px;display:flex;align-items:center;justify-content:center;font-size:1.8rem;background:#e8f5e9;border-radius:10px;flex-shrink:0">${ic}</div>`;
     const lowStock=stock<=3;
+    const stockColor=stock<=3?'#c0392b':stock<=8?'#e65100':G;
+    const stockBg=stock<=3?'#fdecea':stock<=8?'#fff3e0':'#e8f5e9';
     return `<div id="wpc${p.id}" style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:#fff;border-radius:12px;margin-bottom:8px;border:2px solid ${q>0?G:'transparent'};transition:border-color .2s;box-shadow:0 1px 4px rgba(0,0,0,.06)">
       ${img}
       <div style="flex:1;min-width:0">
@@ -4428,7 +4437,7 @@ function renderWeeklyShop(){
         <div style="font-size:0.78rem;color:#888;margin-bottom:3px">${p.sub}</div>
         <div style="display:flex;align-items:center;gap:8px">
           <span style="font-weight:800;color:${G};font-size:1rem">₪${p.price.toFixed(2)}</span>
-          <span style="font-size:10px;padding:1px 7px;border-radius:20px;font-weight:700;background:${lowStock?'#fdecea':'#e8f5e9'};color:${lowStock?'#c0392b':G}">${lowStock?'נשארו '+stock:'במלאי'}</span>
+          <span style="font-size:10px;padding:1px 7px;border-radius:20px;font-weight:700;background:${stockBg};color:${stockColor}">נותר: ${stock} יח'</span>
         </div>
       </div>
       <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
