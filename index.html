@@ -4591,6 +4591,7 @@ function renderWeeklyAdmin(){
         <div style="width:1px;height:22px;background:#ddd;flex-shrink:0"></div>
         <button class="ebtn" style="background:#4A7C59;color:#fff;font-weight:700" onclick="openWeeklyOrderModal()">➕ מכירה חדשה</button>
         <button class="ebtn" onclick="openWeeklyStockModal()">📦 עדכן מלאי</button>
+        <button class="ebtn" onclick="exportCurrentStock()">📋 יצוא מלאי</button>
         <button class="ebtn" onclick="exportWeeklyExcel()">📊 Excel</button>
         <button class="ebtn" onclick="openWeeklyAdmin()">🔄 רענן</button>
         <button class="ebtn" style="background:#2e7d32;color:#fff;font-weight:700" onclick="bulkCreateWeeklyInvoices()">📄 חשבוניות לכולם</button>
@@ -4923,6 +4924,42 @@ function submitWeeklyOrder(){
   closeModal('weeklyOrderModal');
   setTimeout(()=>document.getElementById('weeklyOrderModal')&&document.getElementById('weeklyOrderModal').remove(),300);
   renderWeeklyAdmin();
+}
+
+function exportCurrentStock(){
+  // ייצוא מלאי נוכחי בלבד — לבדיקה ועדכון
+  const wb=XLSX.utils.book_new();
+  const projName=(_currentProjectMeta&&_currentProjectMeta.name)||'שבועי';
+  const date=new Date().toLocaleDateString('he-IL');
+
+  // חישוב נמכר לכל מוצר
+  const soldMap={};
+  (_weeklyOrders||[]).forEach(o=>o.items.forEach(i=>{
+    const p=PRODUCTS.find(x=>x.name===i.name&&(x.sub||'')===(i.sub||''));
+    if(p)soldMap[p.id]=(soldMap[p.id]||0)+i.qty;
+  }));
+
+  // שורות: כל מוצר שיש לו מלאי (גם 0) ממוין לפי קטגוריה
+  const cats=[...new Set(PRODUCTS.map(p=>p.cat))];
+  const rows=[[projName+' — מלאי נוכחי','','','','','',''],[`נכון ל: ${date}`,'','','','','',''],['','','','','','',''],
+    ['קטגוריה','מוצר','אריזה/גודל','מחיר מכירה ₪','נמכר','מלאי נוכחי','הערות']];
+
+  cats.forEach(cat=>{
+    const prods=PRODUCTS.filter(p=>p.cat===cat&&_weeklyStock[p.id]!==undefined);
+    if(!prods.length)return;
+    prods.forEach(p=>{
+      const stock=_weeklyStock[p.id]||0;
+      const sold=soldMap[p.id]||0;
+      rows.push([cat,p.name,p.sub||'',+p.price.toFixed(2),sold,stock,'']);
+    });
+  });
+
+  const ws=XLSX.utils.aoa_to_sheet(rows);
+  ws['!cols']=[{wch:22},{wch:28},{wch:20},{wch:16},{wch:10},{wch:14},{wch:18}];
+  // צבע כותרת
+  ws['!merges']=[{s:{r:0,c:0},e:{r:0,c:6}}];
+  XLSX.utils.book_append_sheet(wb,ws,'מלאי נוכחי');
+  XLSX.writeFile(wb,`מלאי_נוכחי_${projName.replace(/\//g,'-')}_${date.replace(/\./g,'-')}.xlsx`);
 }
 
 function exportWeeklyExcel(){
