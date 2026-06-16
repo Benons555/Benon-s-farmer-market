@@ -4549,7 +4549,17 @@ function openWeeklyOrderModal(){
         <div id="woProductList" style="max-height:240px;overflow-y:auto"></div>
       </div>
       <div style="font-weight:700;margin-bottom:6px;font-size:14px">🛒 פריטים שנבחרו</div>
-      <div id="woCart" style="min-height:40px;border:1px solid #ddd;border-radius:8px;padding:8px;margin-bottom:10px"><div style="color:#aaa;font-size:13px">טרם נבחרו פריטים</div></div>
+      <div id="woCart" style="min-height:40px;border:1px solid #ddd;border-radius:8px;padding:8px;margin-bottom:8px"><div style="color:#aaa;font-size:13px">טרם נבחרו פריטים</div></div>
+      <!-- הנחה -->
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;padding:8px 10px;background:#fff8f0;border-radius:8px;border:1px solid #ffe0b2">
+        <label style="font-size:13px;font-weight:700;color:#e65100;white-space:nowrap">🏷️ הנחה:</label>
+        <input type="number" id="woDiscountVal" min="0" step="0.5" placeholder="0" oninput="woRenderCart()" style="width:72px;border:1px solid #ddd;border-radius:8px;padding:5px 8px;font-size:14px;font-family:inherit;text-align:center">
+        <div style="display:flex;border:1px solid #ddd;border-radius:8px;overflow:hidden;flex-shrink:0">
+          <button id="woDtypeShk" onclick="woSetDiscountType('shk')" style="padding:5px 12px;background:#1B3A6B;color:#fff;border:none;cursor:pointer;font-family:inherit;font-size:13px;font-weight:700">₪</button>
+          <button id="woDtypePct" onclick="woSetDiscountType('pct')" style="padding:5px 12px;background:#fff;color:#555;border:none;cursor:pointer;font-family:inherit;font-size:13px">%</button>
+        </div>
+        <div id="woDiscountDisplay" style="font-size:12px;color:#c0392b;font-weight:700"></div>
+      </div>
       <div style="display:flex;align-items:center;gap:8px">
         <label style="font-size:13px;font-weight:600">אמצעי תשלום:</label>
         <select id="woPayType" style="border:1px solid #ddd;border-radius:8px;padding:6px 10px;font-size:13px;font-family:inherit">
@@ -4569,7 +4579,7 @@ function openWeeklyOrderModal(){
     </div>
   </div>`;
   document.body.appendChild(mo);
-  window._woCart={};window._woCat='הכל';
+  window._woCart={};window._woCat='הכל';window._woDiscountType='shk';
   openModal('weeklyOrderModal');
   woFilter();
 }
@@ -4610,7 +4620,15 @@ function woRenderCart(){
   const el=document.getElementById('woCart');if(!el)return;
   const items=Object.entries(window._woCart||{}).filter(([,q])=>q>0);
   if(!items.length){el.innerHTML='<div style="color:#aaa;font-size:13px">טרם נבחרו פריטים</div>';return;}
-  const total=items.reduce((s,[pid,q])=>{const p=PRODUCTS.find(x=>x.id===parseInt(pid));return s+(p?p.price*q:0);},0);
+  const subtotal=items.reduce((s,[pid,q])=>{const p=PRODUCTS.find(x=>x.id===parseInt(pid));return s+(p?p.price*q:0);},0);
+  // חישוב הנחה
+  const discVal=parseFloat(document.getElementById('woDiscountVal')?.value||0)||0;
+  const discType=window._woDiscountType||'shk';
+  const discAmt=discType==='pct'?Math.round(subtotal*discVal/100*100)/100:discVal;
+  const total=Math.max(0,subtotal-discAmt);
+  // עדכן תצוגת הנחה
+  const dispEl=document.getElementById('woDiscountDisplay');
+  if(dispEl) dispEl.textContent=discAmt>0?`-₪${discAmt.toFixed(2)} ${discType==='pct'?'('+discVal+'%)':''}` :'';
   el.innerHTML=items.map(([pid,q])=>{
     const p=PRODUCTS.find(x=>x.id===parseInt(pid));if(!p)return'';
     return `<div style="display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid #f5f5f5">
@@ -4620,7 +4638,19 @@ function woRenderCart(){
       <button onclick="woChg(${pid},1)" style="width:24px;height:24px;border:1px solid #ddd;border-radius:50%;cursor:pointer;font-size:13px;background:#fff">+</button>
       <div style="min-width:60px;text-align:left;font-weight:700;color:#1B3A6B">₪${(p.price*q).toFixed(2)}</div>
     </div>`;
-  }).join('')+`<div style="text-align:left;font-weight:800;font-size:15px;padding-top:8px;color:#1B3A6B">סה"כ: ₪${total.toFixed(2)}</div>`;
+  }).join('')+`<div style="padding-top:8px;text-align:left">
+    ${discAmt>0?`<div style="font-size:12px;color:#888">לפני הנחה: ₪${subtotal.toFixed(2)}</div>
+    <div style="font-size:12px;color:#c0392b;font-weight:700">הנחה: -₪${discAmt.toFixed(2)}</div>`:''}
+    <div style="font-weight:800;font-size:15px;color:#1B3A6B">סה"כ לתשלום: ₪${total.toFixed(2)}</div>
+  </div>`;
+}
+function woSetDiscountType(t){
+  window._woDiscountType=t;
+  const shk=document.getElementById('woDtypeShk');
+  const pct=document.getElementById('woDtypePct');
+  if(shk){shk.style.background=t==='shk'?'#1B3A6B':'#fff';shk.style.color=t==='shk'?'#fff':'#555';}
+  if(pct){pct.style.background=t==='pct'?'#1B3A6B':'#fff';pct.style.color=t==='pct'?'#fff':'#555';}
+  woRenderCart();
 }
 function woChg(pid,d){
   if(!window._woCart)window._woCart={};
@@ -4636,11 +4666,15 @@ function submitWeeklyOrder(){
     return{name:p.name,sub:p.sub||'',supplier:p.supplier||'',qty:q,price:p.price};
   });
   if(!items.length){alert('יש לבחור לפחות מוצר אחד');return;}
-  const total=items.reduce((s,i)=>s+i.price*i.qty,0);
+  const subtotal=items.reduce((s,i)=>s+i.price*i.qty,0);
+  const discVal=parseFloat(document.getElementById('woDiscountVal')?.value||0)||0;
+  const discType=window._woDiscountType||'shk';
+  const discount=discType==='pct'?Math.round(subtotal*discVal/100*100)/100:discVal;
+  const total=Math.max(0,subtotal-discount);
   const payType=document.getElementById('woPayType').value;
   const paid=document.getElementById('woPaid').checked;
   const id='w'+Date.now();
-  const order={id,name,phone:(document.getElementById('woPhone').value||'').trim(),items,total,subtotal:total,payType,paid,ts:new Date().toISOString()};
+  const order={id,name,phone:(document.getElementById('woPhone').value||'').trim(),items,total,subtotal,discount,discountType:discType,discountVal:discVal,payType,paid,ts:new Date().toISOString()};
   _weeklyOrders.push(order);
   saveWeeklyOrder(order);
   // גרע מהמלאי אחרי כל מכירה מאושרת
