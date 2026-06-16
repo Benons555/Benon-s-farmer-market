@@ -1848,16 +1848,31 @@ function saveEditWeeklyOrder(id){
 }
 
 // ─── מלאי שבועי ───────────────────────────────────────────────────────────────
-let _weeklyStock={};   // {productId: openingQty}
+let _weeklyStock={};   // {productId: remainingQty}
+let _stockListener=null; // real-time listener ref
+function detachStockListener(){
+  if(_stockListener){try{fbDB.ref(_stockListener).off('value');}catch(e){}_stockListener=null;}
+}
 function loadWeeklyStock(cb){
-  fbDB.ref(_projStockPath).once('value').then(snap=>{
+  detachStockListener();
+  _stockListener=_projStockPath;
+  let firstCall=true;
+  fbDB.ref(_projStockPath).on('value',snap=>{
     const d=snap.val();
     _weeklyStock=d?d:{};
     try{localStorage.setItem('benon_weekly_stock_'+_projStockPath,JSON.stringify(_weeklyStock));}catch(e){}
-    if(cb)cb();
-  }).catch(()=>{
+    if(firstCall){firstCall=false;if(cb)cb();}
+    else{
+      // עדכון real-time — רענן חנות כשמלאי משתנה (למשל אדמין סימן "אזל")
+      try{if(typeof renderShop==='function')renderShop();}catch(e){}
+      try{
+        const wv=document.getElementById('weeklyShopView');
+        if(wv&&wv.style.display!=='none'&&typeof renderWeeklyShop==='function')renderWeeklyShop();
+      }catch(e){}
+    }
+  },()=>{
     try{_weeklyStock=JSON.parse(localStorage.getItem('benon_weekly_stock_'+_projStockPath)||'{}');}catch(e){_weeklyStock={};}
-    if(cb)cb();
+    if(firstCall){firstCall=false;if(cb)cb();}
   });
 }
 function saveWeeklyStock(){
@@ -5484,6 +5499,7 @@ function renderAdminLanding(){
 
 function openProject(id){
   detachWeeklyOrdersListener(); // ניתוק listener של פרויקט קודם
+  detachStockListener();        // ניתוק listener מלאי של פרויקט קודם
   const all=getAllProjects();
   const p=all.find(x=>x.id===id);
   if(!p)return;
