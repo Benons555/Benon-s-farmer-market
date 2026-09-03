@@ -6570,9 +6570,7 @@ const POS = (() => {
     const lines=tx.items.map(i=>`${i.emoji} ${i.name} ×${i.qty} — ${fmt(i.line)}`).join('\n');
     const msg=`🌿 *BENON'S FARMER'S MARKET*\n*חשבונית מס קבלה* #${tx.invNum}\n📅 ${tx.date} · ${tx.time}\n\n*פריטים:*\n${lines}\n\n💰 *סה"כ: ${fmt(tx.total)}*\nשולם ב: ${micons[tx.method]}\n\nתודה על קנייתך! 🙏`;
     const waUrl='https://wa.me/'+ph+'?text='+encodeURIComponent(msg);
-    // פתח וואטסאפ אוטומטית
-    window.open(waUrl,'_blank','noopener');
-    // כפתור גיבוי למקרה שהדפדפן חסם
+    // כפתור ידני — SMS נשלח אוטומטית דרך חשבונית ירוקה
     if(btn){btn.href=waUrl;btn.style.display='flex';}
   }
 
