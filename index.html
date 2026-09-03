@@ -6556,14 +6556,17 @@ const POS = (() => {
 
   function buildWhatsApp(tx){
     const btn=document.getElementById('posWaBtn');
-    if(!btn||!tx.phone)return;
+    if(!tx.phone){if(btn)btn.style.display='none';return;}
     const ph=tx.phone.replace(/\D/g,'').replace(/^0/,'972');
     const fmt=n=>'₪'+n.toFixed(2);
     const micons={bit:'💙 ביט',paybox:'💜 פייבוקס',cash:'💵 מזומן'};
     const lines=tx.items.map(i=>`${i.emoji} ${i.name} ×${i.qty} — ${fmt(i.line)}`).join('\n');
     const msg=`🌿 *BENON'S FARMER'S MARKET*\n*חשבונית מס קבלה* #${tx.invNum}\n📅 ${tx.date} · ${tx.time}\n\n*פריטים:*\n${lines}\n\n💰 *סה"כ: ${fmt(tx.total)}*\nשולם ב: ${micons[tx.method]}\n\nתודה על קנייתך! 🙏`;
-    btn.href='https://wa.me/'+ph+'?text='+encodeURIComponent(msg);
-    btn.style.display='flex';
+    const waUrl='https://wa.me/'+ph+'?text='+encodeURIComponent(msg);
+    // פתח וואטסאפ אוטומטית
+    window.open(waUrl,'_blank','noopener');
+    // כפתור גיבוי למקרה שהדפדפן חסם
+    if(btn){btn.href=waUrl;btn.style.display='flex';}
   }
 
   function renderHistory(){
