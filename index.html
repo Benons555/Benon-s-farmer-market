@@ -6477,8 +6477,7 @@ const POS = (() => {
       }catch(e){}
       const st=document.getElementById('posGiStatus');
       const lk=document.getElementById('posGiLink');
-      const smsNote=tx.phone?' • SMS נשלח ללקוח':'';
-      if(st){st.textContent='✅ קבלה #'+giDoc.number+' נוצרה בחשבונית ירוקה'+smsNote;st.className='pos-gi-status ok';}
+      if(st){st.textContent='✅ חשבונית מס קבלה #'+giDoc.number+' נוצרה';st.className='pos-gi-status ok';}
       if(lk){lk.innerHTML=`<a class="pos-gi-link" href="https://app.greeninvoice.co.il/documents/${giDoc.id}" target="_blank" rel="noopener">פתח ב-Green Invoice ↗</a>`;}
     }catch(e){
       const st=document.getElementById('posGiStatus');
@@ -6489,29 +6488,26 @@ const POS = (() => {
 
   async function createGiDoc(tx){
     const token=await giToken();
-    const today=tx.date.split('.').reverse().join('-');// convert DD.MM.YYYY → YYYY-MM-DD
+    const today=tx.date.split('.').reverse().join('-');
     const payTypeMap={bit:4,paybox:4,cash:1};
-    // type 300 = קבלה — shows prices as-is (VAT-inclusive), no per-item VAT split
+    // type 320 = חשבונית מס קבלה לחברה בע"מ
+    // vatType 1=פטור (פירות/ירקות), 2=מחיר כולל מע"מ (payment חייב להתאים לסכום)
     const income=tx.items.map(i=>({
       description:i.name+(i.sub?' — '+i.sub:''),
       quantity:i.qty,
-      price:+i.price.toFixed(2),      // full VAT-inclusive price
-      vatType:i.exempt?1:2             // 1=exempt, 2=zero-rated (price shown as-is)
+      price:+i.price.toFixed(2),
+      vatType:i.exempt?1:2
     }));
     const clientName=tx.customerName||tx.phone||'לקוח קופה';
-    const clientPhone=(tx.phone||'').replace(/\D/g,'').replace(/^0/,'972');
     const payload={
       description:"קופה BENON'S — "+tx.invNum,
-      type:300,
+      type:320,
       date:today,
       lang:'he',
       currency:'ILS',
-      businessId:'6a0cabf7-17f1-47a2-bf26-0f8c3b355e0c', // חכם ופשוט פתרונות בניה בע"מ
       client:{name:clientName,phone:tx.phone||''},
       income,
-      payment:[{type:payTypeMap[tx.method]||1,price:+tx.total.toFixed(2),currency:'ILS',date:today}],
-      // שלח SMS ללקוח אוטומטית דרך חשבונית ירוקה (אם יש טלפון)
-      ...(clientPhone?{sendBySms:true}:{})
+      payment:[{type:payTypeMap[tx.method]||1,price:+tx.total.toFixed(2),currency:'ILS',date:today}]
     };
     const res=await fetch(GI_BASE+'/documents',{
       method:'POST',
