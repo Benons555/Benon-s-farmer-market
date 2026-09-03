@@ -1406,6 +1406,118 @@ input, textarea {
 }
 .pay-link:hover { background: var(--olive); }
 
+/* ===== POS CASHIER ===== */
+#posView{background:#080D14;color:#F0F6FF;font-family:'Inter',sans-serif}
+.pos-wrap{display:flex;height:100%;overflow:hidden}
+.pos-catalog{flex:1;display:flex;flex-direction:column;overflow:hidden;border-left:1px solid #1F3048}
+.pos-panel{width:310px;flex-shrink:0;display:flex;flex-direction:column;background:#0F1923}
+.pos-header{display:flex;align-items:center;justify-content:space-between;padding:10px 14px 0;flex-shrink:0}
+.pos-header h2{font-size:14px;font-weight:800;color:#22C55E;letter-spacing:.5px}
+.pos-clock{font-family:'Inter',monospace;font-size:12px;color:#7E97B2}
+.pos-cat-tabs{display:flex;gap:5px;padding:8px 10px 0;overflow-x:auto;flex-shrink:0;scrollbar-width:none}
+.pos-cat-tabs::-webkit-scrollbar{display:none}
+.pos-cat-tab{flex-shrink:0;padding:5px 12px;border-radius:16px;font-size:12px;font-weight:600;cursor:pointer;border:1px solid #1F3048;color:#7E97B2;background:transparent;transition:all .15s}
+.pos-cat-tab:hover{color:#F0F6FF;border-color:#22C55E}
+.pos-cat-tab.active{background:#22C55E;border-color:#22C55E;color:#000}
+.pos-search{padding:6px 10px 4px;flex-shrink:0}
+.pos-search input{width:100%;background:#16212F;border:1px solid #1F3048;border-radius:8px;padding:7px 12px;color:#F0F6FF;font-size:13px;outline:none;direction:rtl}
+.pos-search input:focus{border-color:#22C55E}
+.pos-grid{flex:1;overflow-y:auto;padding:5px 8px 8px;display:grid;grid-template-columns:repeat(3,1fr);gap:6px;align-content:start;scrollbar-width:thin;scrollbar-color:#1F3048 transparent}
+.pos-pcard{background:#16212F;border:1px solid #1F3048;border-radius:10px;padding:9px 9px 8px;cursor:pointer;transition:all .12s;user-select:none}
+.pos-pcard:hover{background:#1E2F42;border-color:#22C55E;transform:translateY(-1px)}
+.pos-pcard:active{transform:translateY(0)}
+.pos-pcard .pe{font-size:20px;margin-bottom:4px}
+.pos-pcard .pn{font-size:12px;font-weight:700;line-height:1.2;color:#F0F6FF}
+.pos-pcard .ps{font-size:10px;color:#7E97B2;margin-top:1px}
+.pos-pcard .pp{font-family:monospace;font-size:12px;font-weight:700;color:#22C55E;margin-top:5px}
+.pos-pcard .pv{position:absolute;top:5px;left:5px;font-size:9px;background:rgba(34,197,94,.15);border:1px solid #22C55E;color:#22C55E;padding:1px 4px;border-radius:8px;font-weight:700}
+.pos-pcard{position:relative}
+.pos-panel-tabs{display:flex;border-bottom:1px solid #1F3048;flex-shrink:0}
+.pos-ptab{flex:1;padding:10px;font-size:12px;font-weight:600;text-align:center;cursor:pointer;color:#7E97B2;border-bottom:2px solid transparent;transition:all .15s}
+.pos-ptab.active{color:#22C55E;border-bottom-color:#22C55E}
+.pos-cart-items{flex:1;overflow-y:auto;padding:6px;scrollbar-width:thin;scrollbar-color:#1F3048 transparent}
+.pos-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:#7E97B2;font-size:13px;gap:6px}
+.pos-empty-ico{font-size:40px;opacity:.4}
+.pos-crow{display:flex;align-items:center;gap:6px;padding:7px 4px;border-bottom:1px solid #1F3048;font-size:12px}
+.pos-crow:last-child{border-bottom:none}
+.pos-cr-em{font-size:16px;flex-shrink:0}
+.pos-cr-info{flex:1;min-width:0}
+.pos-cr-name{font-weight:700;font-size:12px}
+.pos-cr-sub{color:#7E97B2;font-size:10px}
+.pos-cr-qty{display:flex;align-items:center;gap:4px;flex-shrink:0}
+.pos-qbtn{width:20px;height:20px;border-radius:50%;border:1px solid #1F3048;background:#16212F;color:#F0F6FF;cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center;transition:background .1s}
+.pos-qbtn:hover{background:#22C55E;border-color:#22C55E;color:#000}
+.pos-qnum{font-family:monospace;font-size:12px;font-weight:700;min-width:16px;text-align:center}
+.pos-crow-price{font-family:monospace;font-size:12px;font-weight:700;color:#22C55E;min-width:50px;text-align:left}
+.pos-footer{border-top:1px solid #1F3048;padding:10px;flex-shrink:0}
+.pos-total-row{display:flex;justify-content:space-between;font-size:12px;color:#7E97B2;margin-bottom:4px}
+.pos-grand-total{display:flex;justify-content:space-between;font-size:16px;font-weight:800;margin:6px 0 10px}
+.pos-grand-total .lbl{color:#F0F6FF}
+.pos-grand-total .amt{font-family:monospace;color:#22C55E}
+.pos-pay-btn{width:100%;padding:12px;border-radius:10px;background:#22C55E;color:#000;font-size:14px;font-weight:800;border:none;cursor:pointer;transition:background .15s}
+.pos-pay-btn:hover{background:#16A34A}
+.pos-pay-btn:disabled{background:#1F3048;color:#7E97B2;cursor:not-allowed}
+.pos-clear-btn{width:100%;padding:6px;border-radius:8px;background:transparent;border:1px solid #1F3048;color:#7E97B2;font-size:11px;cursor:pointer;margin-top:5px;transition:all .15s}
+.pos-clear-btn:hover{border-color:#EF4444;color:#EF4444}
+.pos-hist-view{flex:1;overflow-y:auto;padding:6px;scrollbar-width:thin;scrollbar-color:#1F3048 transparent;display:none}
+.pos-hrow{background:#16212F;border:1px solid #1F3048;border-radius:8px;padding:8px 10px;margin-bottom:5px;font-size:11px}
+.pos-htop{display:flex;justify-content:space-between;align-items:center;margin-bottom:3px}
+.pos-hinv{font-family:monospace;font-size:10px;color:#7E97B2}
+.pos-htotal{font-family:monospace;font-weight:700;color:#22C55E;font-size:12px}
+.pos-hitems{color:#7E97B2;font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pos-hbadge{display:inline-block;font-size:9px;padding:1px 4px;border-radius:7px;margin-left:3px;font-weight:600}
+.pos-bit{background:rgba(91,154,255,.15);color:#5B9AFF}
+.pos-paybox{background:rgba(255,92,141,.15);color:#FF5C8D}
+.pos-cash{background:rgba(245,158,11,.15);color:#F59E0B}
+.pos-gi-ok{background:rgba(34,197,94,.15);color:#22C55E}
+/* POS overlays */
+.pos-ov{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9000;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
+.pos-ov-box{background:#0F1923;border:1px solid #1F3048;border-radius:16px;padding:24px 22px;width:min(370px,92vw);direction:rtl}
+.pos-ov-title{font-size:17px;font-weight:800;color:#F0F6FF;margin-bottom:5px}
+.pos-ov-sub{color:#7E97B2;font-size:12px;margin-bottom:18px}
+.pos-phone-inp{width:100%;padding:11px 14px;background:#16212F;border:1px solid #1F3048;border-radius:10px;color:#F0F6FF;font-size:14px;font-family:monospace;text-align:center;letter-spacing:1px;outline:none;direction:ltr}
+.pos-phone-inp:focus{border-color:#22C55E}
+.pos-phone-note{font-size:10px;color:#7E97B2;text-align:center;margin-top:6px}
+.pos-row-btns{display:flex;gap:8px;margin-top:18px}
+.pos-btn-sec{flex:1;padding:10px;border-radius:8px;border:1px solid #1F3048;background:transparent;color:#7E97B2;font-size:13px;font-weight:600;cursor:pointer}
+.pos-btn-sec:hover{color:#F0F6FF;border-color:#F0F6FF}
+.pos-btn-pri{flex:2;padding:10px;border-radius:8px;border:none;background:#22C55E;color:#000;font-size:13px;font-weight:700;cursor:pointer}
+.pos-btn-pri:hover{background:#16A34A}
+.pos-method-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px}
+.pos-meth-btn{padding:16px 8px;border-radius:10px;border:2px solid #1F3048;background:#16212F;cursor:pointer;text-align:center;transition:all .15s}
+.pos-meth-btn:hover{transform:translateY(-2px)}
+.pos-meth-btn .mi{font-size:26px;margin-bottom:4px}
+.pos-meth-btn .mn{font-size:13px;font-weight:700;color:#F0F6FF}
+.pos-meth-cash{grid-column:1/-1;display:flex;align-items:center;gap:12px;padding:12px 16px}
+.pos-bit-btn{border-color:#5B9AFF;color:#5B9AFF}.pos-bit-btn:hover{background:rgba(91,154,255,.1)}
+.pos-pay-btn2{border-color:#FF5C8D;color:#FF5C8D}.pos-pay-btn2:hover{background:rgba(255,92,141,.1)}
+.pos-cash-btn{border-color:#F59E0B;color:#F59E0B}.pos-cash-btn:hover{background:rgba(245,158,11,.1)}
+.pos-mamt{text-align:center;font-family:monospace;font-size:20px;font-weight:700;color:#22C55E;margin-bottom:3px}
+.pos-mamt-lbl{text-align:center;color:#7E97B2;font-size:11px;margin-bottom:14px}
+.pos-back-btn{width:100%;padding:8px;margin-top:10px;border-radius:8px;border:1px solid #1F3048;background:transparent;color:#7E97B2;font-size:12px;cursor:pointer}
+.pos-back-btn:hover{color:#F0F6FF}
+.pos-conf-center{text-align:center}
+.pos-conf-badge{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:24px;font-size:14px;font-weight:700;margin:10px auto}
+.pos-conf-amt{font-family:monospace;font-size:28px;font-weight:700;color:#22C55E;margin:8px 0 3px}
+.pos-conf-preview{color:#7E97B2;font-size:11px;margin-bottom:16px;max-height:70px;overflow:hidden}
+.pos-conf-btn{width:100%;padding:13px;border-radius:10px;border:none;font-size:15px;font-weight:800;cursor:pointer;margin-bottom:6px}
+.pos-rcpt-box{background:#fff;color:#111;border-radius:10px;padding:18px 16px;font-family:monospace;font-size:11px;max-height:50vh;overflow-y:auto;direction:rtl;margin-bottom:14px;scrollbar-width:thin}
+.pos-rcpt-shop{text-align:center;font-size:15px;font-weight:800;color:#111;margin-bottom:2px}
+.pos-rcpt-type{text-align:center;font-size:10px;color:#555;margin-bottom:8px}
+.pos-rcpt-div{border:none;border-top:1px dashed #ccc;margin:8px 0}
+.pos-rcpt-row{display:flex;justify-content:space-between;margin-bottom:3px;font-size:11px}
+.pos-rcpt-total{display:flex;justify-content:space-between;font-weight:700;font-size:13px;margin-top:6px;padding-top:6px;border-top:1px solid #ddd}
+.pos-rcpt-method{text-align:center;font-size:11px;color:#444;margin-top:6px}
+.pos-rcpt-footer{text-align:center;font-size:10px;color:#888;margin-top:8px}
+.pos-wa-btn{width:100%;padding:11px;border-radius:10px;border:none;background:#25D366;color:#fff;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;margin-bottom:6px;text-decoration:none}
+.pos-wa-btn:hover{background:#1EB854}
+.pos-done-btn{width:100%;padding:10px;border-radius:10px;border:1px solid #1F3048;background:transparent;color:#F0F6FF;font-size:13px;cursor:pointer}
+.pos-done-btn:hover{background:#16212F}
+.pos-gi-status{font-size:10px;text-align:center;margin-top:5px;color:#7E97B2}
+.pos-gi-status.ok{color:#22C55E}
+.pos-gi-link{display:block;text-align:center;color:#5B9AFF;font-size:11px;margin-top:4px;cursor:pointer;text-decoration:underline}
+/* ===== END POS CASHIER ===== */
+
 </style>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 </head>
@@ -1433,6 +1545,7 @@ input, textarea {
   <div class="shop-view" id="shopView"></div>
   <div class="shop-view" id="weeklyShopView" style="display:none"></div>
   <div class="admin-wrap" id="adminView" style="display:none"></div>
+  <div id="posView" style="display:none;height:100%;overflow:hidden"></div>
 </div>
 
 <div class="bnav">
@@ -1441,6 +1554,9 @@ input, textarea {
   </button>
   <button class="nb" id="navAdmin" onclick="showTab('admin')">
     <span class="ni">📋</span>ניהול
+  </button>
+  <button class="nb" id="navPos" onclick="showTab('pos')">
+    <span class="ni">💳</span>קופה
   </button>
 </div>
 
@@ -3005,11 +3121,14 @@ function showTab(tab, pushHistory){
   }
   document.getElementById('navShop').classList.toggle('active',tab==='shop');
   document.getElementById('navAdmin').classList.toggle('active',tab==='admin');
+  document.getElementById('navPos').classList.toggle('active',tab==='pos');
   document.getElementById('shopView').style.display=tab==='shop'?'':'none';
   document.getElementById('weeklyShopView').style.display='none';
   document.getElementById('catTabs').style.display=tab==='shop'?'':'none';
   document.getElementById('adminView').style.display=tab==='admin'?'':'none';
+  document.getElementById('posView').style.display=tab==='pos'?'':'none';
   if(tab==='admin'){if(!_admin.ok())openModal('adminLoginModal');else renderAdminLanding();}
+  if(tab==='pos'){POS.open();}
 }
 // חזרה עם כפתור הדפדפן — נשאר בתוך האפליקציה
 window.addEventListener('popstate',e=>{
@@ -6071,9 +6190,427 @@ async function createHexagonInvoice(){
   }
 }
 
+// ===== POS CASHIER MODULE =====
+const POS = (() => {
+  const EMOJI_MAP = {
+    'גבינות צאן חצי קשות':'🧀','גבינות צאן קשות':'🧀',
+    'שמן זית':'🫒','פרחים':'🌸','יין':'🍷','דבש':'🍯',
+    'ירקות':'🥬','פירות':'🍇'
+  };
+  const FRUIT_EMO = {
+    'ענבים':'🍇','אוכמניות':'🫐','פטל':'🍓','תות':'🍓',
+    'דובדבן':'🍒','משמש':'🍑','מלון':'🍈','אננס':'🍍',
+    'רימונים':'🍎','מנגו':'🥭','עגבניות':'🍅','אבוקדו':'🥑',
+    'מלפפון':'🥒','תירס':'🌽','נבטי':'🌱','חסה':'🥬',
+    'פטריות':'🍄','אספרגוס':'🌿','דבש':'🍯'
+  };
+  function emo(p){
+    if(p.cat==='דבש'&&p.name.includes('מארז'))return '🎁';
+    if(p.cat.includes('גבינות'))return '🧀';
+    for(const[k,v]of Object.entries(FRUIT_EMO)){if(p.name.includes(k))return v;}
+    return EMOJI_MAP[p.cat]||'📦';
+  }
+  const VAT_EXEMPT_CATS = new Set(['ירקות','פירות']);
+  function isExempt(p){ return FRUIT_NAMES.has(p.name)||VAT_EXEMPT_CATS.has(p.cat); }
+
+  let cart={}, phone='', method='', activeCat='הכל', searchQ='', posOpen=false;
+  const INV_KEY='benons_pos_inv', HIST_KEY='benons_pos_hist';
+  let invNum=parseInt(localStorage.getItem(INV_KEY)||'10000',10);
+
+  function normCat(c){
+    if(c.includes('גבינות'))return 'גבינות';
+    return c;
+  }
+
+  function calcTotals(){
+    let total=0,vatBase=0,count=0;
+    Object.values(cart).forEach(({product:p,qty})=>{
+      const line=p.price*qty; total+=line; count+=qty;
+      if(!isExempt(p)) vatBase+=line;
+    });
+    return {total,vatAmount:vatBase*18/118,count,vatBase};
+  }
+
+  function renderPOS(){
+    const v=document.getElementById('posView');
+    if(!v)return;
+    const cats=['הכל',...new Set(VISIBLE_PRODUCTS.map(p=>normCat(p.cat)))];
+    const methodIcons={bit:'💙',paybox:'💜',cash:'💵'};
+    v.innerHTML=`
+      <div class="pos-wrap">
+        <div class="pos-catalog">
+          <div class="pos-header">
+            <h2>🌿 BENON'S קופה</h2>
+            <div class="pos-clock" id="posClock"></div>
+          </div>
+          <div class="pos-cat-tabs" id="posCatTabs"></div>
+          <div class="pos-search"><input id="posSearch" type="text" placeholder="🔍 חיפוש..." autocomplete="off"></div>
+          <div class="pos-grid" id="posGrid"></div>
+        </div>
+        <div class="pos-panel">
+          <div class="pos-panel-tabs">
+            <div class="pos-ptab active" id="posTabCart" onclick="POS.switchPanelTab('cart')">🛒 עגלה</div>
+            <div class="pos-ptab" id="posTabHist" onclick="POS.switchPanelTab('hist')">📋 היסטוריה</div>
+          </div>
+          <div id="posCartArea" style="display:flex;flex-direction:column;flex:1;overflow:hidden">
+            <div class="pos-cart-items" id="posCartItems"></div>
+            <div class="pos-footer">
+              <div class="pos-total-row"><span>פריטים</span><span id="posFtCount">0</span></div>
+              <div class="pos-total-row" id="posVatRow" style="display:none"><span>מע"מ (18%)</span><span id="posFtVat"></span></div>
+              <div class="pos-grand-total"><span class="lbl">סה"כ לתשלום</span><span class="amt" id="posFtTotal">₪0.00</span></div>
+              <button class="pos-pay-btn" id="posPayBtn" disabled onclick="POS.startPayment()">לתשלום →</button>
+              <button class="pos-clear-btn" onclick="POS.clearCart()">🗑 נקה עגלה</button>
+            </div>
+          </div>
+          <div class="pos-hist-view" id="posHistView"></div>
+        </div>
+      </div>`;
+    buildCatTabs(cats);
+    renderGrid();
+    renderCart();
+    document.getElementById('posSearch').addEventListener('input',e=>{searchQ=e.target.value;renderGrid();});
+    startClock();
+  }
+
+  function buildCatTabs(cats){
+    const wrap=document.getElementById('posCatTabs');
+    if(!wrap)return;
+    const icons={הכל:'🌿',גבינות:'🧀','שמן זית':'🫒',ירקות:'🥬',פרחים:'🌸',יין:'🍷',פירות:'🍇',דבש:'🍯'};
+    wrap.innerHTML=cats.map(c=>`<button class="pos-cat-tab${c===activeCat?' active':''}" onclick="POS.setCat('${c}')">${icons[c]||''} ${c}</button>`).join('');
+  }
+
+  function renderGrid(){
+    const grid=document.getElementById('posGrid');
+    if(!grid)return;
+    const q=searchQ.toLowerCase();
+    const allItems=VISIBLE_PRODUCTS.filter(p=>{
+      const cat=normCat(p.cat);
+      const catOk=activeCat==='הכל'||cat===activeCat;
+      const qOk=!q||p.name.toLowerCase().includes(q)||cat.toLowerCase().includes(q)||(p.sub||'').toLowerCase().includes(q);
+      return catOk&&qOk;
+    });
+    // Honey: group by size, show picker
+    const honeyVarieties=['הדרים','שיזף','פרחי בר','אבוקדו'];
+    const isHoneyVariety=p=>p.cat==='דבש'&&honeyVarieties.some(v=>p.name.includes(v));
+    const nonHoney=allItems.filter(p=>!isHoneyVariety(p));
+    const honeyGroups=[...new Map(
+      allItems.filter(isHoneyVariety).map(p=>[p.sub,p])
+    ).values()];// one representative per size
+    const honeyCards=honeyGroups.map(p=>`
+      <div class="pos-pcard" onclick="POS.pickHoneyVariety('${p.sub.replace(/'/g,"\\'")}')">
+        <div class="pe">🍯</div>
+        <div class="pn">דבש</div>
+        <div class="ps">${p.sub}</div>
+        <div class="pp">₪${p.price.toFixed(2)}</div>
+        <div style="font-size:9px;color:#7E97B2;margin-top:3px">▼ בחר סוג</div>
+      </div>`).join('');
+    const normalCards=nonHoney.map(p=>`
+      <div class="pos-pcard" onclick="POS.addToCart(${p.id})">
+        ${isExempt(p)?'<div class="pv">ללא מע"מ</div>':''}
+        <div class="pe">${emo(p)}</div>
+        <div class="pn">${p.name}</div>
+        <div class="ps">${p.sub||''}</div>
+        <div class="pp">₪${p.price.toFixed(2)}</div>
+      </div>`).join('');
+    grid.innerHTML=normalCards+honeyCards;
+  }
+
+  function pickHoneyVariety(sizeSub){
+    const options=VISIBLE_PRODUCTS.filter(p=>p.cat==='דבש'&&p.sub===sizeSub&&!p.name.includes('מארז'));
+    if(!options.length){addToCart(VISIBLE_PRODUCTS.find(p=>p.cat==='דבש'&&p.sub===sizeSub)?.id);return;}
+    const ov=showOv('honey');
+    ov.innerHTML=`<div class="pos-ov-box">
+      <div class="pos-ov-title">🍯 בחר סוג דבש</div>
+      <div class="pos-ov-sub">${sizeSub}</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        ${options.map(p=>`<button onclick="POS.addToCart(${p.id});document.getElementById('posOv_honey').remove()"
+          style="padding:14px 10px;border-radius:10px;border:1px solid #1F3048;background:#16212F;color:#F0F6FF;cursor:pointer;font-size:13px;font-weight:600;text-align:center">
+          ${p.name.replace('דבש ','')}
+        </button>`).join('')}
+      </div>
+      <button class="pos-back-btn" style="margin-top:12px" onclick="document.getElementById('posOv_honey').remove()">ביטול</button>
+    </div>`;
+  }
+
+  function renderCart(){
+    const items=Object.values(cart);
+    const {total,vatAmount,count,vatBase}=calcTotals();
+    const ci=document.getElementById('posCartItems');
+    if(!ci)return;
+    if(!items.length){
+      ci.innerHTML='<div class="pos-empty"><div class="pos-empty-ico">🧺</div><div>הוסף מוצרים</div></div>';
+    } else {
+      ci.innerHTML=items.map(({product:p,qty})=>`
+        <div class="pos-crow">
+          <div class="pos-cr-em">${emo(p)}</div>
+          <div class="pos-cr-info"><div class="pos-cr-name">${p.name}</div><div class="pos-cr-sub">${p.sub||''}</div></div>
+          <div class="pos-cr-qty">
+            <button class="pos-qbtn" onclick="POS.changeQty(${p.id},-1)">−</button>
+            <div class="pos-qnum">${qty}</div>
+            <button class="pos-qbtn" onclick="POS.changeQty(${p.id},+1)">+</button>
+          </div>
+          <div class="pos-crow-price">₪${(p.price*qty).toFixed(2)}</div>
+        </div>`).join('');
+    }
+    const ft=document.getElementById('posFtCount');const ta=document.getElementById('posFtTotal');
+    const vr=document.getElementById('posVatRow');const vt=document.getElementById('posFtVat');
+    const pb=document.getElementById('posPayBtn');
+    if(ft)ft.textContent=count;
+    if(ta)ta.textContent='₪'+total.toFixed(2);
+    if(vr)vr.style.display=vatBase>0?'flex':'none';
+    if(vt)vt.textContent='₪'+(vatBase*18/118).toFixed(2);
+    if(pb)pb.disabled=!items.length;
+  }
+
+  function startClock(){
+    clearInterval(window._posClock);
+    window._posClock=setInterval(()=>{
+      const c=document.getElementById('posClock');
+      if(c)c.textContent=new Date().toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+    },1000);
+    const c=document.getElementById('posClock');
+    if(c)c.textContent=new Date().toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  }
+
+  function showOv(name){
+    document.querySelectorAll('.pos-ov').forEach(e=>e.remove());
+    if(!name)return;
+    const ov=document.createElement('div');
+    ov.className='pos-ov';ov.id='posOv_'+name;
+    document.body.appendChild(ov);
+    return ov;
+  }
+
+  function startPayment(){
+    const ov=showOv('phone');
+    ov.innerHTML=`<div class="pos-ov-box">
+      <div class="pos-ov-title">📱 שליחת חשבונית</div>
+      <div class="pos-ov-sub">מספר טלפון ללקוח (אופציונלי)</div>
+      <input class="pos-phone-inp" id="posPhoneInp" type="tel" placeholder="05X-XXX-XXXX" maxlength="13" oninput="POS.fmtPhone(this)">
+      <div class="pos-phone-note">אפשר לדלג — החשבונית תיווצר בכל מקרה</div>
+      <div class="pos-row-btns">
+        <button class="pos-btn-sec" onclick="POS.goMethod('')">דלג</button>
+        <button class="pos-btn-pri" onclick="POS.goMethod(document.getElementById('posPhoneInp').value)">המשך</button>
+      </div></div>`;
+  }
+
+  function goMethod(ph){
+    if(ph!==undefined)phone=ph;
+    const {total}=calcTotals();
+    const ov=showOv('method');
+    ov.innerHTML=`<div class="pos-ov-box">
+      <div class="pos-ov-title">💳 אמצעי תשלום</div>
+      <div class="pos-mamt">₪${total.toFixed(2)}</div>
+      <div class="pos-mamt-lbl">סה"כ לתשלום</div>
+      <div class="pos-method-grid">
+        <div class="pos-meth-btn pos-bit-btn" onclick="POS.goConfirm('bit')"><div class="mi">💙</div><div class="mn">ביט</div></div>
+        <div class="pos-meth-btn pos-pay-btn2" onclick="POS.goConfirm('paybox')"><div class="mi">💜</div><div class="mn">פייבוקס</div></div>
+        <div class="pos-meth-btn pos-cash-btn pos-meth-cash" onclick="POS.goConfirm('cash')"><div class="mi">💵</div><div class="mn">מזומן</div></div>
+      </div>
+      <button class="pos-back-btn" onclick="POS.startPayment()">← חזור</button></div>`;
+  }
+
+  function goConfirm(m){
+    method=m;
+    const {total}=calcTotals();
+    const labels={bit:'ביט',paybox:'פייבוקס',cash:'מזומן'};
+    const colors={bit:'rgba(91,154,255,.15)',paybox:'rgba(255,92,141,.15)',cash:'rgba(245,158,11,.15)'};
+    const tcols={bit:'#5B9AFF',paybox:'#FF5C8D',cash:'#F59E0B'};
+    const icons={bit:'💙',paybox:'💜',cash:'💵'};
+    const btnBg={bit:'#5B9AFF',paybox:'#FF5C8D',cash:'#F59E0B'};
+    const preview=Object.values(cart).map(({product:p,qty})=>`${emo(p)} ${p.name} ×${qty}`).join(' · ');
+    const ov=showOv('confirm');
+    ov.innerHTML=`<div class="pos-ov-box">
+      <div class="pos-ov-title pos-conf-center">אישור תשלום</div>
+      <div class="pos-conf-center">
+        <div class="pos-conf-badge" style="background:${colors[m]};color:${tcols[m]}">${icons[m]} ${labels[m]}</div>
+        <div class="pos-conf-amt">₪${total.toFixed(2)}</div>
+        <div class="pos-ov-sub">לאחר קבלת אישור העברה</div>
+        <div class="pos-conf-preview">${preview}</div>
+      </div>
+      <button class="pos-conf-btn" style="background:${btnBg[m]};color:#fff" onclick="POS.confirmSale()">✅ אשר תשלום</button>
+      <button class="pos-back-btn" onclick="POS.goMethod()">← חזור</button></div>`;
+  }
+
+  async function confirmSale(){
+    invNum++;
+    localStorage.setItem(INV_KEY,invNum);
+    const now=new Date();
+    const dateStr=now.toLocaleDateString('he-IL',{day:'2-digit',month:'2-digit',year:'numeric'});
+    const timeStr=now.toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit'});
+    const {total,vatAmount,vatBase}=calcTotals();
+    const methodLabels={bit:'ביט',paybox:'פייבוקס',cash:'מזומן'};
+    const items=Object.values(cart).map(({product:p,qty})=>({
+      id:p.id,name:p.name,sub:p.sub||'',cat:p.cat,price:p.price,qty,
+      line:+(p.price*qty).toFixed(2),emoji:emo(p),exempt:isExempt(p)
+    }));
+    const tx={invNum:String(invNum),timestamp:now.getTime(),date:dateStr,time:timeStr,
+      items,total:+total.toFixed(2),vatAmount:+vatAmount.toFixed(2),
+      method,methodLabel:methodLabels[method],phone};
+
+    // Save to localStorage history
+    try{
+      const hist=JSON.parse(localStorage.getItem(HIST_KEY)||'[]');
+      hist.unshift({...tx,giDocId:null});
+      localStorage.setItem(HIST_KEY,JSON.stringify(hist.slice(0,100)));
+    }catch(e){}
+
+    // Show receipt overlay
+    const ov=showOv('receipt');
+    ov.innerHTML=`<div class="pos-ov-box">
+      <div class="pos-ov-title">✅ תשלום אושר!</div>
+      <div class="pos-rcpt-box" id="posRcptHtml"></div>
+      <a class="pos-wa-btn" id="posWaBtn" target="_blank" rel="noopener" style="display:none">💬 שלח בוואטסאפ</a>
+      <div class="pos-gi-status" id="posGiStatus">📄 יוצר חשבונית מס קבלה...</div>
+      <div id="posGiLink"></div>
+      <button class="pos-done-btn" onclick="POS.doneSale()">עסקה חדשה</button></div>`;
+
+    buildReceipt(tx);
+    buildWhatsApp(tx);
+
+    // Create Green Invoice document
+    try{
+      const giDocId=await createGiDoc(tx);
+      // Update localStorage with GI doc ID
+      try{
+        const hist=JSON.parse(localStorage.getItem(HIST_KEY)||'[]');
+        if(hist[0]&&hist[0].invNum===tx.invNum)hist[0].giDocId=giDocId;
+        localStorage.setItem(HIST_KEY,JSON.stringify(hist));
+      }catch(e){}
+      const st=document.getElementById('posGiStatus');
+      const lk=document.getElementById('posGiLink');
+      if(st){st.textContent='✅ חשבונית מס קבלה #'+giDocId+' נוצרה';st.className='pos-gi-status ok';}
+      if(lk){lk.innerHTML=`<a class="pos-gi-link" href="https://app.greeninvoice.co.il/documents/${giDocId}" target="_blank" rel="noopener">פתח ב-Green Invoice ↗</a>`;}
+    }catch(e){
+      const st=document.getElementById('posGiStatus');
+      if(st){st.textContent='⚠️ שגיאה ביצירת חשבונית: '+e.message;st.className='pos-gi-status';}
+      console.error('POS GI error',e);
+    }
+  }
+
+  async function createGiDoc(tx){
+    const token=await giToken();
+    const today=tx.date.split('.').reverse().join('-');// convert DD.MM.YYYY → YYYY-MM-DD
+    const payTypeMap={bit:4,paybox:4,cash:1};
+    // type 300 = קבלה — shows prices as-is (VAT-inclusive), no per-item VAT split
+    const income=tx.items.map(i=>({
+      description:i.name+(i.sub?' — '+i.sub:''),
+      quantity:i.qty,
+      price:+i.price.toFixed(2),      // full VAT-inclusive price
+      vatType:i.exempt?1:2             // 1=exempt, 2=zero-rated (price shown as-is)
+    }));
+    const payload={
+      description:"קופה BENON'S — "+tx.invNum,
+      type:300,
+      date:today,
+      lang:'he',
+      currency:'ILS',
+      income,
+      payment:[{type:payTypeMap[tx.method]||1,price:+tx.total.toFixed(2),currency:'ILS',date:today}]
+    };
+    const res=await fetch(GI_BASE+'/documents',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},
+      body:JSON.stringify(payload)
+    });
+    const doc=await res.json();
+    if(!doc.id)throw new Error(JSON.stringify(doc));
+    return doc.id;
+  }
+
+  function buildReceipt(tx){
+    const el=document.getElementById('posRcptHtml');
+    if(!el)return;
+    const fmt=n=>'₪'+n.toFixed(2);
+    const methodIcons={bit:'💙 ביט',paybox:'💜 פייבוקס',cash:'💵 מזומן'};
+    const exemptItems=tx.items.filter(i=>i.exempt);
+    const taxedItems=tx.items.filter(i=>!i.exempt);
+    const taxedTotal=taxedItems.reduce((s,i)=>s+i.line,0);
+    const exemptTotal=exemptItems.reduce((s,i)=>s+i.line,0);
+    let html=`<div class="pos-rcpt-shop">🌿 BENON'S FARMER'S MARKET</div>
+      <div class="pos-rcpt-type">חשבונית מס קבלה</div>
+      <div style="text-align:center;font-size:10px;color:#555">#${tx.invNum} | ${tx.date} · ${tx.time}</div>
+      <hr class="pos-rcpt-div">`;
+    if(taxedItems.length){
+      html+='<div style="font-size:9px;color:#777;margin-bottom:3px">פריטים (כולל מע"מ)</div>';
+      taxedItems.forEach(i=>{html+=`<div class="pos-rcpt-row"><span>${i.emoji} ${i.name} ×${i.qty}</span><span>${fmt(i.line)}</span></div>`;});
+    }
+    if(exemptItems.length){
+      html+='<div style="font-size:9px;color:#777;margin:5px 0 3px">פטורים ממע"מ</div>';
+      exemptItems.forEach(i=>{html+=`<div class="pos-rcpt-row"><span>${i.emoji} ${i.name} ×${i.qty}</span><span>${fmt(i.line)}</span></div>`;});
+    }
+    html+='<hr class="pos-rcpt-div">';
+    if(taxedTotal>0){
+      const beforeVat=taxedTotal-taxedTotal*18/118;
+      html+=`<div class="pos-rcpt-row" style="color:#555;font-size:10px"><span>לפני מע"מ</span><span>${fmt(beforeVat)}</span></div>`;
+      html+=`<div class="pos-rcpt-row" style="color:#555;font-size:10px"><span>מע"מ 18%</span><span>${fmt(taxedTotal*18/118)}</span></div>`;
+    }
+    if(exemptTotal>0){
+      html+=`<div class="pos-rcpt-row" style="color:#555;font-size:10px"><span>פטור ממע"מ</span><span>${fmt(exemptTotal)}</span></div>`;
+    }
+    html+=`<div class="pos-rcpt-total"><span>סה"כ</span><span>${fmt(tx.total)}</span></div>`;
+    html+=`<div class="pos-rcpt-method">שולם ב: ${methodIcons[tx.method]||tx.method}</div>`;
+    html+=`<div class="pos-rcpt-footer">תודה על קנייתך! 🙏</div>`;
+    el.innerHTML=html;
+  }
+
+  function buildWhatsApp(tx){
+    const btn=document.getElementById('posWaBtn');
+    if(!btn||!tx.phone)return;
+    const ph=tx.phone.replace(/\D/g,'').replace(/^0/,'972');
+    const fmt=n=>'₪'+n.toFixed(2);
+    const micons={bit:'💙 ביט',paybox:'💜 פייבוקס',cash:'💵 מזומן'};
+    const lines=tx.items.map(i=>`${i.emoji} ${i.name} ×${i.qty} — ${fmt(i.line)}`).join('\n');
+    const msg=`🌿 *BENON'S FARMER'S MARKET*\n*חשבונית מס קבלה* #${tx.invNum}\n📅 ${tx.date} · ${tx.time}\n\n*פריטים:*\n${lines}\n\n💰 *סה"כ: ${fmt(tx.total)}*\nשולם ב: ${micons[tx.method]}\n\nתודה על קנייתך! 🙏`;
+    btn.href='https://wa.me/'+ph+'?text='+encodeURIComponent(msg);
+    btn.style.display='flex';
+  }
+
+  function renderHistory(){
+    const el=document.getElementById('posHistView');
+    if(!el)return;
+    let hist=[];
+    try{hist=JSON.parse(localStorage.getItem(HIST_KEY)||'[]');}catch(e){}
+    if(!hist.length){el.innerHTML='<div style="text-align:center;color:#7E97B2;padding:24px;font-size:12px">אין עסקאות עדיין</div>';return;}
+    const mc={bit:'pos-bit',paybox:'pos-paybox',cash:'pos-cash'};
+    el.innerHTML=hist.map(tx=>`<div class="pos-hrow">
+      <div class="pos-htop">
+        <div><span class="pos-hbadge ${mc[tx.method]||''}">${tx.methodLabel||tx.method}</span><span class="pos-hinv">#${tx.invNum} · ${tx.time}</span></div>
+        <div class="pos-htotal">₪${tx.total.toFixed(2)}</div>
+      </div>
+      <div class="pos-hitems">${tx.items.map(i=>`${i.emoji}${i.name}`).join(' · ')}</div>
+      ${tx.giDocId?'<div style="font-size:9px;color:#22C55E;margin-top:2px">✅ חשבונית ירוקה</div>':''}
+    </div>`).join('');
+  }
+
+  return {
+    open(){if(!posOpen){renderPOS();posOpen=true;}else{const c=document.getElementById('posGrid');if(!c)renderPOS();}},
+    setCat(c){activeCat=c;const cats=['הכל',...new Set(VISIBLE_PRODUCTS.map(p=>normCat(p.cat)))];buildCatTabs(cats);renderGrid();},
+    addToCart(id){const p=PRODUCTS.find(x=>x.id===id);if(!p)return;if(cart[id])cart[id].qty++;else cart[id]={product:p,qty:1};renderCart();},
+    changeQty(id,d){if(!cart[id])return;cart[id].qty+=d;if(cart[id].qty<=0)delete cart[id];renderCart();},
+    clearCart(){if(!Object.keys(cart).length)return;cart={};renderCart();},
+    startPayment,
+    fmtPhone(el){let v=el.value.replace(/\D/g,'').slice(0,10);if(v.length>7)v=v.slice(0,3)+'-'+v.slice(3,7)+'-'+v.slice(7);else if(v.length>3)v=v.slice(0,3)+'-'+v.slice(3);el.value=v;},
+    goMethod,
+    goConfirm,
+    confirmSale,
+    doneSale(){showOv(null);cart={};renderCart();renderHistory();},
+    pickHoneyVariety,
+    switchPanelTab(tab){
+      document.getElementById('posTabCart').classList.toggle('active',tab==='cart');
+      document.getElementById('posTabHist').classList.toggle('active',tab==='hist');
+      document.getElementById('posCartArea').style.display=tab==='cart'?'flex':'none';
+      const hv=document.getElementById('posHistView');
+      if(hv){hv.style.display=tab==='hist'?'block':'none';}
+      if(tab==='hist')renderHistory();
+    }
+  };
+})();
+// ===== END POS CASHIER MODULE =====
+
 // ===== Green Invoice (חשבונית ירוקה) =====
-const GI_ID='cf4f314e-dc10-42ca-b849-6c8f7da6b8ae';
-const GI_SECRET='l^2cH(],*Z,F9Y2f92^7Tyv:b#]P2&n;';
+const GI_ID='49b78297-d44c-497f-9764-c12b54509d24';
+const GI_SECRET='cE,q5bB7Sd-;M2&3?>Q2yC|Uvq,yg1$p';
 const GI_BASE='https://benons.eranbenon.workers.dev';
 
 async function giToken(){
