@@ -6499,12 +6499,14 @@ const POS = (() => {
       price:+i.price.toFixed(2),      // full VAT-inclusive price
       vatType:i.exempt?1:2             // 1=exempt, 2=zero-rated (price shown as-is)
     }));
+    const clientName=tx.customerName||tx.phone||'לקוח קופה';
     const payload={
       description:"קופה BENON'S — "+tx.invNum,
       type:300,
       date:today,
       lang:'he',
       currency:'ILS',
+      client:{name:clientName,phone:tx.phone||''},
       income,
       payment:[{type:payTypeMap[tx.method]||1,price:+tx.total.toFixed(2),currency:'ILS',date:today}]
     };
