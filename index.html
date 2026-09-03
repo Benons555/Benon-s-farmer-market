@@ -1549,13 +1549,13 @@ input, textarea {
 </div>
 
 <div class="bnav">
-  <button class="nb active" id="navShop" onclick="showTab('shop')">
+  <button class="nb" id="navShop" onclick="showTab('shop')">
     <span class="ni">🛍️</span>חנות
   </button>
   <button class="nb" id="navAdmin" onclick="showTab('admin')">
     <span class="ni">📋</span>ניהול
   </button>
-  <button class="nb" id="navPos" onclick="showTab('pos')">
+  <button class="nb active" id="navPos" onclick="showTab('pos')">
     <span class="ni">💳</span>קופה
   </button>
 </div>
@@ -3133,7 +3133,7 @@ function showTab(tab, pushHistory){
 // חזרה עם כפתור הדפדפן — נשאר בתוך האפליקציה
 window.addEventListener('popstate',e=>{
   const params=new URLSearchParams(location.search);
-  const tab=(e.state&&e.state.tab)||params.get('tab')||'shop';
+  const tab=(e.state&&e.state.tab)||params.get('tab')||'pos';
   const project=(e.state&&e.state.project)||params.get('project')||'';
   if(tab==='admin'&&_admin.ok()){
     if(project) openProject(project);
@@ -7248,6 +7248,13 @@ function printInv(){
 <!-- BUILD: 1779045936 --><title>מלאי BENON'S</title><style>body{font-family:Arial,sans-serif;padding:24px;direction:rtl}h1{color:#2d5a1b}table{width:100%;border-collapse:collapse;margin-top:16px}th{background:#e8f2e0;padding:8px;border:1px solid #ccc;text-align:right}td{padding:8px;border:1px solid #ccc}.tot{font-weight:700;font-size:16px;margin-top:16px}</style></head><body><div style="display:flex;align-items:center;gap:16px;margin-bottom:8px"><img src="${LOGO}" style="height:80px;width:80px;object-fit:contain"><h1 style="margin:0;color:#2d5a1b">BENON'S — מלאי לספקים</h1></div><p>תאריך: ${new Date().toLocaleDateString('he-IL')} | הזמנות: ${orders.length}</p><table><thead><tr><th>ספק</th><th>מוצר</th><th>פירוט</th><th>כמות</th><th>סה״כ</th></tr></thead><tbody>${rows.map(r=>`<tr><td>${r.supplier}</td><td><b>${r.name}</b></td><td>${r.sub}</td><td style="text-align:center"><b>${r.qty}</b></td><td>₪${r.total.toFixed(2)}</td></tr>`).join('')}</tbody></table><div class="tot">סה״כ: ₪${orders.reduce((s,o)=>s+o.total,0).toFixed(2)}</div></body></html>`);
   w.document.close();w.print();
 }
+
+// ─── ברירת מחדל: קופה ────────────────────────────────────────────────────────
+(function(){
+  const params=new URLSearchParams(location.search);
+  const tab=params.get('tab')||'pos';
+  showTab(tab,false);
+})();
 
 </script>
 </body>
