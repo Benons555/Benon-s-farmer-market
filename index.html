@@ -6470,17 +6470,18 @@ const POS = (() => {
 
     // Create Green Invoice document
     try{
-      const giDocId=await createGiDoc(tx);
+      const giDoc=await createGiDoc(tx);
       // Update localStorage with GI doc ID
       try{
         const hist=JSON.parse(localStorage.getItem(HIST_KEY)||'[]');
-        if(hist[0]&&hist[0].invNum===tx.invNum)hist[0].giDocId=giDocId;
+        if(hist[0]&&hist[0].invNum===tx.invNum){hist[0].giDocId=giDoc.id;hist[0].giDocNum=giDoc.number;}
         localStorage.setItem(HIST_KEY,JSON.stringify(hist));
       }catch(e){}
       const st=document.getElementById('posGiStatus');
       const lk=document.getElementById('posGiLink');
-      if(st){st.textContent='✅ חשבונית מס קבלה #'+giDocId+' נוצרה';st.className='pos-gi-status ok';}
-      if(lk){lk.innerHTML=`<a class="pos-gi-link" href="https://app.greeninvoice.co.il/documents/${giDocId}" target="_blank" rel="noopener">פתח ב-Green Invoice ↗</a>`;}
+      const smsNote=tx.phone?' • SMS נשלח ללקוח':'';
+      if(st){st.textContent='✅ קבלה #'+giDoc.number+' נוצרה בחשבונית ירוקה'+smsNote;st.className='pos-gi-status ok';}
+      if(lk){lk.innerHTML=`<a class="pos-gi-link" href="https://app.greeninvoice.co.il/documents/${giDoc.id}" target="_blank" rel="noopener">פתח ב-Green Invoice ↗</a>`;}
     }catch(e){
       const st=document.getElementById('posGiStatus');
       if(st){st.textContent='⚠️ שגיאה ביצירת חשבונית: '+e.message;st.className='pos-gi-status';}
@@ -6500,6 +6501,7 @@ const POS = (() => {
       vatType:i.exempt?1:2             // 1=exempt, 2=zero-rated (price shown as-is)
     }));
     const clientName=tx.customerName||tx.phone||'לקוח קופה';
+    const clientPhone=(tx.phone||'').replace(/\D/g,'').replace(/^0/,'972');
     const payload={
       description:"קופה BENON'S — "+tx.invNum,
       type:300,
@@ -6508,7 +6510,9 @@ const POS = (() => {
       currency:'ILS',
       client:{name:clientName,phone:tx.phone||''},
       income,
-      payment:[{type:payTypeMap[tx.method]||1,price:+tx.total.toFixed(2),currency:'ILS',date:today}]
+      payment:[{type:payTypeMap[tx.method]||1,price:+tx.total.toFixed(2),currency:'ILS',date:today}],
+      // שלח SMS ללקוח אוטומטית דרך חשבונית ירוקה (אם יש טלפון)
+      ...(clientPhone?{sendBySms:true}:{})
     };
     const res=await fetch(GI_BASE+'/documents',{
       method:'POST',
@@ -6517,7 +6521,8 @@ const POS = (() => {
     });
     const doc=await res.json();
     if(!doc.id)throw new Error(JSON.stringify(doc));
-    return doc.id;
+    // doc.number = מספר רץ בחשבונית ירוקה (181, 182...), doc.id = UUID פנימי
+    return {id:doc.id, number:doc.number||doc.id};
   }
 
   function buildReceipt(tx){
