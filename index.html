@@ -6460,13 +6460,11 @@ const POS = (() => {
     ov.innerHTML=`<div class="pos-ov-box">
       <div class="pos-ov-title">✅ תשלום אושר!</div>
       <div class="pos-rcpt-box" id="posRcptHtml"></div>
-      <a class="pos-wa-btn" id="posWaBtn" target="_blank" rel="noopener" style="display:none">💬 שלח בוואטסאפ</a>
       <div class="pos-gi-status" id="posGiStatus">📄 יוצר חשבונית מס קבלה...</div>
       <div id="posGiLink"></div>
       <button class="pos-done-btn" onclick="POS.doneSale()">עסקה חדשה</button></div>`;
 
     buildReceipt(tx);
-    buildWhatsApp(tx);
 
     // Create Green Invoice document
     try{
