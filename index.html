@@ -6478,7 +6478,17 @@ const POS = (() => {
       const st=document.getElementById('posGiStatus');
       const lk=document.getElementById('posGiLink');
       if(st){st.textContent='✅ חשבונית מס קבלה #'+giDoc.number+' נוצרה';st.className='pos-gi-status ok';}
-      if(lk){lk.innerHTML=`<a class="pos-gi-link" href="https://app.greeninvoice.co.il/documents/${giDoc.id}" target="_blank" rel="noopener">פתח ב-Green Invoice ↗</a>`;}
+      if(lk){
+        let html=`<a class="pos-gi-link" href="https://app.greeninvoice.co.il/documents/${giDoc.id}" target="_blank" rel="noopener">פתח ב-Green Invoice ↗</a>`;
+        if(tx.phone&&giDoc.url){
+          const ph=tx.phone.replace(/\D/g,'').replace(/^0/,'972');
+          const fmt=n=>'₪'+n.toFixed(2);
+          const waMsg=`חשבונית מס קבלה #${giDoc.number} — BENON'S\nסה"כ: ${fmt(tx.total)}\nצפה/הורד: ${giDoc.url}`;
+          const waUrl='https://wa.me/'+ph+'?text='+encodeURIComponent(waMsg);
+          html+=`<a class="pos-gi-link" href="${waUrl}" target="_blank" rel="noopener" style="margin-top:6px">📲 שלח חשבונית ללקוח בוואטסאפ</a>`;
+        }
+        lk.innerHTML=html;
+      }
     }catch(e){
       const st=document.getElementById('posGiStatus');
       if(st){st.textContent='⚠️ שגיאה ביצירת חשבונית: '+e.message;st.className='pos-gi-status';}
@@ -6500,7 +6510,7 @@ const POS = (() => {
     }));
     const clientName=tx.customerName||tx.phone||'לקוח קופה';
     const payload={
-      description:"קופה BENON'S — "+tx.invNum,
+      description:"BENON'S",
       type:320,
       date:today,
       lang:'he',
@@ -6516,8 +6526,8 @@ const POS = (() => {
     });
     const doc=await res.json();
     if(!doc.id)throw new Error(JSON.stringify(doc));
-    // doc.number = מספר רץ בחשבונית ירוקה (181, 182...), doc.id = UUID פנימי
-    return {id:doc.id, number:doc.number||doc.id};
+    const pdfUrl=(doc.url&&(doc.url.he||doc.url.origin))||null;
+    return {id:doc.id, number:doc.number||doc.id, url:pdfUrl};
   }
 
   function buildReceipt(tx){
