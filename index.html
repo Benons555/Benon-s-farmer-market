@@ -6289,11 +6289,10 @@ const POS = (() => {
     // Honey: group by size, show picker
     const honeyVarieties=['הדרים','שיזף','פרחי בר','אבוקדו'];
     const isHoneyVariety=p=>p.cat==='דבש'&&honeyVarieties.some(v=>p.name.includes(v));
-    const nonHoney=allItems.filter(p=>!isHoneyVariety(p));
     const honeyGroups=[...new Map(
       allItems.filter(isHoneyVariety).map(p=>[p.sub,p])
-    ).values()];// one representative per size
-    const honeyCards=honeyGroups.map(p=>`
+    ).values()];
+    const honeyPickerCards=honeyGroups.map(p=>`
       <div class="pos-pcard" onclick="POS.pickHoneyVariety('${p.sub.replace(/'/g,"\\'")}')">
         <div class="pe">🍯</div>
         <div class="pn">דבש</div>
@@ -6301,15 +6300,27 @@ const POS = (() => {
         <div class="pp">₪${p.price.toFixed(2)}</div>
         <div style="font-size:9px;color:#7E97B2;margin-top:3px">▼ בחר סוג</div>
       </div>`).join('');
-    const normalCards=nonHoney.map(p=>`
+    const cardFor=p=>`
       <div class="pos-pcard" onclick="POS.addToCart(${p.id})">
         ${isExempt(p)?'<div class="pv">ללא מע"מ</div>':''}
         <div class="pe">${emo(p)}</div>
         <div class="pn">${p.name}</div>
         <div class="ps">${p.sub||''}</div>
         <div class="pp">₪${p.price.toFixed(2)}</div>
-      </div>`).join('');
-    grid.innerHTML=normalCards+honeyCards;
+      </div>`;
+    // render by category order: non-honey items per cat, honey pickers inserted in דבש slot
+    let html='';
+    POS_CAT_ORDER.forEach(cat=>{
+      if(cat==='דבש'){
+        html+=allItems.filter(p=>normCat(p.cat)===cat&&!isHoneyVariety(p)).map(cardFor).join('');
+        html+=honeyPickerCards;
+      } else {
+        html+=allItems.filter(p=>normCat(p.cat)===cat).map(cardFor).join('');
+      }
+    });
+    // any cats not in POS_CAT_ORDER
+    html+=allItems.filter(p=>POS_CAT_ORDER.indexOf(normCat(p.cat))===-1).map(cardFor).join('');
+    grid.innerHTML=html;
   }
 
   function pickHoneyVariety(sizeSub){
