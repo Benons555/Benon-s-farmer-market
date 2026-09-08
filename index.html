@@ -6282,6 +6282,9 @@ const POS = (() => {
       const catOk=activeCat==='הכל'||cat===activeCat;
       const qOk=!q||p.name.toLowerCase().includes(q)||cat.toLowerCase().includes(q)||(p.sub||'').toLowerCase().includes(q);
       return catOk&&qOk;
+    }).sort((a,b)=>{
+      const ia=POS_CAT_ORDER.indexOf(normCat(a.cat)),ib=POS_CAT_ORDER.indexOf(normCat(b.cat));
+      return (ia===-1?999:ia)-(ib===-1?999:ib);
     });
     // Honey: group by size, show picker
     const honeyVarieties=['הדרים','שיזף','פרחי בר','אבוקדו'];
