@@ -6223,10 +6223,12 @@ const POS = (() => {
     return {total,vatAmount:vatBase*18/118,count,vatBase};
   }
 
+  const POS_CAT_ORDER=['גבינות','שמן זית','פירות','דבש','יין','ירקות'];
+  function sortCats(arr){return arr.slice().sort((a,b)=>{const ia=POS_CAT_ORDER.indexOf(a),ib=POS_CAT_ORDER.indexOf(b);if(ia===-1&&ib===-1)return 0;if(ia===-1)return 1;if(ib===-1)return -1;return ia-ib;});}
   function renderPOS(){
     const v=document.getElementById('posView');
     if(!v)return;
-    const cats=['הכל',...new Set(VISIBLE_PRODUCTS.map(p=>normCat(p.cat)))];
+    const cats=['הכל',...sortCats([...new Set(VISIBLE_PRODUCTS.map(p=>normCat(p.cat)))])];
     const methodIcons={bit:'💙',paybox:'💜',cash:'💵'};
     v.innerHTML=`
       <div class="pos-wrap">
@@ -6605,7 +6607,7 @@ const POS = (() => {
 
   return {
     open(){if(!posOpen){renderPOS();posOpen=true;}else{const c=document.getElementById('posGrid');if(!c)renderPOS();}},
-    setCat(c){activeCat=c;const cats=['הכל',...new Set(VISIBLE_PRODUCTS.map(p=>normCat(p.cat)))];buildCatTabs(cats);renderGrid();},
+    setCat(c){activeCat=c;const cats=['הכל',...sortCats([...new Set(VISIBLE_PRODUCTS.map(p=>normCat(p.cat)))])];buildCatTabs(cats);renderGrid();},
     addToCart(id){const p=PRODUCTS.find(x=>x.id===id);if(!p)return;if(cart[id])cart[id].qty++;else cart[id]={product:p,qty:1};renderCart();},
     changeQty(id,d){if(!cart[id])return;cart[id].qty+=d;if(cart[id].qty<=0)delete cart[id];renderCart();},
     clearCart(){if(!Object.keys(cart).length)return;cart={};renderCart();},
