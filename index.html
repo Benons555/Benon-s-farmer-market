@@ -6526,7 +6526,7 @@ const POS = (() => {
       description:i.name+(i.sub?' — '+i.sub:''),
       quantity:i.qty,
       price:+i.price.toFixed(2),
-      vatType:i.exempt?0:2
+      vatType:2
     }));
     console.log('[GI] income payload:',JSON.stringify(income));
     console.log('[GI] exempt total:',exemptTotal,'taxable total:',taxableTotal);
